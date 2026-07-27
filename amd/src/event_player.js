@@ -151,11 +151,15 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
         clickResultEl.className = 'local-remotesupport-clickresult';
         container.appendChild(clickResultEl);
 
+        var viewportWrapper = document.createElement('div');
+        viewportWrapper.className = 'local-remotesupport-player-viewport';
+        container.appendChild(viewportWrapper);
+
         var iframe = document.createElement('iframe');
         iframe.setAttribute('sandbox', 'allow-same-origin');
         iframe.className = 'local-remotesupport-player-frame';
         iframe.setAttribute('title', 'local_remotesupport player');
-        container.appendChild(iframe);
+        viewportWrapper.appendChild(iframe);
 
         var clearButton = document.getElementById('local-remotesupport-clearhighlight');
         var requestClickButton = document.getElementById('local-remotesupport-requestclick');
@@ -173,6 +177,39 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
         // wireFrameInteraction() below does not immediately echo that same
         // position back as a scroll_request — see docs/decisions.md.
         var suppressOutgoingScroll = false;
+        var lastViewport = null;
+
+        // Forces the iframe to actually be the alumno's own reported
+        // viewport size (not just visually similar), then shrinks it back
+        // down with a CSS transform to fit the teacher's screen. Without
+        // this, the remote cursor/highlight and click coordinates were
+        // computed as a fraction of a differently-sized, differently
+        // laid-out box — on a responsive Moodle theme that reflows at
+        // different widths, the same fraction can land on completely
+        // different content. See docs/decisions.md.
+        var applyViewportSize = function(viewport) {
+            if (!viewport || typeof viewport.width !== 'number' || typeof viewport.height !== 'number' ||
+                    viewport.width <= 0 || viewport.height <= 0) {
+                return;
+            }
+            var width = Math.min(Math.max(viewport.width, 200), 4000);
+            var height = Math.min(Math.max(viewport.height, 200), 4000);
+            lastViewport = {width: width, height: height};
+
+            var availableWidth = viewportWrapper.clientWidth || width;
+            var scale = Math.min(1, availableWidth / width);
+
+            iframe.style.width = width + 'px';
+            iframe.style.height = height + 'px';
+            iframe.style.transform = 'scale(' + scale + ')';
+            viewportWrapper.style.height = (height * scale) + 'px';
+        };
+
+        window.addEventListener('resize', function() {
+            if (lastViewport) {
+                applyViewportSize(lastViewport);
+            }
+        });
 
         Str.get_strings([
             {key: 'connection_connected', component: 'local_remotesupport'},
@@ -341,6 +378,7 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
                 }
                 if (event.eventtype === 'page' && typeof payload.html === 'string') {
                     pageInfo.textContent = (payload.title || '') + ' — ' + (payload.url || '');
+                    applyViewportSize(payload.viewport);
 
                     var links = (Array.isArray(payload.css) ? payload.css : [])
                         .filter(function(href) {

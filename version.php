@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072716;
+$plugin->version = 2026072717;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.9.0 (modo de captura "página completa")';
+$plugin->release = '0.9.1 (fix: precisión del cursor remoto)';

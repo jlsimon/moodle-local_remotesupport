@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.1 (fix: precisión del cursor remoto) — 2026-07-27
+
+- **Corregido, reportado por el usuario al probar "Permitir señalar"**:
+  el cursor del profesor no señalaba el mismo sitio que veía el alumno.
+  Causa: el `<iframe>` del profesor se dibujaba a `width: 100%` de su
+  propia columna (casi siempre más estrecho que la ventana del alumno),
+  y al ser Moodle responsive, la misma página se reorganiza de forma
+  distinta a cada anchura — la fracción de posición se calculaba bien,
+  pero sobre un diseño que no era el mismo que veía el alumno.
+- `event_player.js` fuerza ahora el `<iframe>` a las dimensiones reales
+  del viewport del alumno (`payload.viewport`, ya se enviaba desde la
+  Fase 2 sin usarse) y lo encoge visualmente con `transform: scale()`
+  para que quepa en la pantalla del profesor — como `transform` no
+  cambia lo que `iframe.contentWindow.innerWidth` reporta por dentro,
+  el cálculo de fracción que ya existía queda correcto sin tocarlo. La
+  escala se recalcula también si el profesor redimensiona su ventana.
+- Sin cambios en el resaltado ni el clic remoto (resolución por
+  selector, no por coordenadas — no dependían de este problema).
+- Sin pruebas nuevas (cambio puramente de cliente, sin equivalente
+  server-side — mismo hueco de siempre); verificación manual añadida en
+  `docs/testing.md` (pasos 89-92).
+
 ## 0.9.0 (modo de captura "página completa") — 2026-07-27
 
 - **Ampliación pedida por el usuario** tras probar la reconstrucción de

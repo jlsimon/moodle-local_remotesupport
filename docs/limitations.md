@@ -106,6 +106,21 @@
   elemento es resaltable, incluidos botones destructivos — sigue sin ser
   un riesgo real porque resaltar no ejecuta ninguna acción; la lista
   blanca de la Fase 5 se aplica solo al *clic*, no al resaltado.
+- **La precisión del cursor depende del último `payload.viewport`
+  recibido, no del tamaño en tiempo real** (corrección añadida tras el
+  MVP, ver `docs/decisions.md`). Si el alumno redimensiona su ventana
+  justo entre dos fotos, la posición puede quedar ligeramente
+  desalineada hasta que llegue la siguiente (como mucho, el intervalo
+  del latido periódico, 10 s). El ancho/alto reportado se acota además
+  entre 200 y 4000 px como saneamiento defensivo básico (no es un
+  control de seguridad, solo evita valores degenerados en el CSS del
+  profesor).
+- **No probado en un navegador real** (mismo motivo que el resto de la
+  Fase 3): en particular, que `transform: scale()` sobre el `<iframe>`
+  no altere lo que `iframe.contentWindow.innerWidth` reporta por dentro
+  es el supuesto técnico en el que descansa toda la corrección — válido
+  según la especificación CSS, pero sin verificación visual propia en
+  esta sesión.
 
 ## Nuevas desde la Fase 4
 

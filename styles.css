@@ -21,11 +21,20 @@
     margin-bottom: 1rem;
 }
 
-.local-remotesupport-player-frame {
-    width: 100%;
+.local-remotesupport-player-viewport {
+    overflow: hidden;
     min-height: 480px;
+    max-width: 100%;
     border: 1px solid #ccc;
     background: #fff;
+}
+
+.local-remotesupport-player-frame {
+    display: block;
+    width: 100%;
+    height: 480px;
+    border: 0;
+    transform-origin: top left;
 }
 
 .local-remotesupport-connection-indicator {
