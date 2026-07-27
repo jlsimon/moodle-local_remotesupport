@@ -44,6 +44,7 @@ define(
     var PAGE_DEBOUNCE_MS = 1500;
     var SCROLL_THROTTLE_MS = 300;
     var MAX_HTML_LENGTH = 150000;
+    var MAX_FULLPAGE_HTML_LENGTH = 400000;
     var MAX_MODAL_HTML_LENGTH = 30000;
     var INCOMING_POLL_INTERVAL_MS = 500;
     var HIGHLIGHT_CLASS = 'local-remotesupport-highlighted';
@@ -61,6 +62,20 @@ define(
             }
         }
         return document.body;
+    };
+
+    /**
+     * Root element to capture/observe, per the site's configured capture
+     * mode (local_remotesupport/capturemode, see lib.php). 'fullpage'
+     * captures the whole document (navigation, blocks, footer included),
+     * as close as possible to what the student actually sees; 'main' (the
+     * default) keeps the original Fase 2 scope.
+     *
+     * @param {String} mode 'main' or 'fullpage'
+     * @return {Element}
+     */
+    var findCaptureRoot = function(mode) {
+        return mode === 'fullpage' ? document.body : findMainContent();
     };
 
     /**
@@ -160,14 +175,19 @@ define(
     };
 
     /**
+     * @param {String} mode 'main' or 'fullpage'
      * @return {Object}
      */
-    var buildPageSnapshot = function() {
+    var buildPageSnapshot = function(mode) {
+        var isFullPage = mode === 'fullpage';
         return {
             url: location.pathname + location.search,
             title: document.title,
-            html: buildSanitizedHtml(findMainContent(), MAX_HTML_LENGTH),
-            modal: captureOpenModal(),
+            html: buildSanitizedHtml(findCaptureRoot(mode), isFullPage ? MAX_FULLPAGE_HTML_LENGTH : MAX_HTML_LENGTH),
+            // In 'fullpage' mode the modal, like the rest of <body>, is
+            // already part of the captured html above; capturing it a
+            // second time here would just duplicate it in the payload.
+            modal: isFullPage ? null : captureOpenModal(),
             css: collectSameOriginStylesheets(),
             viewport: {width: window.innerWidth, height: window.innerHeight},
             scroll: {x: window.scrollX, y: window.scrollY}
@@ -227,8 +247,10 @@ define(
      * @param {Number} sessionid
      * @param {String} teachername
      * @param {String} initiallevel
+     * @param {String} capturemode 'main' (default) or 'fullpage'
      */
-    var init = function(sessionid, teachername, initiallevel) {
+    var init = function(sessionid, teachername, initiallevel, capturemode) {
+        var mode = capturemode === 'fullpage' ? 'fullpage' : 'main';
         var currentLevel = initiallevel || 'view';
         var statusbar = null;
         var levelTextEl = null;
@@ -428,7 +450,7 @@ define(
         };
 
         var sendPageSnapshot = function() {
-            Transport.pushEvent(sessionid, 'page', buildPageSnapshot()).catch(function() {
+            Transport.pushEvent(sessionid, 'page', buildPageSnapshot(mode)).catch(function() {
                 // Transient network/server errors are expected during navigation; ignored.
             });
         };
@@ -450,28 +472,42 @@ define(
         var debouncedSnapshot = debounce(sendPageSnapshot, PAGE_DEBOUNCE_MS);
 
         // Own elements (status bar, cursor overlay, click confirmation) live
-        // directly under <body> too; the body-level observer below must not
-        // mistake its own insertions for alumno-driven changes worth
+        // directly under <body> too; the observers below must not mistake
+        // their own insertions/removals for alumno-driven changes worth
         // re-syncing over — that would just be a spurious resend, not an
         // infinite loop, but it is exactly the local/remote conflation the
-        // spec asks to avoid.
+        // spec asks to avoid. Checked via closest(), not just the node's own
+        // class list, so it still catches e.g. a button added deep inside
+        // the status bar while watching the whole <body> in 'fullpage' mode
+        // — a case the original direct-children-only check never had to
+        // handle, since in 'main' mode none of this plugin's own elements
+        // live inside the observed main-content root at all.
         var isOwnElement = function(node) {
-            return node.nodeType === 1 && typeof node.className === 'string' &&
-                node.className.indexOf(OWN_CLASS_PREFIX) !== -1;
+            return node.nodeType === 1 && !!(node.closest && node.closest('[class*="' + OWN_CLASS_PREFIX + '"]'));
         };
 
-        var contentObserver = new MutationObserver(debouncedSnapshot);
-        // Moodle appends modals as direct children of <body>, outside the
-        // main content region, so they need a separate, shallow observer.
-        var bodyObserver = new MutationObserver(function(mutations) {
-            var relevant = mutations.some(function(mutation) {
+        var hasRelevantMutation = function(mutations) {
+            return mutations.some(function(mutation) {
                 var nodes = Array.prototype.slice.call(mutation.addedNodes)
                     .concat(Array.prototype.slice.call(mutation.removedNodes));
                 return nodes.some(function(node) {
                     return !isOwnElement(node);
                 });
             });
-            if (relevant) {
+        };
+
+        var contentObserver = new MutationObserver(function(mutations) {
+            if (hasRelevantMutation(mutations)) {
+                debouncedSnapshot();
+            }
+        });
+        // Moodle appends modals as direct children of <body>, outside the
+        // main content region — in 'main' mode that needs a separate,
+        // shallow observer. In 'fullpage' mode contentObserver above already
+        // watches the whole <body> (subtree included), so modals are covered
+        // as part of that and this second observer would just be redundant.
+        var bodyObserver = mode === 'fullpage' ? null : new MutationObserver(function(mutations) {
+            if (hasRelevantMutation(mutations)) {
                 debouncedSnapshot();
             }
         });
@@ -488,7 +524,9 @@ define(
             window.clearInterval(heartbeatHandle);
             window.clearInterval(incomingPollHandle);
             contentObserver.disconnect();
-            bodyObserver.disconnect();
+            if (bodyObserver) {
+                bodyObserver.disconnect();
+            }
         };
 
         var sinceid = 0;
@@ -629,8 +667,10 @@ define(
         sendPageSnapshot();
         var heartbeatHandle = window.setInterval(sendPageSnapshot, PAGE_HEARTBEAT_MS);
 
-        contentObserver.observe(findMainContent(), {childList: true, subtree: true, attributes: false});
-        bodyObserver.observe(document.body, {childList: true, subtree: false});
+        contentObserver.observe(findCaptureRoot(mode), {childList: true, subtree: true, attributes: false});
+        if (bodyObserver) {
+            bodyObserver.observe(document.body, {childList: true, subtree: false});
+        }
 
         window.addEventListener('scroll', throttle(sendScroll, SCROLL_THROTTLE_MS), {passive: true});
 

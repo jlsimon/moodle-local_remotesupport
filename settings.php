@@ -35,4 +35,15 @@ if ($hassiteconfig) {
         15 * MINSECS,
         MINSECS
     ));
+
+    $settings->add(new admin_setting_configselect(
+        'local_remotesupport/capturemode',
+        get_string('setting_capturemode', 'local_remotesupport'),
+        get_string('setting_capturemode_desc', 'local_remotesupport'),
+        'main',
+        [
+            'main' => get_string('capturemode_main', 'local_remotesupport'),
+            'fullpage' => get_string('capturemode_fullpage', 'local_remotesupport'),
+        ]
+    ));
 }

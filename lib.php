@@ -73,6 +73,11 @@ function local_remotesupport_extend_navigation_course(
  * page footer by core (see before_footer_html_generation::process_legacy_callbacks()),
  * which is why this returns HTML instead of echoing it.
  *
+ * Also passes the site's configured capture mode ('main', the default, or
+ * 'fullpage') to event_capture.js — a single admin setting
+ * (local_remotesupport/capturemode) applied to every session on the site,
+ * not a per-session/per-teacher choice; see docs/decisions.md.
+ *
  * @return string HTML to append to the footer, or '' if nothing to show.
  */
 function local_remotesupport_before_footer(): string {
@@ -88,10 +93,12 @@ function local_remotesupport_before_footer(): string {
     $session = \local_remotesupport\local\session_manager::get_active_session_for_student((int) $USER->id);
     if ($session) {
         $teacher = core_user::get_user($session->teacherid);
+        $capturemode = get_config('local_remotesupport', 'capturemode');
         $PAGE->requires->js_call_amd('local_remotesupport/event_capture', 'init', [
             $session->id,
             fullname($teacher),
             $session->controllevel,
+            $capturemode !== 'fullpage' ? 'main' : 'fullpage',
         ]);
         return '';
     }
@@ -179,11 +186,18 @@ function local_remotesupport_render_floating_request_button(int $studentid): str
  * cheap; the badge count query is the same one view.php already runs to
  * build its own list, so the two can never disagree.
  *
+ * Also loads amd/src/navbar_badge.js, which polls
+ * local_remotesupport_get_pending_count every 15 s and re-renders this same
+ * template client-side, so the badge updates without a full page reload —
+ * a deliberate reversal of the original "no live polling" decision for this
+ * icon (see docs/decisions.md), requested so the whole request/accept
+ * lifecycle feels reactive, not just the in-session screen sharing.
+ *
  * @param \renderer_base $renderer
  * @return string HTML for the navbar, or '' if there is nothing to show.
  */
 function local_remotesupport_render_navbar_output(\renderer_base $renderer): string {
-    global $USER;
+    global $USER, $PAGE;
 
     if (!isloggedin() || isguestuser()) {
         return '';
@@ -197,10 +211,14 @@ function local_remotesupport_render_navbar_output(\renderer_base $renderer): str
     $pending = \local_remotesupport\local\session_manager::get_pending_requests_for_teacher((int) $USER->id);
     $supportenabled = \local_remotesupport\local\teacher_settings::is_support_enabled((int) $USER->id);
 
-    return $renderer->render_from_template('local_remotesupport/navbar_requests', [
+    $PAGE->requires->js_call_amd('local_remotesupport/navbar_badge', 'init');
+
+    $html = $renderer->render_from_template('local_remotesupport/navbar_requests', [
         'count' => count($pending),
         'haspending' => (bool) $pending,
         'supportenabled' => $supportenabled,
         'url' => (new moodle_url('/local/remotesupport/view.php'))->out(false),
     ]);
+
+    return '<div id="local-remotesupport-navbar-requests">' . $html . '</div>';
 }

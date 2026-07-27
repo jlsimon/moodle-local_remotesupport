@@ -27,6 +27,7 @@ require(__DIR__ . '/../../config.php');
 use local_remotesupport\local\permission_manager;
 use local_remotesupport\local\session_manager;
 use local_remotesupport\local\teacher_settings;
+use local_remotesupport\output\student_status;
 
 $courseid = required_param('id', PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA);
@@ -68,53 +69,11 @@ if ($action !== '') {
     }
 }
 
-$session = session_manager::get_open_request_for_student($USER->id, $course->id);
-
-$data = [
-    'accesslevel' => get_string('level_' . ($session->controllevel ?? 'view'), 'local_remotesupport'),
-    'isnone' => false,
-    'isrequested' => false,
-    'isaccepted' => false,
-    'isactive' => false,
-];
-
-if (!$session) {
-    $data['isnone'] = true;
-    $data['supportavailable'] = teacher_settings::is_support_available_for_course($course->id);
-    if ($data['supportavailable']) {
-        $data['statusmessage'] = get_string('status_none', 'local_remotesupport');
-        $data['requestformurl'] = $returnurl->out(false);
-        $data['sesskey'] = sesskey();
-        $data['maxreasonlength'] = session_manager::MAX_REASON_LENGTH;
-    } else {
-        $data['statusmessage'] = get_string('status_nosupport', 'local_remotesupport');
-    }
-} else if ($session->status === session_manager::STATUS_REQUESTED) {
-    $data['isrequested'] = true;
-    $data['statusmessage'] = get_string('status_requested', 'local_remotesupport');
-    $data['cancelurl'] = (new moodle_url('/local/remotesupport/request.php', [
-        'id' => $course->id, 'action' => 'cancel', 'sessionid' => $session->id, 'sesskey' => sesskey(),
-    ]))->out(false);
-} else {
-    $teacher = fullname(core_user::get_user($session->teacherid));
-    $enterurl = (new moodle_url('/local/remotesupport/request.php', [
-        'id' => $course->id, 'action' => 'enter', 'sessionid' => $session->id, 'sesskey' => sesskey(),
-    ]))->out(false);
-    $finishurl = (new moodle_url('/local/remotesupport/request.php', [
-        'id' => $course->id, 'action' => 'finish', 'sessionid' => $session->id, 'sesskey' => sesskey(),
-    ]))->out(false);
-
-    if ($session->status === session_manager::STATUS_ACCEPTED) {
-        $data['isaccepted'] = true;
-        $data['statusmessage'] = get_string('status_accepted', 'local_remotesupport', $teacher);
-    } else {
-        $data['isactive'] = true;
-        $data['statusmessage'] = get_string('status_active', 'local_remotesupport', $teacher);
-    }
-    $data['enterurl'] = $enterurl;
-    $data['finishurl'] = $finishurl;
-}
+$data = student_status::export($course->id, $USER->id);
 
 echo $OUTPUT->header();
+echo '<div id="local-remotesupport-student-panel">';
 echo $OUTPUT->render_from_template('local_remotesupport/student_page', $data);
+echo '</div>';
+$PAGE->requires->js_call_amd('local_remotesupport/student_client', 'init', [$course->id]);
 echo $OUTPUT->footer();

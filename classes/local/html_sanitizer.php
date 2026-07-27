@@ -35,8 +35,13 @@ defined('MOODLE_INTERNAL') || die();
  */
 class html_sanitizer {
 
-    /** @var int Maximum length, in characters, of the sanitized output. */
-    const MAX_LENGTH = 200000;
+    /**
+     * @var int Maximum length, in characters, of the sanitized output.
+     * Sized to comfortably fit a 'fullpage'-mode capture
+     * (amd/src/event_capture.js's MAX_FULLPAGE_HTML_LENGTH, 400000 chars);
+     * 'main' mode never gets close to this (client truncates at 150000).
+     */
+    const MAX_LENGTH = 400000;
 
     /** @var string[] Element tags stripped entirely, including their content. */
     const BLOCKED_TAGS = ['script', 'iframe', 'object', 'embed', 'applet', 'noscript', 'link', 'meta'];

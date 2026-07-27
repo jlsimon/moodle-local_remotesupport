@@ -76,6 +76,34 @@ class permission_manager {
     }
 
     /**
+     * Require that a user can view the teacher dashboard (view.php): either
+     * they hold viewactivesessions in at least one course, or they can
+     * manage sessions site-wide.
+     *
+     * @param int $userid
+     * @throws moodle_exception
+     */
+    public static function require_can_view_dashboard(int $userid): void {
+        if (!get_user_capability_course('local/remotesupport:viewactivesessions', $userid, false) && !self::can_manage($userid)) {
+            throw new moodle_exception('errornopermission', 'local_remotesupport');
+        }
+    }
+
+    /**
+     * Require that a user can provide assistance in at least one course
+     * (regardless of which one) — used by the navbar badge poll, which is
+     * not scoped to a single course context.
+     *
+     * @param int $userid
+     * @throws moodle_exception
+     */
+    public static function require_can_provide_anywhere(int $userid): void {
+        if (!get_user_capability_course('local/remotesupport:provideassistance', $userid, false)) {
+            throw new moodle_exception('errornopermission', 'local_remotesupport');
+        }
+    }
+
+    /**
      * Require that the current user owns the session (as student or teacher)
      * or holds the managesessions capability.
      *

@@ -26,6 +26,7 @@ require(__DIR__ . '/../../config.php');
 
 use local_remotesupport\local\permission_manager;
 use local_remotesupport\local\session_manager;
+use local_remotesupport\output\teacher_dashboard;
 
 require_login();
 
@@ -36,10 +37,7 @@ $PAGE->set_title(get_string('pagetitle_view', 'local_remotesupport'));
 $PAGE->set_heading(get_string('pagetitle_view', 'local_remotesupport'));
 $PAGE->set_pagelayout('standard');
 
-$teachingcourses = get_user_capability_course('local/remotesupport:viewactivesessions', $USER->id, false);
-if (!$teachingcourses && !permission_manager::can_manage()) {
-    throw new moodle_exception('errornopermission', 'local_remotesupport');
-}
+permission_manager::require_can_view_dashboard((int) $USER->id);
 
 $action = optional_param('action', '', PARAM_ALPHA);
 $sessionid = optional_param('sessionid', 0, PARAM_INT);
@@ -61,54 +59,11 @@ if ($action !== '') {
     }
 }
 
-$pending = session_manager::get_pending_requests_for_teacher($USER->id);
-$open = session_manager::get_open_sessions_for_teacher($USER->id);
-
-$pendingrows = [];
-foreach ($pending as $session) {
-    $course = get_course($session->courseid);
-    $coursecontext = context_course::instance($course->id);
-    $student = core_user::get_user($session->studentid);
-    $pendingrows[] = [
-        'studentname' => fullname($student),
-        'coursename' => format_string($course->fullname, true, ['context' => $coursecontext]),
-        'waitingsince' => userdate($session->timecreated, get_string('strftimedatetimeshort', 'langconfig')),
-        'reason' => $session->reason ?? '',
-        'accepturl' => (new moodle_url('/local/remotesupport/view.php', [
-            'action' => 'accept', 'sessionid' => $session->id, 'sesskey' => sesskey(),
-        ]))->out(false),
-    ];
-}
-
-$openrows = [];
-foreach ($open as $session) {
-    $course = get_course($session->courseid);
-    $coursecontext = context_course::instance($course->id);
-    $student = core_user::get_user($session->studentid);
-    $openrows[] = [
-        'studentname' => fullname($student),
-        'coursename' => format_string($course->fullname, true, ['context' => $coursecontext]),
-        'status' => get_string('sessionstatus_' . $session->status, 'local_remotesupport'),
-        'enterurl' => (new moodle_url('/local/remotesupport/view.php', [
-            'action' => 'enter', 'sessionid' => $session->id, 'sesskey' => sesskey(),
-        ]))->out(false),
-        'finishurl' => (new moodle_url('/local/remotesupport/view.php', [
-            'action' => 'finish', 'sessionid' => $session->id, 'sesskey' => sesskey(),
-        ]))->out(false),
-    ];
-}
-
-$canprovideanywhere = (bool) get_user_capability_course('local/remotesupport:provideassistance', $USER->id, false);
-
-$data = [
-    'haspending' => (bool) $pendingrows,
-    'pending' => $pendingrows,
-    'hasopen' => (bool) $openrows,
-    'open' => $openrows,
-    'hassettings' => $canprovideanywhere,
-    'settingsurl' => (new moodle_url('/local/remotesupport/teachersettings.php'))->out(false),
-];
+$data = teacher_dashboard::export((int) $USER->id);
 
 echo $OUTPUT->header();
+echo '<div id="local-remotesupport-teacher-dashboard">';
 echo $OUTPUT->render_from_template('local_remotesupport/teacher_dashboard', $data);
+echo '</div>';
+$PAGE->requires->js_call_amd('local_remotesupport/teacher_client', 'init', []);
 echo $OUTPUT->footer();

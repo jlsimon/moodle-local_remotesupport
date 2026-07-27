@@ -51,11 +51,13 @@ class event_manager {
     /**
      * @var int Maximum size, in bytes, of a JSON-encoded event payload.
      * Sized to comfortably fit a 'page' event's main html (capped at
-     * html_sanitizer::MAX_LENGTH, 200000 chars) plus an open modal's html
-     * (capped separately, much smaller in practice) plus a short list of
-     * stylesheet URLs.
+     * html_sanitizer::MAX_LENGTH, 400000 chars — large enough for a
+     * 'fullpage'-mode capture, not just 'main') plus an open modal's html
+     * (capped separately, much smaller in practice, and only sent in 'main'
+     * mode) plus a short list of stylesheet URLs, generously accounting for
+     * UTF-8 multi-byte characters and JSON escaping overhead.
      */
-    const MAX_PAYLOAD_BYTES = 260000;
+    const MAX_PAYLOAD_BYTES = 600000;
 
     /** @var int Default number of events returned per pull. */
     const DEFAULT_PULL_LIMIT = 20;

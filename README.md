@@ -47,6 +47,21 @@ puede activar o desactivar si acepta asistencia en este momento. Si
 ningún profesor de un curso la tiene activada, el alumno ve un aviso de
 "sin personal de soporte disponible" en vez del botón de solicitud.
 
+**Ampliación posterior — ciclo de vida de solicitud/sesión sin recarga
+de página.** Solicitar, cancelar, aceptar y finalizar ya no dependen de
+recargar `request.php`/`view.php` para enterarse de un cambio de
+estado; el badge de solicitudes pendientes del navbar también se
+actualiza solo. Los formularios/enlaces de siempre siguen funcionando
+igual si JavaScript falla o está desactivado — ver
+`docs/decisions.md`/`docs/architecture.md` para el diseño.
+
+**Ampliación posterior — modo de captura "página completa".** Ajuste de
+administración (`local_remotesupport/capturemode`) para que la
+reconstrucción del profesor incluya también la navegación, los bloques
+laterales y el pie de página, no solo el contenido principal. Aplica a
+todas las sesiones del sitio por igual; por defecto sigue capturando
+solo el contenido principal, como hasta ahora.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.
@@ -58,8 +73,8 @@ ningún profesor de un curso la tiene activada, el alumno ve un aviso de
    `dirroot` de Moodle.
 2. Visitar `admin/index.php` como administrador para completar la
    instalación (crea las tablas `local_remotesupport_session` y
-   `local_remotesupport_event`, las capacidades, los tres servicios AJAX,
-   las tareas programadas y la caché de límite de frecuencia).
+   `local_remotesupport_event`, las capacidades, los once servicios
+   AJAX, las tareas programadas y la caché de límite de frecuencia).
 3. Asignar las capacidades si el instalador no las deja como se espera:
    - `local/remotesupport:requestassistance` — alumnado (por defecto, vía
      el arquetipo `student`).

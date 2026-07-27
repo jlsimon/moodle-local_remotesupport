@@ -154,6 +154,10 @@ $string['task_purgeevents'] = 'Depurar eventos de pantalla de asistencia remota 
 // Ajustes.
 $string['setting_requestexpiryseconds'] = 'Tiempo de caducidad de la solicitud';
 $string['setting_requestexpiryseconds_desc'] = 'Cuánto tiempo permanece válida una solicitud de asistencia pendiente antes de caducar automáticamente.';
+$string['setting_capturemode'] = 'Modo de captura de pantalla';
+$string['setting_capturemode_desc'] = 'Cuánto se captura de la pantalla del alumno para la reconstrucción del profesor. Se aplica a todas las sesiones del sitio.';
+$string['capturemode_main'] = 'Solo contenido principal (sin navegación, bloques ni pie de página)';
+$string['capturemode_fullpage'] = 'Página completa (con navegación, bloques y pie de página, lo más parecido posible a lo que ve realmente el alumno)';
 
 // Privacidad.
 $string['privacy:path'] = 'Sesiones de asistencia remota';

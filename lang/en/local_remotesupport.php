@@ -154,6 +154,10 @@ $string['task_purgeevents'] = 'Purge stale remote assistance screen events';
 // Settings.
 $string['setting_requestexpiryseconds'] = 'Request expiry time';
 $string['setting_requestexpiryseconds_desc'] = 'How long a pending assistance request stays valid before it automatically expires.';
+$string['setting_capturemode'] = 'Screen capture mode';
+$string['setting_capturemode_desc'] = 'How much of the student\'s screen is captured for the teacher\'s reconstruction. Applies to every session on the site.';
+$string['capturemode_main'] = 'Main content only (navigation, blocks and footer excluded)';
+$string['capturemode_fullpage'] = 'Full page (navigation, blocks and footer included, as close as possible to what the student actually sees)';
 
 // Privacy.
 $string['privacy:path'] = 'Remote assistance sessions';

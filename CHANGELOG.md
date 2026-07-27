@@ -1,5 +1,118 @@
 # Changelog
 
+## 0.9.0 (modo de captura "página completa") — 2026-07-27
+
+- **Ampliación pedida por el usuario** tras probar la reconstrucción de
+  pantalla: quería ver exactamente lo mismo que el alumno, incluida la
+  navegación, los bloques laterales y el pie de página — no solo el
+  contenido principal (alcance de la Fase 2 desde el principio).
+- Nuevo ajuste de administración `local_remotesupport/capturemode`
+  (`main`/`fullpage`, por defecto `main` = comportamiento sin cambios),
+  aplicado a todas las sesiones del sitio por igual — no por profesor
+  ni por sesión, decisión tomada explícitamente con el usuario; ver
+  `docs/decisions.md`.
+- `event_capture.js`: nueva `findCaptureRoot(mode)` decide qué capturar
+  y observar (`document.body` completo en `fullpage`, el contenido
+  principal de siempre en `main`); en `fullpage` el modal ya no se
+  captura aparte (viene incluido) y un único observador de mutaciones
+  basta (el segundo, dedicado a modales en `main`, sería redundante).
+- El filtro "ignora mis propios elementos" del observador de mutaciones
+  pasa de mirar solo hijos directos a mirar ascendientes
+  (`Element.closest()`) — necesario en `fullpage`, donde la barra de
+  estado/cursor/confirmación de clic sí viven dentro de lo observado;
+  sin cambio de comportamiento en `main`.
+- Límites de tamaño más altos, solo relevantes en `fullpage`: recorte
+  del cliente 400 000 caracteres (antes 150 000, sigue igual en
+  `main`), `html_sanitizer::MAX_LENGTH` 400 000 (antes 200 000),
+  `event_manager::MAX_PAYLOAD_BYTES` 600 000 (antes 260 000).
+- Sin pruebas JavaScript automatizadas nuevas (mismo motivo que el
+  resto del plugin); las pruebas PHPUnit existentes que referencian los
+  límites de tamaño dinámicamente siguen pasando sin cambios.
+
+## 0.8.1 (fix: "Aceptar" dejaba de funcionar tras el primer sondeo) — 2026-07-27
+
+- **Corregido un fallo real de la versión 0.8.0**: `get_teacher_dashboard`
+  (la función AJAX que refresca la tabla de `view.php`) devolvía las filas
+  de solicitudes pendientes/sesiones abiertas **sin** `accepturl`/
+  `enterurl`/`finishurl` — esas urls solo se añadían en el render PHP
+  inicial de `view.php`, no en `classes/output/teacher_dashboard.php`
+  (que sí comparte el resto del contexto entre el primer render y el
+  AJAX). En cuanto el primer sondeo automático (a los pocos segundos de
+  cargar la página) reemplazaba la tabla, los enlaces de acción quedaban
+  con `href=""`; pulsar "Aceptar" en ese momento simplemente recargaba
+  `view.php` sin ningún parámetro, sin efecto visible.
+- Corregido moviendo la construcción de esas urls dentro de
+  `teacher_dashboard::export_pending()`/`export_open()`, igual que ya
+  hacía `student_status::export()` para el lado del alumno — las dos
+  clases quedan ahora simétricas, y `view.php` ya no necesita reconstruir
+  las urls por su cuenta tras llamar al exportador.
+- **Gap de pruebas real que dejó pasar este fallo**: las 18 pruebas
+  nuevas de la 0.8.0 llamaban a `::execute()` directamente, que **no**
+  valida el valor devuelto contra el esquema declarado en
+  `execute_returns()` — esa validación solo la aplica
+  `external_api::call_external_function()`, la ruta real de una llamada
+  AJAX de verdad. Se añadió `assert_valid_return()` en
+  `tests/external_api_test.php`, que llama a
+  `external_api::clean_returnvalue()` explícitamente sobre cada
+  resultado, y se aplicó a las 8 funciones nuevas — un desajuste de
+  esquema como este ahora lo detecta PHPUnit, no un clic real en el
+  navegador.
+
+## 0.8.0 (ciclo de vida de solicitud/sesión sin recarga de página) — 2026-07-27
+
+- **Ampliación pedida explícitamente por el usuario** ("sin esta
+  funcionalidad, no me lo aprobarían" como MVP): `request.php` y
+  `view.php` dejan de depender de una recarga completa de página para
+  reflejar cada cambio de estado (solicitud aceptada, nueva solicitud
+  pendiente, sesión finalizada...); también el badge de solicitudes
+  pendientes de la barra de navegación, que hasta ahora solo se
+  recalculaba en cada carga de página.
+- Ocho funciones de servicio web nuevas
+  (`local_remotesupport_get_student_status`, `_request_assistance`,
+  `_cancel_request`, `_enter_session`, `_finish_session`,
+  `_accept_request`, `_get_teacher_dashboard`, `_get_pending_count`),
+  envoltorios finos sobre `session_manager`/`permission_manager` que no
+  cambian ninguna regla de negocio existente — mismo patrón que ya
+  usaban `push_event`/`pull_events`/`set_control_level` desde la Fase 2.
+- Dos clases nuevas, `classes/output/student_status.php` y
+  `teacher_dashboard.php`, construyen el contexto de plantilla una sola
+  vez, reutilizado tanto por el primer render PHP como por cada
+  respuesta AJAX de refresco — evita que las dos rutas puedan mostrar
+  mensajes distintos para el mismo estado.
+- Progressive enhancement, no una reescritura: los `<form>`/`<a>` que ya
+  existían en `student_page.mustache`/`teacher_dashboard.mustache` no se
+  tocan; los módulos AMD nuevos (`amd/src/student_client.js`,
+  `teacher_client.js`, `session_requests.js`) solo interceptan esos
+  mismos elementos (`preventDefault` + llamada AJAX). Sin JavaScript, o
+  si un módulo falla al cargar, todo sigue funcionando exactamente igual
+  que antes de este cambio, con recarga completa.
+- Sondeo cada 4 s en `request.php`/`view.php`, pausado mientras la
+  pestaña no es visible (`document.visibilitychange`).
+- El icono de solicitudes pendientes del navbar (ampliación anterior)
+  gana sondeo propio cada 15 s (`amd/src/navbar_badge.js`, nueva función
+  `get_pending_count`), revirtiendo deliberadamente la decisión previa
+  de "sin sondeo en vivo" — documentado como tal en `docs/decisions.md`,
+  no como un descuido de aquella decisión.
+- **"Entrar"/"Aceptar" siguen siendo una navegación real** a
+  `session.php`; lo único que pasa a pedirse por AJAX es el token de
+  entrada de un solo uso, justo en el momento del clic
+  (`enter_session`/`accept_request`) en vez de venir pre-incrustado en
+  el HTML — necesario porque `issue_entry_token()` invalida el token
+  anterior en cada llamada, así que pre-generarlo en cada sondeo
+  periódico habría invalidado constantemente el enlace de una pestaña
+  de `session.php` ya abierta.
+- Dos métodos nuevos en `permission_manager`
+  (`require_can_view_dashboard()`, `require_can_provide_anywhere()`)
+  para no duplicar en las nuevas funciones externas comprobaciones que
+  `view.php`/`lib.php` ya hacían de forma inline.
+- 18 pruebas nuevas en `tests/external_api_test.php`, una por cada
+  función externa nueva más sus rechazos de autorización
+  correspondientes; ninguna prueba existente cambia de comportamiento
+  (la máquina de estados de `session_manager` no se toca).
+- Sin pruebas JavaScript automatizadas para los módulos AMD nuevos,
+  mismo motivo que el resto del plugin (sin Node/Grunt en el servidor de
+  pruebas) — ver `docs/limitations.md`.
+
 ## 0.7.2 (revisión de código: validación de eventos y de-duplicación) — 2026-07-27
 
 - **Tras una revisión de código pedida por el usuario** sobre todo lo

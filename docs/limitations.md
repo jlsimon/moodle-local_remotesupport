@@ -245,3 +245,60 @@
   ni de su integración visual real en `navbar.mustache` del tema — las
   pruebas de `tests/lib_test.php` cubren la lógica de autorización y
   contenido del HTML devuelto, no su renderizado final en un navegador.
+
+## Nuevas tras completar el MVP — ciclo de vida de solicitud/sesión sin recarga de página
+
+- **No es tiempo real, es sondeo periódico.** Un cambio de estado puede
+  tardar hasta 4 s en reflejarse en `request.php`/`view.php`, y hasta
+  15 s en el badge del navbar — igual que el resto del plugin (sondeo
+  de eventos en sesión), no hay WebSocket. Aceptable para el objetivo de
+  1-20 sesiones simultáneas del MVP.
+- **El sondeo del badge de navbar corre en todas las páginas de Moodle**
+  para cualquier profesor con capacidad de proveer asistencia, no solo
+  en las páginas propias del plugin — a diferencia del resto del
+  sondeo, que solo existe mientras el alumno/profesor tiene
+  `request.php`/`view.php` abiertos. Es una petición AJAX barata cada
+  15 s (se pausa si la pestaña no es visible), pero es, por diseño, el
+  primer sondeo sitewide de este plugin; revisar si el sitio crece
+  mucho más allá de ese objetivo.
+- **Sin pruebas JavaScript automatizadas** para `session_requests.js`,
+  `student_client.js`, `teacher_client.js` ni `navbar_badge.js`, mismo
+  motivo que el resto del plugin (sin Node/Grunt en el servidor de
+  pruebas). La interceptación de clics, el `setInterval`/
+  `visibilitychange`, y el re-renderizado vía `core/templates` solo
+  están cubiertos por la verificación manual (`docs/testing.md`).
+- **El `sessionid` de una fila de la tabla del profesor se extrae del
+  `href` ya renderizado** (`teacher_client.js`), en vez de venir en un
+  atributo `data-*` dedicado — funciona porque `teacher_dashboard.mustache`
+  no cambió y ese `href` ya llevaba el `sessionid` como parámetro de
+  consulta firmado con `sesskey`, pero es una dependencia implícita
+  entre el JS y la forma exacta en que la plantilla construye esas
+  urls; un cambio futuro en la plantilla que dejara de incluir
+  `sessionid` en la url rompería silenciosamente la interceptación (los
+  enlaces seguirían funcionando como recarga completa, vía
+  progressive enhancement, pero sin la actualización sin recarga).
+
+## Nuevas tras completar el MVP — modo de captura `fullpage`
+
+- **Ajuste único de sitio, no por sesión ni por profesor.** Todas las
+  sesiones activas del sitio usan el mismo modo (`main` o `fullpage`) a
+  la vez; no hay forma de que un profesor concreto pida "página
+  completa" solo para su propia sesión sin cambiarlo para todo el
+  sitio. Decisión deliberada (ver `docs/decisions.md`), no una
+  limitación técnica de por qué no podría ser de otra forma.
+- **Más ruido potencial en el reenvío.** Al vigilar `<body>` entero, en
+  `fullpage` cualquier elemento vivo de la navegación (por ejemplo, un
+  badge que se actualiza periódicamente) puede disparar una foto nueva
+  con más frecuencia que en `main`, donde ese elemento nunca estaba
+  dentro de lo observado.
+- **Sin lista de bloques "sensibles" que excluir selectivamente.**
+  `fullpage` es todo o nada: no hay forma de decir "captura navegación
+  y pie, pero no este bloque lateral en concreto". Si un bloque
+  concreto resulta problemático, la única palanca disponible hoy es
+  volver a `main`.
+- **No probado en un navegador real** (mismo motivo que el resto de
+  Fase 2/3/4: sin esa herramienta en esta sesión) — en particular, si
+  la estructura de bloques/tema de un sitio muy personalizado hace que
+  la reconstrucción de página completa se vea notablemente distinta al
+  original. Ver pasos de verificación manual añadidos en
+  `docs/testing.md`.

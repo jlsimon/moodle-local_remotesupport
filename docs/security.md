@@ -124,6 +124,61 @@ el navbar:
   `session_manager`; esta es solo una segunda vista sobre el mismo dato
   ya autorizado.
 
+Añadido tras completar el MVP, con el ciclo de vida de solicitud/sesión
+sin recarga de página y el badge de navbar sondeado en vivo:
+
+- No se introduce ninguna superficie de autorización nueva: las ocho
+  funciones externas nuevas (`classes/external/get_student_status.php` y
+  compañía) son envoltorios finos que delegan siempre en
+  `session_manager`/`permission_manager` — las mismas comprobaciones de
+  capacidad, propiedad y estado que ya hacían `request.php`/`view.php`
+  por POST/GET, ahora también alcanzables por AJAX. Se añadieron dos
+  métodos nuevos a `permission_manager`
+  (`require_can_view_dashboard()`, `require_can_provide_anywhere()`) para
+  no duplicar en cada función externa la misma comprobación que ya hacía
+  `view.php`/`lib.php` de forma inline.
+- Un usuario sin la capacidad correspondiente que llame directamente a
+  uno de estos web services (sin pasar por la interfaz) recibe el mismo
+  `errornopermission`/`required_capability_exception` que recibiría
+  intentando la URL PHP equivalente — cubierto por
+  `tests/external_api_test.php` para cada una de las ocho funciones.
+- El sondeo del badge de navbar (`navbar_badge.js`, cada 15 s en
+  *cualquier* página de Moodle) reutiliza exactamente la misma consulta
+  que ya usa `view.php` para su lista
+  (`session_manager::get_pending_requests_for_teacher()`); no hay una
+  segunda ruta de autorización que pudiera desincronizarse de la
+  primera.
+- El token de entrada de un solo uso ya no viaja pre-incrustado en el
+  HTML de `request.php`/`view.php`: se pide en el momento del clic vía
+  AJAX (`enter_session`/`accept_request`). No cambia el modelo de
+  amenazas del propio token (sigue siendo de un solo uso, hasheado,
+  ligado a rol — ver "Tokens" más abajo); solo cambia cuándo se genera.
+
+Añadido tras completar el MVP, con el modo de captura `fullpage`:
+
+- Superficie de captura más amplia (todo `<body>`, no solo el contenido
+  principal), pero **la misma capa autoritativa de saneamiento**: pasa
+  igual por `html_sanitizer::sanitize()` que el modo `main`, así que las
+  garantías de siempre (nunca `<script>`, `<iframe>`, atributos `on*`,
+  esquemas `javascript:`, valores de campos de formulario) no cambian —
+  solo cambia cuánto HTML se sanea, no las reglas con las que se sanea.
+- Riesgo nuevo, de privacidad más que de seguridad: bloques laterales o
+  elementos de navegación pueden mostrar información específica del
+  alumno (por ejemplo, mensajes recientes, notas, un bloque
+  personalizado) que en modo `main` nunca se capturaba por estar fuera
+  del contenido principal. Es una consecuencia esperada y deseada de lo
+  que pide `fullpage` ("ver exactamente lo que ve el alumno"), no un
+  fallo — pero es el motivo por el que el ajuste es de administración
+  del sitio, decidido conscientemente, y no el modo por defecto.
+  `MAIN_CONTENT_SELECTORS`, el saneador y el resto de la política de
+  captura no distinguen "qué bloque es sensible", así que activar
+  `fullpage` es responsabilidad de quien administra el sitio, no algo
+  que un profesor o alumno puedan activar por su cuenta.
+- Los límites de tamaño (`html_sanitizer::MAX_LENGTH`,
+  `event_manager::MAX_PAYLOAD_BYTES`) suben para que quepa una foto de
+  página completa; siguen existiendo y siguen aplicándose igual, solo
+  con un techo distinto — ver `docs/decisions.md`.
+
 ## Capacidades
 
 `local/remotesupport:requestassistance` (alumno, contexto curso),

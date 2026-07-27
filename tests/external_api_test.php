@@ -16,8 +16,17 @@
 
 namespace local_remotesupport;
 
+use core_external\external_api;
+use local_remotesupport\external\accept_request;
+use local_remotesupport\external\cancel_request;
+use local_remotesupport\external\enter_session;
+use local_remotesupport\external\finish_session;
+use local_remotesupport\external\get_pending_count;
+use local_remotesupport\external\get_student_status;
+use local_remotesupport\external\get_teacher_dashboard;
 use local_remotesupport\external\pull_events;
 use local_remotesupport\external\push_event;
+use local_remotesupport\external\request_assistance;
 use local_remotesupport\external\set_control_level;
 use local_remotesupport\local\control_level;
 use local_remotesupport\local\session_manager;
@@ -48,6 +57,38 @@ class external_api_test extends \advanced_testcase {
         $session = session_manager::enter_session($session->id, $teacher->id, $token);
 
         return [$session, $student, $teacher];
+    }
+
+    /**
+     * @return array [course, student, teacher], no request created yet.
+     */
+    private function setup_course_with_users(): array {
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $student = $generator->create_and_enrol($course, 'student');
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        return [$course, $student, $teacher];
+    }
+
+    /**
+     * Validates a value returned by execute() against the same external
+     * function's own execute_returns() schema — the exact validation
+     * external_api::call_external_function() performs for a real AJAX
+     * request but calling ::execute() directly (as every test in this file
+     * does) skips. A field present in the real data but missing from the
+     * declared schema, or vice versa, throws here just like it would for a
+     * real browser request; a mismatch found this way found a real bug
+     * (get_teacher_dashboard's rows were missing accepturl/enterurl/
+     * finishurl in its schema versus what the exporter actually returns).
+     *
+     * @param string $externalclassname Fully qualified external_api subclass.
+     * @param array $result The value returned by that class's execute().
+     */
+    private function assert_valid_return(string $externalclassname, array $result): void {
+        external_api::clean_returnvalue($externalclassname::execute_returns(), $result);
+        // No assertion needed beyond "did not throw" — clean_returnvalue()
+        // itself throws invalid_response_exception on any mismatch.
+        $this->assertTrue(true);
     }
 
     public function test_push_event_end_to_end(): void {
@@ -259,5 +300,223 @@ class external_api_test extends \advanced_testcase {
 
         $this->assertCount(1, $result);
         $this->assertSame('resync_request', $result[0]['eventtype']);
+    }
+
+    public function test_get_student_status_none_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $this->setUser($student);
+        $result = get_student_status::execute($course->id);
+        $this->assert_valid_return(get_student_status::class, $result);
+
+        $this->assertTrue($result['isnone']);
+        $this->assertSame(0, $result['sessionid']);
+        $this->assertTrue($result['supportavailable']);
+    }
+
+    public function test_get_student_status_rejects_user_without_capability_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course] = $this->setup_course_with_users();
+        $stranger = $this->getDataGenerator()->create_user();
+
+        // Not enrolled at all, so validate_context()'s own require_login()
+        // check rejects it before the requestassistance capability is even
+        // reached — still the correct outcome (access denied), just a
+        // different exception than an enrolled-but-uncapable user would get.
+        $this->setUser($stranger);
+        $this->expectException(\moodle_exception::class);
+        get_student_status::execute($course->id);
+    }
+
+    public function test_request_assistance_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $this->setUser($student);
+        $result = request_assistance::execute($course->id, 'necesito ayuda');
+        $this->assert_valid_return(request_assistance::class, $result);
+
+        $this->assertGreaterThan(0, $result['sessionid']);
+
+        $status = get_student_status::execute($course->id);
+        $this->assert_valid_return(get_student_status::class, $status);
+        $this->assertTrue($status['isrequested']);
+    }
+
+    public function test_request_assistance_rejects_second_open_request_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $this->setUser($student);
+        request_assistance::execute($course->id);
+
+        $this->expectException(\moodle_exception::class);
+        request_assistance::execute($course->id);
+    }
+
+    public function test_cancel_request_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $this->setUser($student);
+        $created = request_assistance::execute($course->id);
+        $result = cancel_request::execute($created['sessionid']);
+        $this->assert_valid_return(cancel_request::class, $result);
+
+        $this->assertSame(session_manager::STATUS_CANCELLED, $result['status']);
+    }
+
+    public function test_cancel_request_rejects_other_student_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+        $otherstudent = $this->getDataGenerator()->create_and_enrol($course, 'student');
+
+        $this->setUser($student);
+        $created = request_assistance::execute($course->id);
+
+        $this->setUser($otherstudent);
+        $this->expectException(\moodle_exception::class);
+        cancel_request::execute($created['sessionid']);
+    }
+
+    public function test_enter_session_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student, $teacher] = $this->setup_course_with_users();
+        $session = session_manager::create_request($course->id, $student->id);
+        session_manager::accept_request($session->id, $teacher->id);
+
+        $this->setUser($student);
+        $result = enter_session::execute($session->id);
+        $this->assert_valid_return(enter_session::class, $result);
+
+        $this->assertStringContainsString('session.php', $result['redirecturl']);
+        $this->assertStringContainsString((string) $session->id, $result['redirecturl']);
+    }
+
+    public function test_enter_session_rejects_unrelated_user_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student, $teacher] = $this->setup_course_with_users();
+        $session = session_manager::create_request($course->id, $student->id);
+        session_manager::accept_request($session->id, $teacher->id);
+        $stranger = $this->getDataGenerator()->create_user();
+
+        $this->setUser($stranger);
+        $this->expectException(\moodle_exception::class);
+        enter_session::execute($session->id);
+    }
+
+    public function test_finish_session_by_student_end_to_end(): void {
+        $this->resetAfterTest();
+        [$session, $student] = $this->setup_active_session();
+
+        $this->setUser($student);
+        $result = finish_session::execute($session->id);
+        $this->assert_valid_return(finish_session::class, $result);
+
+        $this->assertSame(session_manager::STATUS_CLOSED, $result['status']);
+    }
+
+    public function test_finish_session_by_teacher_end_to_end(): void {
+        $this->resetAfterTest();
+        [$session, , $teacher] = $this->setup_active_session();
+
+        $this->setUser($teacher);
+        $result = finish_session::execute($session->id);
+        $this->assert_valid_return(finish_session::class, $result);
+
+        $this->assertSame(session_manager::STATUS_CLOSED, $result['status']);
+    }
+
+    public function test_finish_session_rejects_unrelated_user_end_to_end(): void {
+        $this->resetAfterTest();
+        [$session] = $this->setup_active_session();
+        $stranger = $this->getDataGenerator()->create_user();
+
+        $this->setUser($stranger);
+        $this->expectException(\moodle_exception::class);
+        finish_session::execute($session->id);
+    }
+
+    public function test_accept_request_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student, $teacher] = $this->setup_course_with_users();
+        $session = session_manager::create_request($course->id, $student->id);
+
+        $this->setUser($teacher);
+        $result = accept_request::execute($session->id);
+        $this->assert_valid_return(accept_request::class, $result);
+
+        $this->assertStringContainsString('session.php', $result['redirecturl']);
+    }
+
+    public function test_accept_request_rejects_teacher_without_capability_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+        $session = session_manager::create_request($course->id, $student->id);
+        $otherteacher = $this->getDataGenerator()->create_and_enrol(
+            $this->getDataGenerator()->create_course(), 'editingteacher');
+
+        $this->setUser($otherteacher);
+        $this->expectException(\moodle_exception::class);
+        accept_request::execute($session->id);
+    }
+
+    public function test_get_teacher_dashboard_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student, $teacher] = $this->setup_course_with_users();
+        $session = session_manager::create_request($course->id, $student->id);
+
+        $this->setUser($teacher);
+        $result = get_teacher_dashboard::execute();
+        $this->assert_valid_return(get_teacher_dashboard::class, $result);
+
+        $this->assertTrue($result['haspending']);
+        $this->assertCount(1, $result['pending']);
+        $this->assertSame(fullname($student), $result['pending'][0]['studentname']);
+        // Regression check: the AJAX response must carry a real, usable
+        // accepturl, not just the row data — see docs/decisions.md, this
+        // was missing here (though present in the PHP-rendered page) and
+        // made "Aceptar" a no-op once the JS re-rendered the table.
+        $this->assertStringContainsString('action=accept', $result['pending'][0]['accepturl']);
+        $this->assertStringContainsString((string) $session->id, $result['pending'][0]['accepturl']);
+
+        session_manager::accept_request($session->id, $teacher->id);
+        $result = get_teacher_dashboard::execute();
+        $this->assert_valid_return(get_teacher_dashboard::class, $result);
+        $this->assertTrue($result['hasopen']);
+        $this->assertStringContainsString('action=enter', $result['open'][0]['enterurl']);
+        $this->assertStringContainsString('action=finish', $result['open'][0]['finishurl']);
+    }
+
+    public function test_get_teacher_dashboard_rejects_user_without_capability_end_to_end(): void {
+        $this->resetAfterTest();
+        $stranger = $this->getDataGenerator()->create_user();
+
+        $this->setUser($stranger);
+        $this->expectException(\moodle_exception::class);
+        get_teacher_dashboard::execute();
+    }
+
+    public function test_get_pending_count_end_to_end(): void {
+        $this->resetAfterTest();
+        [$course, $student, $teacher] = $this->setup_course_with_users();
+        session_manager::create_request($course->id, $student->id);
+
+        $this->setUser($teacher);
+        $result = get_pending_count::execute();
+        $this->assert_valid_return(get_pending_count::class, $result);
+
+        $this->assertSame(1, $result['count']);
+        $this->assertTrue($result['supportenabled']);
+    }
+
+    public function test_get_pending_count_rejects_user_without_capability_anywhere_end_to_end(): void {
+        $this->resetAfterTest();
+        $stranger = $this->getDataGenerator()->create_user();
+
+        $this->setUser($stranger);
+        $this->expectException(\moodle_exception::class);
+        get_pending_count::execute();
     }
 }
