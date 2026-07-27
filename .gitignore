@@ -1,0 +1,5 @@
+# Local test-site credentials and machine-specific notes — never commit.
+test_install.md
+
+# Claude Code local project state.
+.claude/

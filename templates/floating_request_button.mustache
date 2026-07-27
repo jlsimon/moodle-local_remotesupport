@@ -1,0 +1,53 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_remotesupport/floating_request_button
+
+    Site-wide floating button letting a student reach the assistance
+    request page from any Moodle page, not only from the course menu.
+    Shown only while the student has no active session (the persistent
+    status bar covers that case) and only when there is somewhere for it
+    to lead. When more than one course qualifies, a plain <details>
+    disclosure lists them — no JavaScript needed.
+
+    Context variables required by this template:
+    * label       string  button/summary text
+    * hascourses  bool    true when a course picker must be shown instead of a direct link
+    * url         string  required when hascourses is false: direct destination
+    * courses     array   required when hascourses is true: [{url, fullname}, ...]
+}}
+<div class="local-remotesupport-floatingrequest">
+    {{^hascourses}}
+        <a href="{{{url}}}" class="btn btn-primary local-remotesupport-floatingrequest-btn">
+            {{#pix}} t/life-ring, core {{/pix}}
+            {{label}}
+        </a>
+    {{/hascourses}}
+    {{#hascourses}}
+        <details class="local-remotesupport-floatingrequest-picker">
+            <summary class="btn btn-primary local-remotesupport-floatingrequest-btn">
+                {{#pix}} t/life-ring, core {{/pix}}
+                {{label}}
+            </summary>
+            <ul class="local-remotesupport-floatingrequest-courselist">
+                {{#courses}}
+                <li><a href="{{{url}}}">{{fullname}}</a></li>
+                {{/courses}}
+            </ul>
+        </details>
+    {{/hascourses}}
+</div>

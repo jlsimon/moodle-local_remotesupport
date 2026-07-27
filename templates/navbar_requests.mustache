@@ -1,0 +1,57 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_remotesupport/navbar_requests
+
+    Small navbar icon shown to anyone who can provide assistance in at
+    least one course — always, not only while a request is pending, since
+    it is also the way to reach the personal settings page. The numeric
+    badge only appears when there is at least one pending request.
+    Deliberately a plain link straight to view.php, not a dropdown/popover
+    like the notification bell this sits next to.
+
+    The icon also reflects the viewer's own support-enabled preference:
+    a diagonal slash (CSS only, styles.css) plus a different label when
+    they have switched themselves off, so it doubles as a reminder.
+
+    Context variables required by this template:
+    * haspending, count, url, supportenabled
+}}
+<div class="local-remotesupport-navbar-requests d-flex align-items-center h-100">
+    <a href="{{{url}}}" class="nav-link icon-no-margin position-relative"
+        {{#haspending}}
+        title="{{#str}} navbar_pendingrequests, local_remotesupport, {{count}} {{/str}}"
+        aria-label="{{#str}} navbar_pendingrequests, local_remotesupport, {{count}} {{/str}}"
+        {{/haspending}}
+        {{^haspending}}
+        {{#supportenabled}}
+        title="{{#str}} navbar_myassistance, local_remotesupport {{/str}}"
+        aria-label="{{#str}} navbar_myassistance, local_remotesupport {{/str}}"
+        {{/supportenabled}}
+        {{^supportenabled}}
+        title="{{#str}} navbar_myassistance_disabled, local_remotesupport {{/str}}"
+        aria-label="{{#str}} navbar_myassistance_disabled, local_remotesupport {{/str}}"
+        {{/supportenabled}}
+        {{/haspending}}>
+        <span class="local-remotesupport-navbar-iconwrap {{^supportenabled}}local-remotesupport-navbar-unavailable{{/supportenabled}}">
+            {{#pix}} t/life-ring, core {{/pix}}
+        </span>
+        {{#haspending}}
+        <span class="badge badge-pill badge-danger local-remotesupport-navbar-badge">{{count}}</span>
+        {{/haspending}}
+    </a>
+</div>

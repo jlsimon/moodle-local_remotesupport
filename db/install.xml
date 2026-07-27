@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/remotesupport/db" VERSION="20260727001" COMMENT="XMLDB file for local_remotesupport"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
+  <TABLES>
+    <TABLE NAME="local_remotesupport_session" COMMENT="Remote assistance requests and sessions">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="studentid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="teacherid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" DEFAULT="requested"
+            COMMENT="requested, accepted, active, closed, expired, cancelled"/>
+        <FIELD NAME="tokenhashstudent" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false"
+            COMMENT="SHA-256 hash of the student's current entry token, never the token itself"/>
+        <FIELD NAME="tokenhashteacher" TYPE="char" LENGTH="64" NOTNULL="false" SEQUENCE="false"
+            COMMENT="SHA-256 hash of the teacher's current entry token, never the token itself"/>
+        <FIELD NAME="controllevel" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" DEFAULT="view"
+            COMMENT="view, pointer, click, input (each level implies the ones before it); set by the student only"/>
+        <FIELD NAME="reason" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Optional free-text reason the student gave when requesting assistance"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timerequestexpires" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timeended" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="coursefk" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+        <KEY NAME="contextfk" TYPE="foreign" FIELDS="contextid" REFTABLE="context" REFFIELDS="id"/>
+        <KEY NAME="studentfk" TYPE="foreign" FIELDS="studentid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="teacherfk" TYPE="foreign" FIELDS="teacherid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="tokenhashstudentuniq" UNIQUE="true" FIELDS="tokenhashstudent"/>
+        <INDEX NAME="tokenhashteacheruniq" UNIQUE="true" FIELDS="tokenhashteacher"/>
+        <INDEX NAME="coursestatusidx" UNIQUE="false" FIELDS="courseid, status"/>
+        <INDEX NAME="studentstatusidx" UNIQUE="false" FIELDS="studentid, status"/>
+        <INDEX NAME="teacherstatusidx" UNIQUE="false" FIELDS="teacherid, status"/>
+        <INDEX NAME="statusexpiresidx" UNIQUE="false" FIELDS="status, timerequestexpires"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_remotesupport_event" COMMENT="Ephemeral screen-reconstruction events for active sessions">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"
+            COMMENT="Also used as the strictly increasing read cursor for polling"/>
+        <FIELD NAME="sessionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="sourceuserid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="eventtype" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false"
+            COMMENT="page, scroll, cursor, highlight, resync_request, click_request, click_result"/>
+        <FIELD NAME="payload" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="consumed" TYPE="int" LENGTH="1" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="sessionfk" TYPE="foreign" FIELDS="sessionid" REFTABLE="local_remotesupport_session" REFFIELDS="id"/>
+        <KEY NAME="sourceuserfk" TYPE="foreign" FIELDS="sourceuserid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="sessionidx" UNIQUE="false" FIELDS="sessionid, id"/>
+        <INDEX NAME="consumedtimeidx" UNIQUE="false" FIELDS="consumed, timecreated"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

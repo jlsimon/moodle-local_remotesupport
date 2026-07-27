@@ -1,0 +1,59 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_remotesupport/session_player
+
+    Teacher-facing reconstruction view. The connection indicator and the
+    sandboxed iframe itself are built by amd/src/event_player.js inside
+    #local-remotesupport-player; this template only provides the static
+    shell and the finish action.
+
+    Context variables required by this template:
+    * heading, finishurl
+}}
+<div class="local-remotesupport-session" role="status">
+    <p class="local-remotesupport-session-bar">
+        <strong>{{heading}}</strong>
+    </p>
+
+    <p class="local-remotesupport-hint">{{#str}}hint_pointandclick, local_remotesupport{{/str}}</p>
+
+    <div id="local-remotesupport-player" class="local-remotesupport-player"></div>
+
+    <button type="button" id="local-remotesupport-clearhighlight" class="btn btn-secondary btn-sm">
+        {{#str}}button_clearhighlight, local_remotesupport{{/str}}
+    </button>
+    <button type="button" id="local-remotesupport-requestclick" class="btn btn-primary btn-sm">
+        {{#str}}button_requestclick, local_remotesupport{{/str}}
+    </button>
+
+    <div class="local-remotesupport-inputcomposer">
+        <input type="text" id="local-remotesupport-inputvalue" class="form-control form-control-sm"
+            placeholder="{{#str}}inputvalue_placeholder, local_remotesupport{{/str}}">
+        <button type="button" id="local-remotesupport-setvalue" class="btn btn-outline-primary btn-sm">
+            {{#str}}button_setvalue, local_remotesupport{{/str}}
+        </button>
+        <button type="button" id="local-remotesupport-appendtext" class="btn btn-outline-primary btn-sm">
+            {{#str}}button_appendtext, local_remotesupport{{/str}}
+        </button>
+        <button type="button" id="local-remotesupport-clearvalue" class="btn btn-outline-secondary btn-sm">
+            {{#str}}button_clearvalue, local_remotesupport{{/str}}
+        </button>
+    </div>
+
+    <a class="btn btn-danger" href="{{{finishurl}}}">{{#str}}button_finish, local_remotesupport{{/str}}</a>
+</div>

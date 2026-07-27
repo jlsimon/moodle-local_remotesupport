@@ -1,0 +1,98 @@
+# local_remotesupport — Asistencia remota
+
+Plugin de Moodle para que un profesor asista remotamente a un alumno dentro
+de Moodle, mediante navegación compartida (co-browsing), no escritorio
+remoto. Ver [docs/architecture.md](docs/architecture.md) para el diseño,
+[docs/security.md](docs/security.md) para el modelo de amenazas y
+[docs/limitations.md](docs/limitations.md) para lo que aún no hace.
+
+## Estado
+
+**Fase 6 — Escritura remota en formularios**, completa. Además de lo de
+las Fases 1 a 5 (solicitud, sesión, reconstrucción de pantalla con
+scroll/modales/CSS real, cursor remoto y resaltado, clic remoto seguro
+con confirmación), el alumno puede conceder también el nivel más alto,
+`input`: el profesor resalta un campo de texto seguro (nunca contraseña,
+correo, oculto, o dentro de una página de examen/entrega) y puede
+establecer su valor, añadir texto o vaciarlo — sin confirmación
+individual por escritura, a diferencia del clic, porque el propio nivel
+ya es el consentimiento y el resultado queda siempre a la vista del
+alumno. Con esto quedan completas las seis fases del MVP definidas en
+`AGENTS.md`.
+
+**Ampliación posterior — scroll bidireccional.** Tras probar el MVP
+completo, se añadió que el profesor también pueda desplazar la página
+real del alumno (no solo al revés, como en la Fase 4), reutilizando el
+nivel `pointer` ya existente. Es una ampliación consciente fuera de las
+seis fases originales, documentada como tal en `docs/decisions.md`.
+
+**Ampliación posterior — icono de solicitudes pendientes.** Un icono
+junto a mensajes/notificaciones en la barra de navegación avisa al
+profesorado de solicitudes de asistencia esperando, y lleva directamente
+a la pantalla de gestión al pulsarlo.
+
+**Ampliación posterior — botón flotante de solicitud.** Además del
+enlace en el menú del curso, un botón flotante visible en cualquier
+página de Moodle permite al alumno solicitar asistencia (o retomar una
+solicitud ya abierta) aunque no consiga llegar al menú del curso.
+
+**Ampliación posterior — motivo opcional.** Al solicitar asistencia, el
+alumno puede añadir un breve motivo en texto libre (opcional, máx. 255
+caracteres) que el profesor ve en su lista de solicitudes pendientes.
+
+**Ampliación posterior — ajustes personales del profesor.** El icono del
+navbar ahora se muestra siempre (no solo con solicitudes pendientes) y
+da acceso a una pantalla de configuración personal donde el profesor
+puede activar o desactivar si acepta asistencia en este momento. Si
+ningún profesor de un curso la tiene activada, el alumno ve un aviso de
+"sin personal de soporte disponible" en vez del botón de solicitud.
+
+## Requisitos
+
+- Moodle 4.1 o posterior.
+- PHP 8.0 o posterior.
+
+## Instalación
+
+1. Copiar (o enlazar) este directorio en `local/remotesupport` dentro del
+   `dirroot` de Moodle.
+2. Visitar `admin/index.php` como administrador para completar la
+   instalación (crea las tablas `local_remotesupport_session` y
+   `local_remotesupport_event`, las capacidades, los tres servicios AJAX,
+   las tareas programadas y la caché de límite de frecuencia).
+3. Asignar las capacidades si el instalador no las deja como se espera:
+   - `local/remotesupport:requestassistance` — alumnado (por defecto, vía
+     el arquetipo `student`).
+   - `local/remotesupport:provideassistance` y
+     `local/remotesupport:viewactivesessions` — profesorado (por defecto,
+     vía `teacher`/`editingteacher`).
+   - `local/remotesupport:managesessions` — administración (por defecto,
+     vía `manager`).
+4. Opcional: ajustar en **Administración del sitio → Extensiones locales →
+   Asistencia remota** el tiempo de caducidad de las solicitudes pendientes
+   (15 minutos por defecto).
+
+## Uso básico
+
+- El alumno accede a la página **Asistencia remota** desde el menú del
+  curso (`local/remotesupport/request.php?id=COURSEID`), o desde el botón
+  flotante visible en cualquier página, para solicitar asistencia, ver el
+  estado de su solicitud, cancelarla o entrar en la sesión una vez
+  aceptada.
+- El profesor accede a **Solicitudes de asistencia**
+  (`local/remotesupport/view.php`) para ver las solicitudes pendientes de
+  sus cursos, aceptarlas y entrar o finalizar sus sesiones abiertas.
+  Desde ahí (o desde el icono del navbar, siempre visible) llega a **Mis
+  ajustes** (`local/remotesupport/teachersettings.php`) para activar o
+  desactivar si acepta asistencia en este momento.
+- Cualquiera de los dos puede finalizar la sesión en cualquier momento
+  desde su propia página.
+
+## Pruebas
+
+Ver [docs/testing.md](docs/testing.md) para el procedimiento de pruebas
+automáticas y manuales.
+
+## Limitaciones conocidas
+
+Ver [docs/limitations.md](docs/limitations.md).

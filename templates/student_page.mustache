@@ -1,0 +1,68 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_remotesupport/student_page
+
+    Student-facing assistance request card.
+
+    Context variables required by this template:
+    * isnone, isrequested, isaccepted, isactive - mutually exclusive state flags
+    * statusmessage - human readable status text
+    * accesslevel - current access level label
+    * supportavailable - present only when isnone; false hides the request form
+    * requestformurl, sesskey, maxreasonlength - present only when isnone and supportavailable, to build the request form
+    * cancelurl, enterurl, finishurl - action links (present only when relevant)
+}}
+<div class="local-remotesupport-panel" role="status">
+    <p class="local-remotesupport-status">{{statusmessage}}</p>
+
+    {{#isnone}}
+        {{#supportavailable}}
+        <form method="post" action="{{{requestformurl}}}" class="local-remotesupport-requestform">
+            <input type="hidden" name="action" value="request">
+            <input type="hidden" name="sesskey" value="{{sesskey}}">
+            <div class="form-group">
+                <label for="local-remotesupport-reason">{{#str}}label_reason, local_remotesupport{{/str}}</label>
+                <input type="text" class="form-control" id="local-remotesupport-reason"
+                    name="reason" maxlength="{{maxreasonlength}}">
+            </div>
+            <button type="submit" class="btn btn-primary">{{#str}}button_requestassistance, local_remotesupport{{/str}}</button>
+        </form>
+        {{/supportavailable}}
+        {{^supportavailable}}
+        <button type="button" class="btn btn-secondary" disabled>
+            {{#str}}button_nosupportavailable, local_remotesupport{{/str}}
+        </button>
+        {{/supportavailable}}
+    {{/isnone}}
+
+    {{#isrequested}}
+        <a class="btn btn-secondary" href="{{{cancelurl}}}">{{#str}}button_cancelrequest, local_remotesupport{{/str}}</a>
+    {{/isrequested}}
+
+    {{#isaccepted}}
+        <p class="local-remotesupport-accesslevel">{{accesslevel}}</p>
+        <a class="btn btn-primary" href="{{{enterurl}}}">{{#str}}button_enter, local_remotesupport{{/str}}</a>
+        <a class="btn btn-secondary" href="{{{finishurl}}}">{{#str}}button_finish, local_remotesupport{{/str}}</a>
+    {{/isaccepted}}
+
+    {{#isactive}}
+        <p class="local-remotesupport-accesslevel">{{accesslevel}}</p>
+        <a class="btn btn-primary" href="{{{enterurl}}}">{{#str}}button_enter, local_remotesupport{{/str}}</a>
+        <a class="btn btn-secondary" href="{{{finishurl}}}">{{#str}}button_finish, local_remotesupport{{/str}}</a>
+    {{/isactive}}
+</div>
