@@ -122,6 +122,20 @@
   según la especificación CSS, pero sin verificación visual propia en
   esta sesión.
 
+## Nuevas tras completar el MVP — aviso al profesor cuando el alumno finaliza
+
+- **No se puede saber con certeza quién cerró la sesión**, solo que no
+  fue el propio profesor desde esa misma pestaña. El mensaje asume que
+  fue el alumno (el caso ampliamente más frecuente); si en realidad la
+  cerró un manager, o el mismo profesor desde otra pestaña, el aviso
+  sería técnicamente impreciso pero inofensivo (solo texto, ningún
+  efecto). Ver `docs/decisions.md`.
+- **No cierra la pestaña**, solo muestra un aviso y un enlace de
+  vuelta — cerrar una pestaña que no se abrió con `window.open()` no es
+  posible desde JavaScript en ningún navegador moderno.
+- **No probado en un navegador real** (mismo motivo que el resto del
+  módulo de reproducción).
+
 ## Nuevas desde la Fase 4
 
 - **Solo se captura un modal a la vez, el primero que encuentre el

@@ -223,7 +223,9 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
             {key: 'clickresult_nohighlight', component: 'local_remotesupport'},
             {key: 'inputresult_applied', component: 'local_remotesupport'},
             {key: 'inputresult_blocked', component: 'local_remotesupport'},
-            {key: 'inputresult_notfound', component: 'local_remotesupport'}
+            {key: 'inputresult_notfound', component: 'local_remotesupport'},
+            {key: 'sessionendedbystudent', component: 'local_remotesupport'},
+            {key: 'link_backtorequests', component: 'local_remotesupport'}
         ]).then(function(strings) {
             var clickResultLabels = {
                 clicked: strings[4],
@@ -430,6 +432,33 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
                 setState('ended', label);
             };
 
+            // The connection indicator badge is easy to miss while looking
+            // at the reconstruction itself, so ending the session (from the
+            // alumno's side — the teacher's own "Finalizar" link already
+            // navigates them away, so reaching this poll error means someone
+            // else closed it) also gets a prominent, impossible-to-miss
+            // panel with a way back to the request list. A browser tab that
+            // was reached via a normal link/redirect (not window.open())
+            // cannot be closed from script, so this is the practical
+            // equivalent requested: a clear message plus a one-click way out.
+            var showSessionEndedOverlay = function(message) {
+                var overlay = document.createElement('div');
+                overlay.className = 'local-remotesupport-sessionended';
+                overlay.setAttribute('role', 'alert');
+
+                var text = document.createElement('p');
+                text.textContent = message;
+                overlay.appendChild(text);
+
+                var backlink = document.createElement('a');
+                backlink.className = 'btn btn-primary btn-sm';
+                backlink.href = M.cfg.wwwroot + '/local/remotesupport/view.php';
+                backlink.textContent = strings[13];
+                overlay.appendChild(backlink);
+
+                container.appendChild(overlay);
+            };
+
             // Tracks whether the connection was ever marked "lost" since the
             // last successful poll, so that recovering from a gap can ask
             // the alumno for a full resync instead of waiting up to
@@ -459,6 +488,7 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
                 }).catch(function(error) {
                     if (error && error.errorcode === 'errorsessionnotactive') {
                         stopPolling(strings[3]);
+                        showSessionEndedOverlay(strings[12]);
                         return;
                     }
                     if (Date.now() - lastSuccessAt > CONNECTION_LOST_AFTER_MS) {

@@ -108,6 +108,25 @@
     gap: 0.4rem;
 }
 
+.local-remotesupport-sessionended {
+    position: fixed;
+    top: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10003;
+    background: #2f3a4a;
+    color: #fff;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    padding: 0.75rem 1rem;
+    max-width: 90vw;
+    text-align: center;
+}
+
+.local-remotesupport-sessionended p {
+    margin-bottom: 0.5rem;
+}
+
 .local-remotesupport-clickconfirm {
     position: fixed;
     top: 1rem;

@@ -84,6 +84,7 @@ $string['heading_session_teacher'] = 'Assisting {$a}';
 $string['info_studentcontinuebrowsing'] = 'You can keep browsing the course as normal. A status bar will follow you on every page while the teacher is watching.';
 $string['button_continuebrowsing'] = 'Go to the course';
 $string['sessionclosed'] = 'The session has ended.';
+$string['sessionendedbystudent'] = 'The student has ended the assistance session.';
 $string['statusbar_active'] = 'Assistance active with {$a}';
 $string['hint_pointandclick'] = 'Move your mouse over the preview to point; click an element to highlight it for the student.';
 $string['button_clearhighlight'] = 'Clear highlight';

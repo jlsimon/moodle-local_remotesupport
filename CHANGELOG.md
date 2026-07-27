@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.9.2 (aviso al profesor cuando el alumno finaliza) — 2026-07-27
+
+- **Pedido por el usuario**: al finalizar el alumno la asistencia (lo
+  más habitual, desde la barra de estado persistente mientras navega el
+  curso), el profesor solo se enteraba por un cambio sutil en el
+  indicador de conexión, fácil de pasar por alto. El usuario pidió que
+  se "cerrase la ventana del profesor" — no es posible desde
+  JavaScript para una pestaña no abierta con `window.open()` (ver
+  `docs/decisions.md`), así que se implementa el equivalente práctico:
+  un panel imposible de pasar por alto con el mensaje "El alumno ha
+  finalizado la asistencia" y un botón **Volver a las solicitudes**.
+- Nueva cadena `sessionendedbystudent`; reutiliza `link_backtorequests`
+  (ya existente) para el botón.
+- No se puede saber con certeza *quién* cerró la sesión — el mensaje
+  asume que fue el alumno, el caso ampliamente más frecuente cuando el
+  profesor sigue viendo `session.php` sin haberla cerrado él mismo; ver
+  `docs/decisions.md`/`docs/limitations.md` para el caso borde.
+- Sin cambios de servidor; sin pruebas nuevas (lógica de cliente, mismo
+  hueco de siempre).
+
 ## 0.9.1 (fix: precisión del cursor remoto) — 2026-07-27
 
 - **Corregido, reportado por el usuario al probar "Permitir señalar"**:

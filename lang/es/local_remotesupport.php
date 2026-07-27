@@ -84,6 +84,7 @@ $string['heading_session_teacher'] = 'Asistiendo a {$a}';
 $string['info_studentcontinuebrowsing'] = 'Puedes seguir navegando por el curso con normalidad. Una barra de estado te acompañará en cada página mientras el profesor esté observando.';
 $string['button_continuebrowsing'] = 'Ir al curso';
 $string['sessionclosed'] = 'La sesión ha finalizado.';
+$string['sessionendedbystudent'] = 'El alumno ha finalizado la asistencia.';
 $string['statusbar_active'] = 'Asistencia activa con {$a}';
 $string['hint_pointandclick'] = 'Mueve el ratón sobre la vista previa para señalar; haz clic en un elemento para resaltarlo para el alumno.';
 $string['button_clearhighlight'] = 'Quitar resaltado';
