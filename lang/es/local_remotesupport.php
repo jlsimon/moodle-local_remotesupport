@@ -89,6 +89,8 @@ $string['statusbar_active'] = 'Asistencia activa con {$a}';
 $string['connection_connected'] = 'Conectado';
 $string['connection_waiting'] = 'Conectando…';
 $string['connection_lost'] = 'Conexión perdida';
+$string['button_fullscreen'] = 'Pantalla completa';
+$string['button_exitfullscreen'] = 'Salir de pantalla completa';
 
 // Errores.
 $string['errornopermission'] = 'No tienes permiso para realizar esta acción.';

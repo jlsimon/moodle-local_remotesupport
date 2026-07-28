@@ -18,6 +18,9 @@
  * page snapshot inside a script-disabled sandboxed iframe, following the
  * student's own scroll position. Purely passive viewing: the teacher cannot
  * act on the student's page, click anything in it, or scroll it manually.
+ * A button lets the teacher toggle the whole player into the browser's
+ * native fullscreen mode for a larger view; the reconstruction rescales to
+ * fit on entering/leaving it, same logic as a window resize.
  *
  * The captured content's own document has no scrollable overflow at all
  * (html/body forced to `overflow: hidden`) — its "scroll position" is
@@ -75,6 +78,16 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
         var pageInfo = document.createElement('div');
         pageInfo.className = 'local-remotesupport-pageinfo';
         container.appendChild(pageInfo);
+
+        // Hidden entirely on browsers without the Fullscreen API rather than
+        // left as a dead button.
+        var fullscreenButton = document.createElement('button');
+        fullscreenButton.type = 'button';
+        fullscreenButton.className = 'btn btn-outline-secondary btn-sm local-remotesupport-fullscreen-btn';
+        if (!container.requestFullscreen) {
+            fullscreenButton.style.display = 'none';
+        }
+        container.appendChild(fullscreenButton);
 
         var viewportWrapper = document.createElement('div');
         viewportWrapper.className = 'local-remotesupport-player-viewport';
@@ -139,12 +152,32 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
             {key: 'connection_lost', component: 'local_remotesupport'},
             {key: 'sessionclosed', component: 'local_remotesupport'},
             {key: 'sessionendedbystudent', component: 'local_remotesupport'},
-            {key: 'link_backtorequests', component: 'local_remotesupport'}
+            {key: 'link_backtorequests', component: 'local_remotesupport'},
+            {key: 'button_fullscreen', component: 'local_remotesupport'},
+            {key: 'button_exitfullscreen', component: 'local_remotesupport'}
         ]).then(function(strings) {
             var setState = function(state, label) {
                 indicator.textContent = label;
                 indicator.className = 'local-remotesupport-connection-indicator local-remotesupport-connection-' + state;
             };
+
+            fullscreenButton.textContent = strings[6];
+            fullscreenButton.addEventListener('click', function() {
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else {
+                    container.requestFullscreen();
+                }
+            });
+            // Also fires on Esc (the browser's own way out of fullscreen),
+            // so the label and the rescaled size stay correct either way.
+            document.addEventListener('fullscreenchange', function() {
+                var isFullscreen = document.fullscreenElement === container;
+                fullscreenButton.textContent = isFullscreen ? strings[7] : strings[6];
+                if (lastViewport) {
+                    applyViewportSize(lastViewport);
+                }
+            });
 
             var applyEvent = function(event) {
                 var payload = decodePayload(event);

@@ -21,6 +21,16 @@
     margin-bottom: 1rem;
 }
 
+.local-remotesupport-player:fullscreen {
+    background: #fff;
+    padding: 1rem;
+    overflow: auto;
+}
+
+.local-remotesupport-fullscreen-btn {
+    margin-bottom: 0.5rem;
+}
+
 .local-remotesupport-player-viewport {
     overflow: hidden;
     min-height: 480px;

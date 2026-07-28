@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.11.0 (botón de pantalla completa para el profesor) — 2026-07-28
+
+- **Pedido por el usuario**: una forma de ampliar la reconstrucción, que
+  por defecto queda reescalada hacia abajo para caber en la columna
+  estándar de Moodle. Evaluadas Fullscreen API nativa vs. un overlay
+  CSS propio, y si añadir además un control de zoom manual; el usuario
+  eligió solo la Fullscreen API, sin zoom manual (ver
+  `docs/decisions.md`).
+- `event_player.js` añade un botón **Pantalla completa** que llama a
+  `requestFullscreen()`/`exitFullscreen()` sobre todo
+  `#local-remotesupport-player` (indicador de conexión + info de página
+  + reconstrucción juntos, no solo el `<iframe>`). El evento
+  `fullscreenchange` reutiliza `applyViewportSize()` (misma lógica que
+  ya existía para el resize de ventana) para reescalar automáticamente
+  al entrar/salir, y actualiza el texto del botón también al salir con
+  Esc. Botón oculto por completo en navegadores sin Fullscreen API.
+- Nuevas cadenas `button_fullscreen`/`button_exitfullscreen` (en/es).
+- Sin cambios de servidor; sin pruebas nuevas (lógica de cliente, mismo
+  hueco de siempre); pasos de verificación manual añadidos en
+  `docs/testing.md` (55-60), incluyendo confirmar que la reconstrucción
+  sigue sin reaccionar a clics ni scroll manual.
+
 ## 0.10.4 (la reconstrucción ya no es scrollable de forma nativa) — 2026-07-28
 
 - **Pedido por el usuario, tras comprobar que 0.10.3 no bastaba**: en
