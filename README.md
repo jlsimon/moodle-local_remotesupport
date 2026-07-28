@@ -70,6 +70,21 @@ no queda ningún transcript más allá de eso. Ver `docs/decisions.md`
 para el porqué de este diseño frente a la exclusión de "chat complejo"
 del documento base.
 
+**Ampliación posterior — grabación permanente de la sesión (solo
+almacenamiento por ahora).** La actividad de pantalla del alumno
+(`page`/`scroll`) se guarda de forma permanente durante un periodo de
+retención configurable (**Administración del sitio → Extensiones
+locales → Asistencia remota**: 15/30/90/180/365 días), para que más
+adelante alumno y profesor puedan reproducir sus sesiones pasadas. Esta
+fase implementa deliberadamente **solo el almacenamiento**, sin ninguna
+pantalla de listado o reproducción todavía. Se elimina de inmediato,
+sin esperar a la ventana de retención, si cualquiera de los dos
+participantes ejerce su derecho de supresión de datos personales.
+Colisiona conscientemente con dos requisitos del documento base
+(exclusión de "grabación de sesiones" y de conservar el contenido
+completo de las sesiones indefinidamente) — ver `docs/decisions.md`
+para el razonamiento completo y las políticas acordadas con el usuario.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.

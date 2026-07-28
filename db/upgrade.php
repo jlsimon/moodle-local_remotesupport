@@ -97,5 +97,31 @@ function xmldb_local_remotesupport_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026072800, 'local', 'remotesupport');
     }
 
+    if ($oldversion < 2026072900) {
+        // Permanent recording of page/scroll events, kept for
+        // local_remotesupport/trackretentiondays so a support session can be
+        // played back later — deliberately separate from
+        // local_remotesupport_event, which stays purely ephemeral.
+        $table = new xmldb_table('local_remotesupport_track');
+
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('sessionid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('eventtype', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('payload', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('sessionfk', XMLDB_KEY_FOREIGN, ['sessionid'], 'local_remotesupport_session', ['id']);
+
+        $table->add_index('sessionidx', XMLDB_INDEX_NOTUNIQUE, ['sessionid', 'id']);
+        $table->add_index('timecreatedidx', XMLDB_INDEX_NOTUNIQUE, ['timecreated']);
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026072900, 'local', 'remotesupport');
+    }
+
     return true;
 }

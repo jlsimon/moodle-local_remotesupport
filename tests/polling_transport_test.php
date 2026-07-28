@@ -192,4 +192,45 @@ class polling_transport_test extends \advanced_testcase {
 
         $this->assertSame(0, $DB->count_records('local_remotesupport_event', ['sessionid' => $session->id]));
     }
+
+    public function test_page_and_scroll_are_permanently_recorded(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [$session, $student] = $this->setup_active_session();
+        $transport = new polling_transport();
+
+        $transport->push_event($session->id, $student->id, 'page', ['url' => '/a', 'title' => 't', 'html' => '<p>a</p>']);
+        $transport->push_event($session->id, $student->id, 'scroll', ['x' => 1, 'y' => 1]);
+
+        $recorded = $DB->get_records('local_remotesupport_track', ['sessionid' => $session->id], 'id ASC');
+        $this->assertCount(2, $recorded);
+        $types = array_map(static fn ($row) => $row->eventtype, array_values($recorded));
+        $this->assertSame(['page', 'scroll'], $types);
+    }
+
+    public function test_resync_request_and_chat_message_are_not_recorded(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [$session, $student, $teacher] = $this->setup_active_session();
+        $transport = new polling_transport();
+
+        $transport->push_event($session->id, $teacher->id, 'resync_request', []);
+        $transport->push_event($session->id, $student->id, 'chat_message', ['message' => 'hola']);
+
+        $this->assertCount(0, $DB->get_records('local_remotesupport_track', ['sessionid' => $session->id]));
+    }
+
+    public function test_closing_session_does_not_purge_the_recording(): void {
+        // The whole point of the recording is to survive the session
+        // closing — only an erasure request or the retention-window task
+        // removes it (see track_manager_test.php and privacy_provider_test.php).
+        global $DB;
+        $this->resetAfterTest();
+        [$session, $student, $teacher] = $this->setup_active_session();
+        (new polling_transport())->push_event($session->id, $student->id, 'page', ['url' => '/a']);
+
+        session_manager::close_session($session->id, $teacher->id);
+
+        $this->assertCount(1, $DB->get_records('local_remotesupport_track', ['sessionid' => $session->id]));
+    }
 }

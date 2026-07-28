@@ -250,3 +250,39 @@ decisión y qué código se retiró.
   pudiendo dividir la conversación entre las dos en vez de que ambas
   vean todo (mismo comportamiento, y misma limitación, que ya existía
   para `page`/`scroll` antes del chat).
+
+## Nuevas tras completar el MVP — grabación permanente de la sesión
+
+- **Solo almacenamiento, sin forma de verla todavía.** Pedido
+  explícitamente así por el usuario: esta fase guarda `page`/`scroll` de
+  forma permanente en `local_remotesupport_track`, pero no hay ninguna
+  pantalla, endpoint ni capacidad para consultar esa grabación — ni el
+  alumno ni el profesor pueden reproducir nada todavía. Es un paso
+  intermedio explícito, no una función a medias por descuido.
+- **El chat no forma parte de la grabación.** Solo se graban `page`/
+  `scroll`; los mensajes de chat siguen su propio ciclo de vida ya
+  decidido (persisten mientras la sesión está activa, se borran al
+  cerrarla) y no se conservan más allá de eso. Si en el futuro hace
+  falta grabar también el chat, es una decisión y una ampliación
+  aparte.
+- **Colisiona deliberadamente con dos requisitos del documento base**
+  (exclusión de "grabación de sesiones" y la instrucción de no
+  almacenar el contenido completo de las sesiones indefinidamente) — una
+  decisión consciente del usuario, no un descuido. Ver
+  `docs/decisions.md` para el razonamiento completo y las políticas de
+  retención/borrado acordadas.
+- **CSS del tema potencialmente obsoleto en una reproducción futura.**
+  La reconstrucción en vivo carga el CSS del tema por URL en el momento
+  de verla (`payload.css`), no su contenido; Moodle revisa
+  periódicamente la caché del tema, cambiando esa URL. Una grabación de
+  hace meses, reproducida más adelante, podría verse con estilos rotos
+  o distintos a como se veía originalmente — no es grave (el HTML
+  capturado sigue intacto), pero afecta a la fidelidad visual de una
+  reproducción futura.
+- **Sin límite de tamaño acumulado por sesión.** Cada sesión puede
+  generar decenas de capturas de hasta 400 000 caracteres; sin política
+  de recorte dentro de una misma sesión (solo la ventana de retención
+  entre sesiones), una sesión excepcionalmente larga podría generar una
+  grabación considerable.
+- **No probado en un navegador real** (mismo motivo que el resto de este
+  documento).

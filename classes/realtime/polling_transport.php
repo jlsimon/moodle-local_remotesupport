@@ -19,6 +19,7 @@ namespace local_remotesupport\realtime;
 use local_remotesupport\local\audit_manager;
 use local_remotesupport\local\event_manager;
 use local_remotesupport\local\session_manager;
+use local_remotesupport\local\track_manager;
 use moodle_exception;
 
 defined('MOODLE_INTERNAL') || die();
@@ -33,6 +34,11 @@ defined('MOODLE_INTERNAL') || die();
  * event_manager::get_events_since(). Each side only ever pulls events
  * sourced by the *other* participant, except chat_message, which both
  * need to see in full (including their own messages).
+ *
+ * Also feeds track_manager: every successfully stored page/scroll event
+ * is additionally, permanently recorded for later playback (see
+ * track_manager's own doc comment for why this is a deliberate exception
+ * to the plugin's usual ephemeral-by-default policy).
  *
  * @package    local_remotesupport
  * @copyright  2026 Juan Luis Simón
@@ -58,7 +64,13 @@ class polling_transport implements transport_interface {
             throw new moodle_exception('errorsessionnotactive', 'local_remotesupport');
         }
 
-        return event_manager::record_event($sessionid, $userid, $eventtype, $payload);
+        $event = event_manager::record_event($sessionid, $userid, $eventtype, $payload);
+
+        if ($event !== null && in_array($eventtype, track_manager::TRACKED_EVENT_TYPES, true)) {
+            track_manager::record($sessionid, $eventtype, $event->payload);
+        }
+
+        return $event;
     }
 
     public function pull_events(int $sessionid, int $userid, int $sinceid, int $limit = event_manager::DEFAULT_PULL_LIMIT): array {

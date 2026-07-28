@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.13.0 (grabación permanente de la sesión para reproducción futura) — 2026-07-29
+
+- **Pedido por el usuario**: almacenar en el servidor un "track"
+  completo de cada sesión de asistencia, para que alumno y profesor
+  puedan reproducirla más adelante (el alumno para recordar la ayuda
+  recibida, el profesor como justificación de su trabajo). **Solo la
+  fase de almacenamiento**: sin pantalla de listado ni de reproducción
+  todavía, pedido explícitamente así por el usuario.
+- **Colisión consciente con el documento base**, planteada al usuario
+  antes de implementar: la sección 4.1 excluye "Grabación de sesiones"
+  del MVP, y la sección 7.2 dice literalmente que no hay que almacenar
+  el contenido completo de las sesiones indefinidamente. El usuario
+  confirmó explícitamente que quiere seguir adelante pese a ambas, tras
+  conocer los riesgos concretos (quién es el titular real de lo
+  grabado, el problema ya existente de "dos titulares" en
+  `local_remotesupport_session`, crecimiento de almacenamiento,
+  posible desfase del CSS del tema en una reproducción futura). Ver
+  `docs/decisions.md` para el razonamiento completo.
+- Nueva tabla `local_remotesupport_track` (`sessionid`, `eventtype`
+  — solo `page`/`scroll`, ni `chat_message` ni `resync_request` —,
+  `payload`, `timecreated`), deliberadamente separada de
+  `local_remotesupport_event`: una es entrega en vivo efímera, la otra
+  un archivo permanente: mezclarlas habría significado una purga
+  pensada para una borrando por error contenido de la otra. Nueva clase
+  `classes/local/track_manager.php`, que `event_manager` no conoce.
+  `polling_transport::push_event()` alimenta la grabación con el mismo
+  payload ya validado/saneado que ya se aceptó para entrega en vivo, en
+  el mismo punto — sin repetir saneado.
+- **Retención configurable por el administrador**
+  (`local_remotesupport/trackretentiondays`: 15/30/90/180/365 días,
+  por defecto 90), aplicada por una nueva tarea programada diaria
+  `purge_track` — independiente de `purge_events` (ventanas y tablas
+  distintas).
+- **No se purga al cerrar la sesión** (a diferencia de todo lo demás en
+  este plugin) — es justo la propiedad que la hace útil. Solo
+  desaparece por la ventana de retención o por una solicitud de
+  supresión de datos personales, que la borra de inmediato sin importar
+  la retención configurada — decisión explícita del usuario: el
+  contenido grabado es la actividad del alumno, así que su derecho de
+  supresión se respeta sobre él sin excepción ni anonimización.
+- Proveedor de privacidad actualizado: nueva tabla declarada,
+  exportación de un recuento por sesión (no el contenido completo,
+  impracticable en un archivo de exportación) y borrado en cascada
+  añadido a las tres rutas de eliminación ya existentes
+  (`delete_data_for_user`/`_for_all_users_in_context`/`_for_users`).
+- 9 tests PHPUnit nuevos (`tests/track_manager_test.php` +
+  ampliaciones en `polling_transport_test.php`/`privacy_provider_test.php`):
+  grabación y aislamiento por sesión, purga por sesión/por antigüedad,
+  que `resync_request`/`chat_message` no se graban, que cerrar sesión
+  no purga la grabación, y que una solicitud de supresión sí lo hace.
+  140 tests en total (256 assertions).
+
 ## 0.12.3 (el chat se oculta durante la pantalla completa) — 2026-07-28
 
 - **Decisión del usuario tras 0.12.2**: en vez de seguir persiguiendo el

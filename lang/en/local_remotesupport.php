@@ -119,6 +119,7 @@ $string['event_access_denied'] = 'Assistance access denied';
 // Scheduled tasks.
 $string['task_expiresessions'] = 'Expire pending remote assistance requests';
 $string['task_purgeevents'] = 'Purge stale remote assistance screen events';
+$string['task_purgetrack'] = 'Purge session recordings older than the retention period';
 
 // Settings.
 $string['setting_requestexpiryseconds'] = 'Request expiry time';
@@ -127,6 +128,13 @@ $string['setting_capturemode'] = 'Screen capture mode';
 $string['setting_capturemode_desc'] = 'How much of the student\'s screen is captured for the teacher\'s reconstruction. Applies to every session on the site.';
 $string['capturemode_main'] = 'Main content only (navigation, blocks and footer excluded)';
 $string['capturemode_fullpage'] = 'Full page (navigation, blocks and footer included, as close as possible to what the student actually sees)';
+$string['setting_trackretentiondays'] = 'Session recording retention period';
+$string['setting_trackretentiondays_desc'] = 'How long the permanent recording of a session\'s screen activity is kept, for future playback by the student or teacher. Deleted immediately, regardless of this setting, if either participant exercises their right to erasure.';
+$string['trackretention_15days'] = '15 days';
+$string['trackretention_1month'] = '1 month';
+$string['trackretention_3months'] = '3 months';
+$string['trackretention_6months'] = '6 months';
+$string['trackretention_12months'] = '12 months';
 
 // Privacy.
 $string['privacy:path'] = 'Remote assistance sessions';
@@ -145,3 +153,7 @@ $string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'The user (
 $string['privacy:metadata:local_remotesupport_event:eventtype'] = 'The kind of event (page snapshot, scroll position, resync request, or chat message).';
 $string['privacy:metadata:local_remotesupport_event:payload'] = 'The captured page snapshot (relative URL, title, sanitized main content, viewport/scroll position), or the plain-text content of a chat message. Never includes values read from the student\'s own form fields.';
 $string['privacy:metadata:local_remotesupport_event:timecreated'] = 'The time the event was generated.';
+$string['privacy:metadata:local_remotesupport_track'] = 'A permanent recording of the student\'s screen activity (page snapshots and scroll positions) during a session, kept for the configured retention period so the session can be played back later. Deleted immediately if either the student or the teacher exercises their right to erasure, regardless of the retention period.';
+$string['privacy:metadata:local_remotesupport_track:eventtype'] = 'The kind of recorded event (page snapshot or scroll position).';
+$string['privacy:metadata:local_remotesupport_track:payload'] = 'The captured page snapshot (relative URL, title, sanitized main content, viewport/scroll position). Never includes values read from the student\'s own form fields.';
+$string['privacy:metadata:local_remotesupport_track:timecreated'] = 'The time the recorded event was generated.';

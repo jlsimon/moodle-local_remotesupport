@@ -46,4 +46,18 @@ if ($hassiteconfig) {
             'fullpage' => get_string('capturemode_fullpage', 'local_remotesupport'),
         ]
     ));
+
+    $settings->add(new admin_setting_configselect(
+        'local_remotesupport/trackretentiondays',
+        get_string('setting_trackretentiondays', 'local_remotesupport'),
+        get_string('setting_trackretentiondays_desc', 'local_remotesupport'),
+        90,
+        [
+            15 => get_string('trackretention_15days', 'local_remotesupport'),
+            30 => get_string('trackretention_1month', 'local_remotesupport'),
+            90 => get_string('trackretention_3months', 'local_remotesupport'),
+            180 => get_string('trackretention_6months', 'local_remotesupport'),
+            365 => get_string('trackretention_12months', 'local_remotesupport'),
+        ]
+    ));
 }

@@ -21,6 +21,7 @@ use core_privacy\local\request\approved_userlist;
 use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use local_remotesupport\local\session_manager;
+use local_remotesupport\local\track_manager;
 use local_remotesupport\privacy\provider;
 
 /**
@@ -83,6 +84,27 @@ class privacy_provider_test extends \core_privacy\tests\provider_testcase {
         provider::delete_data_for_user($approved);
 
         $this->assertFalse($DB->record_exists('local_remotesupport_session', ['id' => $session->id]));
+    }
+
+    public function test_delete_data_for_user_also_purges_track(): void {
+        // Regression: the session recording is deliberately deleted on an
+        // erasure request even though it survives a normal session close —
+        // see docs/decisions.md for why (the recorded content is
+        // fundamentally the student's own activity).
+        $this->resetAfterTest();
+        global $DB;
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $student = $generator->create_and_enrol($course, 'student');
+
+        $session = session_manager::create_request($course->id, $student->id);
+        track_manager::record($session->id, 'page', json_encode(['url' => '/a']));
+        $coursecontext = \context_course::instance($course->id);
+
+        $approved = new approved_contextlist($student, 'local_remotesupport', [$coursecontext->id]);
+        provider::delete_data_for_user($approved);
+
+        $this->assertSame(0, $DB->count_records('local_remotesupport_track', ['sessionid' => $session->id]));
     }
 
     public function test_delete_data_for_all_users_in_context(): void {

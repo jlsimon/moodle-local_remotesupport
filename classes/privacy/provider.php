@@ -26,6 +26,7 @@ use context;
 use context_course;
 use local_remotesupport\local\event_manager;
 use local_remotesupport\local\teacher_settings;
+use local_remotesupport\local\track_manager;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -69,6 +70,12 @@ class provider implements
             'payload' => 'privacy:metadata:local_remotesupport_event:payload',
             'timecreated' => 'privacy:metadata:local_remotesupport_event:timecreated',
         ], 'privacy:metadata:local_remotesupport_event');
+
+        $collection->add_database_table('local_remotesupport_track', [
+            'eventtype' => 'privacy:metadata:local_remotesupport_track:eventtype',
+            'payload' => 'privacy:metadata:local_remotesupport_track:payload',
+            'timecreated' => 'privacy:metadata:local_remotesupport_track:timecreated',
+        ], 'privacy:metadata:local_remotesupport_track');
 
         return $collection;
     }
@@ -147,6 +154,15 @@ class provider implements
                         ? \core_privacy\local\request\transform::datetime($session->timestarted) : null,
                     'timeended' => $session->timeended
                         ? \core_privacy\local\request\transform::datetime($session->timeended) : null,
+                    // The recording itself (captured page/scroll events) is not
+                    // dumped verbatim here — it can run to hundreds of large
+                    // HTML snapshots per session, impractical to include in an
+                    // export archive. A count is enough to disclose that it
+                    // exists and roughly how much of it there is; retrieving
+                    // the actual content is a job for the (not yet built)
+                    // playback feature, gated by the same capability checks
+                    // as everything else in this plugin.
+                    'recordedeventcount' => $DB->count_records('local_remotesupport_track', ['sessionid' => $session->id]),
                 ];
             }
 
@@ -207,7 +223,12 @@ class provider implements
     }
 
     /**
-     * Delete the given session rows and any events still attached to them.
+     * Delete the given session rows and any events/recording still attached
+     * to them. The recording is deliberately included here even though it
+     * normally survives session close: an erasure request is not the same
+     * as a routine close, and the recorded content is fundamentally the
+     * student's own activity — see docs/decisions.md for why it is deleted
+     * outright here rather than anonymised or kept for the other party.
      *
      * @param \stdClass[] $sessions
      */
@@ -220,6 +241,7 @@ class provider implements
 
         foreach ($sessions as $session) {
             event_manager::purge_session_events($session->id);
+            track_manager::purge_session_track($session->id);
         }
         $DB->delete_records_list('local_remotesupport_session', 'id', array_keys($sessions));
     }

@@ -5,6 +5,13 @@ profesor no puede señalar, hacer clic ni escribir en la página del
 alumno. Ver `docs/decisions.md` para el porqué de esta decisión y qué
 código/superficie de amenaza se retiró junto con ella.
 
+**Nota (2026-07-29): la sesión se graba de forma permanente para
+reproducción futura**, una excepción deliberada a la política general de
+este plugin de no conservar contenido indefinidamente — ver "Grabación
+permanente de la sesión" más abajo y `docs/decisions.md` para el
+razonamiento completo, incluida la colisión consciente con dos
+requisitos del documento base.
+
 ## Modelo de amenazas
 
 Actores considerados desde la Fase 1:
@@ -244,6 +251,40 @@ todo `<textarea>`, sin distinguir si el campo es "sensible" o no — es más
 simple y más seguro que mantener una lista de qué campos sí se pueden
 enviar), contenido de `<iframe>` (se elimina la etiqueta entera, nunca se
 desciende dentro de un `iframe` ajeno), contraseñas, cookies, tokens.
+
+## Grabación permanente de la sesión (añadido tras el MVP)
+
+`local_remotesupport_track` guarda de forma permanente (dentro de la
+ventana de retención) los mismos eventos `page`/`scroll` ya validados y
+saneados que se transportan en vivo — nada nuevo pasa por saneado aquí,
+`track_manager` reutiliza el payload ya limpio de `event_manager`. Esto
+significa que el contenido capturado (HTML principal saneado, nunca
+valores de campos de formulario, contraseñas, cookies ni tokens — ver
+"Captura" y "Saneamiento de HTML" arriba) queda retenido en base de
+datos durante semanas o meses, no minutos, invirtiendo deliberadamente
+la política de purga rápida que rige el resto del plugin.
+
+- **Sin capacidad ni endpoint nuevos en esta fase.** Solo se graba (en
+  el mismo punto donde `polling_transport::push_event()` ya acepta el
+  evento para entrega en vivo); no hay ninguna forma de leer la
+  grabación todavía — eso es un paso posterior, sin construir.
+- **Retención administrable, no indefinida**: `local_remotesupport/
+  trackretentiondays` (15/30/90/180/365 días), aplicada por la tarea
+  `purge_track`.
+- **Una solicitud de supresión de datos personales borra la grabación de
+  inmediato**, sin esperar a la ventana de retención — ver
+  `classes/privacy/provider.php`. No sobrevive, en cambio, a un cierre
+  de sesión normal por diseño (`session_manager::close_session()`
+  deliberadamente no la toca): esa es la diferencia central respecto a
+  `local_remotesupport_event`.
+- **Riesgo de reidentificación por volumen**: donde una foto de pantalla
+  suelta (Fase 2) revela poco fuera de contexto, semanas de fotos de
+  pantalla completas de un mismo alumno, correlacionadas por
+  `sessionid`/`timecreated`, son un perfil de actividad mucho más rico
+  que cualquier otro dato que este plugin haya conservado hasta ahora.
+  No hay mitigación técnica adicional más allá de la retención acotada
+  y el borrado por supresión — es una consecuencia directa, y aceptada
+  conscientemente, del alcance elegido.
 
 ## Elementos prohibidos
 

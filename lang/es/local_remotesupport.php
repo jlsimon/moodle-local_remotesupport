@@ -119,6 +119,7 @@ $string['event_access_denied'] = 'Acceso a asistencia denegado';
 // Tareas programadas.
 $string['task_expiresessions'] = 'Caducar solicitudes de asistencia remota pendientes';
 $string['task_purgeevents'] = 'Depurar eventos de pantalla de asistencia remota obsoletos';
+$string['task_purgetrack'] = 'Depurar grabaciones de sesión más antiguas que el periodo de retención';
 
 // Ajustes.
 $string['setting_requestexpiryseconds'] = 'Tiempo de caducidad de la solicitud';
@@ -127,6 +128,13 @@ $string['setting_capturemode'] = 'Modo de captura de pantalla';
 $string['setting_capturemode_desc'] = 'Cuánto se captura de la pantalla del alumno para la reconstrucción del profesor. Se aplica a todas las sesiones del sitio.';
 $string['capturemode_main'] = 'Solo contenido principal (sin navegación, bloques ni pie de página)';
 $string['capturemode_fullpage'] = 'Página completa (con navegación, bloques y pie de página, lo más parecido posible a lo que ve realmente el alumno)';
+$string['setting_trackretentiondays'] = 'Periodo de retención de la grabación de sesión';
+$string['setting_trackretentiondays_desc'] = 'Durante cuánto tiempo se conserva la grabación permanente de la actividad de pantalla de una sesión, para su reproducción futura por el alumno o el profesor. Se elimina de inmediato, independientemente de este ajuste, si cualquiera de los dos participantes ejerce su derecho de supresión.';
+$string['trackretention_15days'] = '15 días';
+$string['trackretention_1month'] = '1 mes';
+$string['trackretention_3months'] = '3 meses';
+$string['trackretention_6months'] = '6 meses';
+$string['trackretention_12months'] = '12 meses';
 
 // Privacidad.
 $string['privacy:path'] = 'Sesiones de asistencia remota';
@@ -145,3 +153,7 @@ $string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'El usuario
 $string['privacy:metadata:local_remotesupport_event:eventtype'] = 'El tipo de evento (foto de página, posición de scroll, solicitud de resincronización o mensaje de chat).';
 $string['privacy:metadata:local_remotesupport_event:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport), o el contenido en texto plano de un mensaje de chat. Nunca incluye valores leídos de los propios campos de formulario del alumno.';
 $string['privacy:metadata:local_remotesupport_event:timecreated'] = 'La fecha en que se generó el evento.';
+$string['privacy:metadata:local_remotesupport_track'] = 'Una grabación permanente de la actividad de pantalla del alumno (fotos de página y posiciones de scroll) durante una sesión, conservada durante el periodo de retención configurado para poder reproducir la sesión más adelante. Se elimina de inmediato si el alumno o el profesor ejercen su derecho de supresión, independientemente del periodo de retención.';
+$string['privacy:metadata:local_remotesupport_track:eventtype'] = 'El tipo de evento grabado (foto de página o posición de scroll).';
+$string['privacy:metadata:local_remotesupport_track:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport). Nunca incluye valores leídos de los propios campos de formulario del alumno.';
+$string['privacy:metadata:local_remotesupport_track:timecreated'] = 'La fecha en que se generó el evento grabado.';
