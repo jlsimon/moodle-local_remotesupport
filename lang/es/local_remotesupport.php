@@ -31,6 +31,7 @@ $string['remotesupport:requestassistance'] = 'Solicitar asistencia remota';
 $string['remotesupport:provideassistance'] = 'Proporcionar asistencia remota';
 $string['remotesupport:viewactivesessions'] = 'Ver solicitudes y sesiones de asistencia remota';
 $string['remotesupport:viewsessionhistory'] = 'Ver sesiones de asistencia remota pasadas';
+$string['remotesupport:replaysession'] = 'Reproducir la grabación de una sesión de asistencia remota pasada';
 $string['remotesupport:managesessions'] = 'Gestionar cualquier sesión de asistencia remota';
 
 // Páginas: alumno.
@@ -77,11 +78,21 @@ $string['link_sessionhistory'] = 'Historial de sesiones';
 $string['pagetitle_history'] = 'Historial de sesiones de asistencia';
 $string['col_date'] = 'Fecha';
 $string['col_duration'] = 'Duración';
+$string['col_sessionnumber'] = '#';
 $string['col_studentfirstname'] = 'Nombre del alumno';
 $string['col_studentlastname'] = 'Apellidos del alumno';
 $string['durationshort_hours'] = '{$a}h';
 $string['durationshort_minutes'] = '{$a}m';
 $string['durationshort_seconds'] = '{$a}s';
+
+// Páginas: reproducción de sesión.
+$string['pagetitle_replay'] = 'Reproducción de sesión';
+$string['heading_replay'] = 'Reproduciendo sesión de asistencia con {$a}';
+$string['link_backtohistory'] = 'Volver al historial de sesiones';
+$string['button_play'] = 'Reproducir';
+$string['button_pause'] = 'Pausar';
+$string['replay_chat_heading'] = 'Transcripción del chat';
+$string['info_noreplaytrack'] = 'No hay ninguna grabación disponible para esta sesión.';
 
 // Páginas: ajustes del profesor.
 $string['pagetitle_settings'] = 'Mis ajustes de asistencia';
@@ -166,7 +177,8 @@ $string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'El usuario
 $string['privacy:metadata:local_remotesupport_event:eventtype'] = 'El tipo de evento (foto de página, posición de scroll, solicitud de resincronización o mensaje de chat).';
 $string['privacy:metadata:local_remotesupport_event:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport), o el contenido en texto plano de un mensaje de chat. Nunca incluye valores leídos de los propios campos de formulario del alumno.';
 $string['privacy:metadata:local_remotesupport_event:timecreated'] = 'La fecha en que se generó el evento.';
-$string['privacy:metadata:local_remotesupport_track'] = 'Una grabación permanente de la actividad de pantalla del alumno (fotos de página y posiciones de scroll) durante una sesión, conservada durante el periodo de retención configurado para poder reproducir la sesión más adelante. Se elimina de inmediato si el alumno o el profesor ejercen su derecho de supresión, independientemente del periodo de retención.';
-$string['privacy:metadata:local_remotesupport_track:eventtype'] = 'El tipo de evento grabado (foto de página o posición de scroll).';
-$string['privacy:metadata:local_remotesupport_track:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport). Nunca incluye valores leídos de los propios campos de formulario del alumno.';
+$string['privacy:metadata:local_remotesupport_track'] = 'Una grabación permanente de la actividad de pantalla (fotos de página y posiciones de scroll) y de la conversación de chat de una sesión, conservada durante el periodo de retención configurado para poder reproducir la sesión más adelante. Se elimina de inmediato si el alumno o el profesor ejercen su derecho de supresión, independientemente del periodo de retención.';
+$string['privacy:metadata:local_remotesupport_track:sourceuserid'] = 'El usuario (el alumno para una foto de página o posición de scroll, cualquiera de los dos participantes para un mensaje de chat) cuyo navegador generó el evento grabado. Nulo en eventos grabados antes de que esto se registrara.';
+$string['privacy:metadata:local_remotesupport_track:eventtype'] = 'El tipo de evento grabado (foto de página, posición de scroll o mensaje de chat).';
+$string['privacy:metadata:local_remotesupport_track:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport), o el contenido en texto plano de un mensaje de chat. Nunca incluye valores leídos de los propios campos de formulario del alumno.';
 $string['privacy:metadata:local_remotesupport_track:timecreated'] = 'La fecha en que se generó el evento grabado.';

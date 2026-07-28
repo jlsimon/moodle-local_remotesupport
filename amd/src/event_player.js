@@ -46,15 +46,21 @@
  * one browser, so the chat is simply unavailable there rather than chasing
  * that further; see chat_widget.js's hide()/show().
  *
+ * The actual sandboxed-iframe reconstruction (viewport sizing, scroll
+ * simulation, srcdoc building) lives in local_remotesupport/screen_renderer,
+ * shared with session_replay.js — this module only owns polling, the
+ * connection indicator and the fullscreen button.
+ *
  * @module     local_remotesupport/event_player
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define(['core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_widget'], function(Str, Transport, ChatWidget) {
+define(
+    ['core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_widget', 'local_remotesupport/screen_renderer'],
+    function(Str, Transport, ChatWidget, ScreenRenderer) {
 
     var POLL_INTERVAL_MS = 2000;
     var CONNECTION_LOST_AFTER_MS = 8000;
-    var VIEWPORT_CONTENT_ID = 'local-remotesupport-viewport-content';
 
     /**
      * @param {Object} event
@@ -113,49 +119,7 @@ define(['core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_w
         var sinceid = 0;
         var lastSuccessAt = Date.now();
         var pollHandle = null;
-        var lastViewport = null;
-
-        // Forces the iframe to actually be the alumno's own reported
-        // viewport size (not just visually similar), then shrinks it back
-        // down with a CSS transform to fit the teacher's screen. On a
-        // responsive Moodle theme that reflows at different widths, a
-        // differently-sized frame would render the same content laid out
-        // differently than the alumno actually sees it. See docs/decisions.md.
-        var applyViewportSize = function(viewport) {
-            if (!viewport || typeof viewport.width !== 'number' || typeof viewport.height !== 'number' ||
-                    viewport.width <= 0 || viewport.height <= 0) {
-                return;
-            }
-            var width = Math.min(Math.max(viewport.width, 200), 4000);
-            var height = Math.min(Math.max(viewport.height, 200), 4000);
-            lastViewport = {width: width, height: height};
-
-            var availableWidth = viewportWrapper.clientWidth || width;
-            var scale = Math.min(1, availableWidth / width);
-
-            iframe.style.width = width + 'px';
-            iframe.style.height = height + 'px';
-            iframe.style.transform = 'scale(' + scale + ')';
-            viewportWrapper.style.height = (height * scale) + 'px';
-        };
-
-        window.addEventListener('resize', function() {
-            if (lastViewport) {
-                applyViewportSize(lastViewport);
-            }
-        });
-
-        // Positions the captured content by CSS-translating the wrapper div
-        // instead of using native document scrolling — see the module
-        // doc comment above for why. `x`/`y` are the alumno's real
-        // document-coordinate scroll position (Fase 4 payload, unchanged).
-        var applyScrollPosition = function(x, y) {
-            var doc = iframe.contentDocument;
-            var content = doc && doc.getElementById(VIEWPORT_CONTENT_ID);
-            if (content && typeof x === 'number' && typeof y === 'number') {
-                content.style.transform = 'translate(' + (-x) + 'px, ' + (-y) + 'px)';
-            }
-        };
+        var renderer = ScreenRenderer.create(iframe, viewportWrapper);
 
         Str.get_strings([
             {key: 'connection_connected', component: 'local_remotesupport'},
@@ -191,9 +155,7 @@ define(['core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_w
                 } else {
                     chat.show();
                 }
-                if (lastViewport) {
-                    applyViewportSize(lastViewport);
-                }
+                renderer.reapplyViewportSize();
             });
 
             var applyEvent = function(event, isReplay) {
@@ -206,41 +168,9 @@ define(['core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_w
                     return;
                 }
                 if (event.eventtype === 'page' && typeof payload.html === 'string') {
-                    pageInfo.textContent = (payload.title || '') + ' — ' + (payload.url || '');
-                    applyViewportSize(payload.viewport);
-
-                    var links = (Array.isArray(payload.css) ? payload.css : [])
-                        .filter(function(href) {
-                            return typeof href === 'string' && href.indexOf(M.cfg.wwwroot) === 0;
-                        })
-                        .map(function(href) {
-                            return '<link rel="stylesheet" href="' + href.replace(/"/g, '&quot;') + '">';
-                        })
-                        .join('');
-
-                    var modalHtml = typeof payload.modal === 'string' ? payload.modal : '';
-
-                    var pendingScroll = payload.scroll || null;
-                    iframe.onload = function() {
-                        if (pendingScroll) {
-                            applyScrollPosition(pendingScroll.x, pendingScroll.y);
-                        }
-                    };
-                    // html/body get no scrollable overflow of their own — see
-                    // the module doc comment. The modal stays outside the
-                    // translated wrapper so it keeps behaving like a normal
-                    // position:fixed overlay instead of moving with the scroll
-                    // simulation (a CSS transform on an ancestor would
-                    // otherwise turn it into the containing block for
-                    // fixed-position descendants).
-                    iframe.srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-                        '<base href="' + M.cfg.wwwroot + '/">' + links +
-                        '<style>html,body{margin:0;overflow:hidden;height:100%;}</style>' +
-                        '</head><body>' +
-                        '<div id="' + VIEWPORT_CONTENT_ID + '">' + payload.html + '</div>' +
-                        modalHtml + '</body></html>';
+                    renderer.renderPage(payload, pageInfo);
                 } else if (event.eventtype === 'scroll') {
-                    applyScrollPosition(payload.x, payload.y);
+                    renderer.applyScrollPosition(payload.x, payload.y);
                 }
             };
 

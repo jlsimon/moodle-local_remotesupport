@@ -16,6 +16,7 @@
 
 namespace local_remotesupport\table;
 
+use local_remotesupport\local\permission_manager;
 use local_remotesupport\local\session_manager;
 use table_sql;
 
@@ -40,16 +41,22 @@ class session_history_table extends table_sql {
     /** @var string User preference name for the "rows per page" choice on sessionhistory.php. */
     const PREF_PERPAGE = 'local_remotesupport_sessionhistory-perpage';
 
+    /** @var int The teacher viewing this table — every row already belongs to them. */
+    private int $teacherid;
+
     /**
      * @param int $teacherid
      */
     public function __construct(int $teacherid) {
         parent::__construct('local_remotesupport_session_history_' . $teacherid);
 
+        $this->teacherid = $teacherid;
+
         $this->define_columns([
-            'coursefullname', 'studentfirstname', 'studentlastname', 'timestarted', 'duration',
+            'id', 'coursefullname', 'studentfirstname', 'studentlastname', 'timestarted', 'duration',
         ]);
         $this->define_headers([
+            get_string('col_sessionnumber', 'local_remotesupport'),
             get_string('col_course', 'local_remotesupport'),
             get_string('col_studentfirstname', 'local_remotesupport'),
             get_string('col_studentlastname', 'local_remotesupport'),
@@ -63,6 +70,26 @@ class session_history_table extends table_sql {
         $this->sortable(true, 'timestarted', SORT_DESC);
         $this->collapsible(false);
         $this->set_attribute('id', 'local-remotesupport-sessionhistory');
+    }
+
+    /**
+     * The session id, as a link to its replay if the viewer is still
+     * allowed to replay it (see permission_manager::can_replay_session()),
+     * otherwise plain text. Every row already belongs to $this->teacherid
+     * (see session_manager::get_closed_sessions_sql_for_teacher()), so a
+     * pseudo-session with just the fields that check needs is enough —
+     * no need to refetch the full session row per visible row.
+     *
+     * @param \stdClass $row
+     * @return string
+     */
+    protected function col_id(\stdClass $row): string {
+        $pseudosession = (object) ['teacherid' => $this->teacherid, 'courseid' => $row->courseid];
+        if (!permission_manager::can_replay_session($pseudosession, $this->teacherid)) {
+            return '#' . $row->id;
+        }
+        $url = new \moodle_url('/local/remotesupport/sessionreplay.php', ['id' => $row->id]);
+        return \html_writer::link($url, '#' . $row->id);
     }
 
     /**

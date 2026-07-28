@@ -35,10 +35,10 @@ defined('MOODLE_INTERNAL') || die();
  * sourced by the *other* participant, except chat_message, which both
  * need to see in full (including their own messages).
  *
- * Also feeds track_manager: every successfully stored page/scroll event
- * is additionally, permanently recorded for later playback (see
- * track_manager's own doc comment for why this is a deliberate exception
- * to the plugin's usual ephemeral-by-default policy).
+ * Also feeds track_manager: every successfully stored page/scroll/
+ * chat_message event is additionally, permanently recorded for later
+ * playback (see track_manager's own doc comment for why this is a
+ * deliberate exception to the plugin's usual ephemeral-by-default policy).
  *
  * @package    local_remotesupport
  * @copyright  2026 Juan Luis Simón
@@ -67,7 +67,7 @@ class polling_transport implements transport_interface {
         $event = event_manager::record_event($sessionid, $userid, $eventtype, $payload);
 
         if ($event !== null && in_array($eventtype, track_manager::TRACKED_EVENT_TYPES, true)) {
-            track_manager::record($sessionid, $eventtype, $event->payload);
+            track_manager::record($sessionid, $userid, $eventtype, $event->payload);
         }
 
         return $event;

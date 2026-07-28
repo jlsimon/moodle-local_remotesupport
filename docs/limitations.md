@@ -253,18 +253,15 @@ decisión y qué código se retiró.
 
 ## Nuevas tras completar el MVP — grabación permanente de la sesión
 
-- **Solo almacenamiento, sin forma de verla todavía.** Pedido
-  explícitamente así por el usuario: esta fase guarda `page`/`scroll` de
-  forma permanente en `local_remotesupport_track`, pero no hay ninguna
-  pantalla, endpoint ni capacidad para consultar esa grabación — ni el
-  alumno ni el profesor pueden reproducir nada todavía. Es un paso
-  intermedio explícito, no una función a medias por descuido.
-- **El chat no forma parte de la grabación.** Solo se graban `page`/
-  `scroll`; los mensajes de chat siguen su propio ciclo de vida ya
-  decidido (persisten mientras la sesión está activa, se borran al
-  cerrarla) y no se conservan más allá de eso. Si en el futuro hace
-  falta grabar también el chat, es una decisión y una ampliación
-  aparte.
+- **Al construirse (esta primera fase, solo almacenamiento) no había
+  forma de ver la grabación.** Eso se resolvió con la reproducción
+  (`sessionreplay.php`) documentada más abajo; se deja esta nota porque
+  las decisiones y compromisos de esa primera fase (retención,
+  borrado) siguen aplicando sin cambios a la reproducción.
+- **El chat empezó a formar parte de la grabación al construir la
+  reproducción**, revisando la decisión original de esta sección (que
+  decía lo contrario). Solo sesiones cerradas después de ese cambio
+  tienen chat grabado — ver la sección de reproducción más abajo.
 - **Colisiona deliberadamente con dos requisitos del documento base**
   (exclusión de "grabación de sesiones" y la instrucción de no
   almacenar el contenido completo de las sesiones indefinidamente) — una
@@ -289,10 +286,10 @@ decisión y qué código se retiró.
 
 ## Nuevas tras completar el MVP — historial de sesiones del profesor
 
-- **Solo metadatos de la sesión, no la grabación de pantalla.** El
-  listado muestra fecha, curso, nombre/apellidos del alumno y duración —
-  no reproduce el contenido de `local_remotesupport_track`. Reproducir
-  la grabación en sí sigue siendo un paso posterior sin construir.
+- **El listado en sí sigue mostrando solo metadatos** (fecha, curso,
+  nombre/apellidos del alumno, duración); ver el contenido grabado
+  requiere pulsar la columna "#" — ver la sección de reproducción más
+  abajo.
 - **Solo profesor, sin vista equivalente para el alumno todavía.** El
   usuario pidió explícitamente el listado del profesor en este cambio;
   un listado para que el alumno vea sus propias sesiones pasadas sería
@@ -330,3 +327,45 @@ decisión y qué código se retiró.
   con esta ampliación; verificado en su lugar con una comprobación
   manual de humo (guardar/leer la preferencia, y que el desplegable
   refleja el valor seleccionado).
+
+## Nuevas tras completar el MVP — reproducción de sesiones grabadas
+
+- **Sesiones cerradas antes de esta funcionalidad no tienen chat que
+  reproducir.** El chat solo empezó a grabarse permanentemente al
+  construir la reproducción; su transcripción para sesiones anteriores
+  nunca se guardó y no se puede recuperar. Solo afecta al chat: la
+  pantalla (`page`/`scroll`) sí estaba grabada desde antes y se
+  reproduce con normalidad para cualquier sesión, tenga o no chat.
+- **Se descarga toda la grabación de una vez, sin paginar ni cargar de
+  forma progresiva.** Aceptado conscientemente a la escala de este MVP
+  (1-20 sesiones simultáneas, sesiones de minutos a una hora en la
+  práctica); una sesión con una grabación excepcionalmente larga (ver
+  también "sin límite de tamaño acumulado por sesión" arriba) tendría un
+  payload inicial de descarga grande. Carga progresiva/paginada del
+  track queda como posible mejora futura, no construida ahora.
+- **Solo profesor, sin reproducción para el alumno.** El acceso está
+  gateado por `local/remotesupport:replaysession` (capacidad de
+  profesorado); el alumno no tiene ninguna pantalla para reproducir sus
+  propias sesiones pasadas, aunque `local_remotesupport_track` contenga
+  su propia actividad. Sería una ampliación aparte, con su propia
+  capacidad.
+- **La barra de progreso salta por tiempo, no por "eventos".** Al
+  arrastrarla se recalcula el estado (última pantalla, último scroll,
+  transcripción de chat) para ese instante, pero no hay una vista de
+  "lista de eventos" ni marcadores en la barra que indiquen dónde hay
+  cambios de página o mensajes nuevos — solo una barra de progreso lisa,
+  como un reproductor de vídeo simple.
+- **El CSS del tema puede haberse quedado obsoleto**, mismo motivo ya
+  documentado para la grabación en sí: la reproducción carga el CSS por
+  URL en el momento de verla, no su contenido congelado en el instante
+  de la captura original.
+- **Sin pruebas JavaScript** para `session_replay.js`/`screen_renderer.js`
+  (mismo hueco de siempre, ver "Vigentes desde la Fase 2"): la lógica de
+  reproducción (cálculo del último evento anterior a un instante,
+  reconstrucción de la transcripción de chat, control de velocidad) solo
+  se verificó con `node --check` y los pasos de verificación manual de
+  más abajo.
+- **No probado en un navegador real** (mismo motivo que el resto de este
+  documento) — en particular, la fluidez de la reproducción a velocidades
+  altas (4x/8x) y el comportamiento de la barra de progreso al
+  arrastrarla rápidamente no se han probado interactivamente.

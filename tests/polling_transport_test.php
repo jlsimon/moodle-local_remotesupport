@@ -208,16 +208,34 @@ class polling_transport_test extends \advanced_testcase {
         $this->assertSame(['page', 'scroll'], $types);
     }
 
-    public function test_resync_request_and_chat_message_are_not_recorded(): void {
+    public function test_resync_request_is_not_recorded(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [$session, , $teacher] = $this->setup_active_session();
+        $transport = new polling_transport();
+
+        $transport->push_event($session->id, $teacher->id, 'resync_request', []);
+
+        $this->assertCount(0, $DB->get_records('local_remotesupport_track', ['sessionid' => $session->id]));
+    }
+
+    public function test_chat_message_is_permanently_recorded_with_sourceuserid(): void {
+        // Added alongside session playback, so a replayed conversation can
+        // be attributed to the right participant — see track_manager's doc
+        // comment and docs/decisions.md's playback entry for why this
+        // revised the original "only page/scroll" recording scope.
         global $DB;
         $this->resetAfterTest();
         [$session, $student, $teacher] = $this->setup_active_session();
         $transport = new polling_transport();
 
-        $transport->push_event($session->id, $teacher->id, 'resync_request', []);
         $transport->push_event($session->id, $student->id, 'chat_message', ['message' => 'hola']);
+        $transport->push_event($session->id, $teacher->id, 'chat_message', ['message' => 'hola tambien']);
 
-        $this->assertCount(0, $DB->get_records('local_remotesupport_track', ['sessionid' => $session->id]));
+        $recorded = array_values($DB->get_records('local_remotesupport_track', ['sessionid' => $session->id], 'id ASC'));
+        $this->assertCount(2, $recorded);
+        $this->assertSame((int) $student->id, (int) $recorded[0]->sourceuserid);
+        $this->assertSame((int) $teacher->id, (int) $recorded[1]->sourceuserid);
     }
 
     public function test_closing_session_does_not_purge_the_recording(): void {

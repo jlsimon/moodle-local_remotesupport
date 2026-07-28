@@ -31,6 +31,7 @@ $string['remotesupport:requestassistance'] = 'Request remote assistance';
 $string['remotesupport:provideassistance'] = 'Provide remote assistance';
 $string['remotesupport:viewactivesessions'] = 'View pending and active remote assistance sessions';
 $string['remotesupport:viewsessionhistory'] = 'View past remote assistance sessions';
+$string['remotesupport:replaysession'] = 'Replay the recording of a past remote assistance session';
 $string['remotesupport:managesessions'] = 'Manage any remote assistance session';
 
 // Pages: student.
@@ -77,11 +78,21 @@ $string['link_sessionhistory'] = 'Session history';
 $string['pagetitle_history'] = 'Assistance session history';
 $string['col_date'] = 'Date';
 $string['col_duration'] = 'Duration';
+$string['col_sessionnumber'] = '#';
 $string['col_studentfirstname'] = 'Student first name';
 $string['col_studentlastname'] = 'Student last name';
 $string['durationshort_hours'] = '{$a}h';
 $string['durationshort_minutes'] = '{$a}m';
 $string['durationshort_seconds'] = '{$a}s';
+
+// Pages: teacher session replay.
+$string['pagetitle_replay'] = 'Session replay';
+$string['heading_replay'] = 'Replaying assistance session with {$a}';
+$string['link_backtohistory'] = 'Back to session history';
+$string['button_play'] = 'Play';
+$string['button_pause'] = 'Pause';
+$string['replay_chat_heading'] = 'Chat transcript';
+$string['info_noreplaytrack'] = 'No recording is available for this session.';
 
 // Pages: teacher settings.
 $string['pagetitle_settings'] = 'My assistance settings';
@@ -166,7 +177,8 @@ $string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'The user (
 $string['privacy:metadata:local_remotesupport_event:eventtype'] = 'The kind of event (page snapshot, scroll position, resync request, or chat message).';
 $string['privacy:metadata:local_remotesupport_event:payload'] = 'The captured page snapshot (relative URL, title, sanitized main content, viewport/scroll position), or the plain-text content of a chat message. Never includes values read from the student\'s own form fields.';
 $string['privacy:metadata:local_remotesupport_event:timecreated'] = 'The time the event was generated.';
-$string['privacy:metadata:local_remotesupport_track'] = 'A permanent recording of the student\'s screen activity (page snapshots and scroll positions) during a session, kept for the configured retention period so the session can be played back later. Deleted immediately if either the student or the teacher exercises their right to erasure, regardless of the retention period.';
-$string['privacy:metadata:local_remotesupport_track:eventtype'] = 'The kind of recorded event (page snapshot or scroll position).';
-$string['privacy:metadata:local_remotesupport_track:payload'] = 'The captured page snapshot (relative URL, title, sanitized main content, viewport/scroll position). Never includes values read from the student\'s own form fields.';
+$string['privacy:metadata:local_remotesupport_track'] = 'A permanent recording of a session\'s screen activity (page snapshots and scroll positions) and chat conversation, kept for the configured retention period so the session can be played back later. Deleted immediately if either the student or the teacher exercises their right to erasure, regardless of the retention period.';
+$string['privacy:metadata:local_remotesupport_track:sourceuserid'] = 'The user (the student for a page snapshot or scroll position, either participant for a chat message) whose browser generated the recorded event. Null for events recorded before this was tracked.';
+$string['privacy:metadata:local_remotesupport_track:eventtype'] = 'The kind of recorded event (page snapshot, scroll position, or chat message).';
+$string['privacy:metadata:local_remotesupport_track:payload'] = 'The captured page snapshot (relative URL, title, sanitized main content, viewport/scroll position), or the plain-text content of a chat message. Never includes values read from the student\'s own form fields.';
 $string['privacy:metadata:local_remotesupport_track:timecreated'] = 'The time the recorded event was generated.';

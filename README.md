@@ -91,9 +91,21 @@ ordenable y paginado (fecha, curso, nombre y apellidos del alumno,
 duración) de las sesiones cerradas de un profesor, usando el
 `\table_sql` estándar de Moodle, con un selector de elementos por página
 (10/20/50/100, recordado como preferencia de usuario) igual al que usa
-el propio núcleo de Moodle. Muestra solo metadatos de la sesión, no
-reproduce todavía el contenido grabado en `local_remotesupport_track` —
-eso sigue siendo un paso posterior.
+el propio núcleo de Moodle. Incluye una columna "#" (el id de la
+sesión) que enlaza a su reproducción.
+
+**Ampliación posterior — reproducción de sesiones grabadas.** Pulsando
+la columna "#" del historial, el profesor puede reproducir una sesión
+cerrada (`sessionreplay.php`): ve todas las pantallas capturadas del
+alumno junto con la conversación de chat, sincronizadas en el tiempo,
+con controles de reproducir/pausar, velocidad (1x/2x/4x/8x) y una barra
+de progreso para saltar a cualquier punto. Requiere la capacidad
+`local/remotesupport:replaysession`, aparte de `viewsessionhistory` —
+ver un momento antes solo permite ver que la sesión existió; reproducirla
+expone su contenido completo. El chat solo se grabó de forma permanente
+a partir de esta ampliación: las sesiones cerradas antes no tienen
+conversación que reproducir, solo pantalla. Ver `docs/decisions.md` para
+el razonamiento completo.
 
 ## Requisitos
 
@@ -105,15 +117,18 @@ eso sigue siendo un paso posterior.
 1. Copiar (o enlazar) este directorio en `local/remotesupport` dentro del
    `dirroot` de Moodle.
 2. Visitar `admin/index.php` como administrador para completar la
-   instalación (crea las tablas `local_remotesupport_session` y
-   `local_remotesupport_event`, las capacidades, los diez servicios
-   AJAX, las tareas programadas y la caché de límite de frecuencia).
+   instalación (crea las tablas `local_remotesupport_session`,
+   `local_remotesupport_event` y `local_remotesupport_track`, las
+   capacidades, los once servicios AJAX, las tareas programadas y la
+   caché de límite de frecuencia).
 3. Asignar las capacidades si el instalador no las deja como se espera:
    - `local/remotesupport:requestassistance` — alumnado (por defecto, vía
      el arquetipo `student`).
-   - `local/remotesupport:provideassistance` y
-     `local/remotesupport:viewactivesessions` — profesorado (por defecto,
-     vía `teacher`/`editingteacher`).
+   - `local/remotesupport:provideassistance`,
+     `local/remotesupport:viewactivesessions`,
+     `local/remotesupport:viewsessionhistory` y
+     `local/remotesupport:replaysession` — profesorado (por defecto, vía
+     `teacher`/`editingteacher`).
    - `local/remotesupport:managesessions` — administración (por defecto,
      vía `manager`).
 4. Opcional: ajustar en **Administración del sitio → Extensiones locales →

@@ -123,5 +123,27 @@ function xmldb_local_remotesupport_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026072900, 'local', 'remotesupport');
     }
 
+    if ($oldversion < 2026072906) {
+        // Chat messages now join page/scroll in the permanent recording (see
+        // track_manager::TRACKED_EVENT_TYPES), so playback can show the
+        // conversation synchronized with the screen. Recording who sent a
+        // page/scroll event was never needed (only the student ever sends
+        // those), but chat is bidirectional, so the recording needs its own
+        // sourceuserid — existing rows predate this and are left null.
+        $table = new xmldb_table('local_remotesupport_track');
+        $field = new xmldb_field('sourceuserid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'sessionid');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $key = new xmldb_key('sourceuserfk', XMLDB_KEY_FOREIGN, ['sourceuserid'], 'user', ['id']);
+        if (!$dbman->find_key_name($table, $key)) {
+            $dbman->add_key($table, $key);
+        }
+
+        upgrade_plugin_savepoint(true, 2026072906, 'local', 'remotesupport');
+    }
+
     return true;
 }

@@ -22,6 +22,7 @@ use local_remotesupport\external\cancel_request;
 use local_remotesupport\external\enter_session;
 use local_remotesupport\external\finish_session;
 use local_remotesupport\external\get_pending_count;
+use local_remotesupport\external\get_session_track;
 use local_remotesupport\external\get_student_status;
 use local_remotesupport\external\get_teacher_dashboard;
 use local_remotesupport\external\pull_events;
@@ -413,5 +414,61 @@ class external_api_test extends \advanced_testcase {
         $this->setUser($stranger);
         $this->expectException(\moodle_exception::class);
         get_pending_count::execute();
+    }
+
+    public function test_get_session_track_end_to_end(): void {
+        $this->resetAfterTest();
+        [$session, $student, $teacher] = $this->setup_active_session();
+
+        $this->setUser($student);
+        push_event::execute($session->id, 'page', json_encode(['url' => '/a', 'title' => 't', 'html' => '<p>hi</p>']));
+        push_event::execute($session->id, 'chat_message', json_encode(['message' => 'hola']));
+
+        $this->setUser($teacher);
+        push_event::execute($session->id, 'chat_message', json_encode(['message' => 'hola tambien']));
+        finish_session::execute($session->id);
+
+        $result = get_session_track::execute($session->id);
+        $this->assert_valid_return(get_session_track::class, $result);
+
+        $this->assertCount(3, $result);
+        $this->assertSame('page', $result[0]['eventtype']);
+        $this->assertSame('chat_message', $result[1]['eventtype']);
+        $this->assertSame((int) $student->id, $result[1]['sourceuserid']);
+        $this->assertSame((int) $teacher->id, $result[2]['sourceuserid']);
+    }
+
+    public function test_get_session_track_rejects_the_student(): void {
+        $this->resetAfterTest();
+        [$session, $student, $teacher] = $this->setup_active_session();
+        $this->setUser($teacher);
+        finish_session::execute($session->id);
+
+        $this->setUser($student);
+        $this->expectException(\moodle_exception::class);
+        get_session_track::execute($session->id);
+    }
+
+    public function test_get_session_track_rejects_unrelated_teacher(): void {
+        $this->resetAfterTest();
+        [$session, , $teacher] = $this->setup_active_session();
+        $othercourse = $this->getDataGenerator()->create_course();
+        $otherteacher = $this->getDataGenerator()->create_and_enrol($othercourse, 'editingteacher');
+
+        $this->setUser($teacher);
+        finish_session::execute($session->id);
+
+        $this->setUser($otherteacher);
+        $this->expectException(\moodle_exception::class);
+        get_session_track::execute($session->id);
+    }
+
+    public function test_get_session_track_rejects_session_not_yet_closed(): void {
+        $this->resetAfterTest();
+        [$session, , $teacher] = $this->setup_active_session();
+
+        $this->setUser($teacher);
+        $this->expectException(\moodle_exception::class);
+        get_session_track::execute($session->id);
     }
 }

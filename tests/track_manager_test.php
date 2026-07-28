@@ -32,7 +32,7 @@ class track_manager_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        track_manager::record(1, 'page', json_encode(['url' => '/a']));
+        track_manager::record(1, 0, 'page', json_encode(['url' => '/a']));
 
         $rows = $DB->get_records('local_remotesupport_track', ['sessionid' => 1]);
         $this->assertCount(1, $rows);
@@ -41,12 +41,27 @@ class track_manager_test extends \advanced_testcase {
         $this->assertSame('/a', json_decode($row->payload, true)['url']);
     }
 
+    public function test_get_track_for_session_returns_events_oldest_first(): void {
+        $this->resetAfterTest();
+
+        track_manager::record(111, 5, 'page', json_encode(['url' => '/a']));
+        track_manager::record(111, 5, 'scroll', json_encode(['x' => 1, 'y' => 2]));
+        track_manager::record(222, 5, 'page', json_encode(['url' => '/other']));
+
+        $track = track_manager::get_track_for_session(111);
+
+        $this->assertCount(2, $track);
+        $this->assertSame('page', $track[0]->eventtype);
+        $this->assertSame('scroll', $track[1]->eventtype);
+        $this->assertSame(5, (int) $track[0]->sourceuserid);
+    }
+
     public function test_record_is_isolated_between_sessions(): void {
         global $DB;
         $this->resetAfterTest();
 
-        track_manager::record(111, 'page', json_encode(['url' => '/a']));
-        track_manager::record(222, 'page', json_encode(['url' => '/b']));
+        track_manager::record(111, 0, 'page', json_encode(['url' => '/a']));
+        track_manager::record(222, 0, 'page', json_encode(['url' => '/b']));
 
         $this->assertCount(1, $DB->get_records('local_remotesupport_track', ['sessionid' => 111]));
         $this->assertCount(1, $DB->get_records('local_remotesupport_track', ['sessionid' => 222]));
@@ -56,8 +71,8 @@ class track_manager_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        track_manager::record(111, 'page', json_encode(['url' => '/a']));
-        track_manager::record(222, 'page', json_encode(['url' => '/b']));
+        track_manager::record(111, 0, 'page', json_encode(['url' => '/a']));
+        track_manager::record(222, 0, 'page', json_encode(['url' => '/b']));
 
         track_manager::purge_session_track(111);
 
@@ -69,12 +84,12 @@ class track_manager_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        track_manager::record(111, 'page', json_encode(['url' => '/old']));
+        track_manager::record(111, 0, 'page', json_encode(['url' => '/old']));
         $old = $DB->get_records('local_remotesupport_track', ['sessionid' => 111]);
         $oldid = array_key_first($old);
         $DB->set_field('local_remotesupport_track', 'timecreated', time() - (10 * DAYSECS), ['id' => $oldid]);
 
-        track_manager::record(111, 'page', json_encode(['url' => '/fresh']));
+        track_manager::record(111, 0, 'page', json_encode(['url' => '/fresh']));
 
         $purged = track_manager::purge_stale_track(5);
 
@@ -88,7 +103,7 @@ class track_manager_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        track_manager::record(111, 'page', json_encode(['url' => '/a']));
+        track_manager::record(111, 0, 'page', json_encode(['url' => '/a']));
         $rows = $DB->get_records('local_remotesupport_track', ['sessionid' => 111]);
         $DB->set_field('local_remotesupport_track', 'timecreated', 1, ['id' => array_key_first($rows)]);
 

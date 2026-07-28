@@ -77,6 +77,7 @@ class provider implements
         ], 'privacy:metadata:local_remotesupport_event');
 
         $collection->add_database_table('local_remotesupport_track', [
+            'sourceuserid' => 'privacy:metadata:local_remotesupport_track:sourceuserid',
             'eventtype' => 'privacy:metadata:local_remotesupport_track:eventtype',
             'payload' => 'privacy:metadata:local_remotesupport_track:payload',
             'timecreated' => 'privacy:metadata:local_remotesupport_track:timecreated',
@@ -170,14 +171,14 @@ class provider implements
                         ? \core_privacy\local\request\transform::datetime($session->timestarted) : null,
                     'timeended' => $session->timeended
                         ? \core_privacy\local\request\transform::datetime($session->timeended) : null,
-                    // The recording itself (captured page/scroll events) is not
-                    // dumped verbatim here — it can run to hundreds of large
+                    // The recording itself (captured page/scroll/chat events) is
+                    // not dumped verbatim here — it can run to hundreds of large
                     // HTML snapshots per session, impractical to include in an
                     // export archive. A count is enough to disclose that it
                     // exists and roughly how much of it there is; retrieving
-                    // the actual content is a job for the (not yet built)
-                    // playback feature, gated by the same capability checks
-                    // as everything else in this plugin.
+                    // the actual content is a job for the playback feature
+                    // (sessionreplay.php), gated by its own replaysession
+                    // capability check.
                     'recordedeventcount' => $DB->count_records('local_remotesupport_track', ['sessionid' => $session->id]),
                 ];
             }

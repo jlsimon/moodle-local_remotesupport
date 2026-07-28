@@ -17,6 +17,7 @@
 namespace local_remotesupport\local;
 
 use context;
+use context_course;
 use context_system;
 use moodle_exception;
 
@@ -113,6 +114,46 @@ class permission_manager {
      */
     public static function require_can_view_history(int $userid): void {
         if (!get_user_capability_course('local/remotesupport:viewsessionhistory', $userid, false) && !self::can_manage($userid)) {
+            throw new moodle_exception('errornopermission', 'local_remotesupport');
+        }
+    }
+
+    /**
+     * Whether the given user may replay a closed session's recording:
+     * either they were its assigned teacher and still hold the
+     * replaysession capability in its course, or they can manage sessions
+     * site-wide. Deliberately separate from require_can_view_history():
+     * seeing that a session existed (date/course/student name/duration) is
+     * far less sensitive than replaying its full captured screen content
+     * and chat transcript.
+     *
+     * @param \stdClass $session Row from local_remotesupport_session.
+     * @param int $userid
+     * @return bool
+     */
+    public static function can_replay_session(\stdClass $session, int $userid): bool {
+        if (self::can_manage($userid)) {
+            return true;
+        }
+        if ((int) $session->teacherid !== $userid) {
+            return false;
+        }
+        return has_capability('local/remotesupport:replaysession', context_course::instance($session->courseid), $userid);
+    }
+
+    /**
+     * Require that the current user may replay this session's recording.
+     * See can_replay_session() for the rule; the exception message
+     * deliberately does not distinguish "wrong teacher" from "capability
+     * missing", for the same reason as require_owner_or_manage().
+     *
+     * @param \stdClass $session Row from local_remotesupport_session.
+     * @param int $userid
+     * @throws moodle_exception
+     */
+    public static function require_can_replay_session(\stdClass $session, int $userid): void {
+        if (!self::can_replay_session($session, $userid)) {
+            audit_manager::access_denied(context_course::instance($session->courseid), 'notowner');
             throw new moodle_exception('errornopermission', 'local_remotesupport');
         }
     }

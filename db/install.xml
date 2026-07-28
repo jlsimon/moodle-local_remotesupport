@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/remotesupport/db" VERSION="20260728002" COMMENT="XMLDB file for local_remotesupport"
+<XMLDB PATH="local/remotesupport/db" VERSION="20260728003" COMMENT="XMLDB file for local_remotesupport"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
@@ -62,17 +62,20 @@
         <INDEX NAME="consumedtimeidx" UNIQUE="false" FIELDS="consumed, timecreated"/>
       </INDEXES>
     </TABLE>
-    <TABLE NAME="local_remotesupport_track" COMMENT="Permanent recording of a session's page/scroll events, kept for local_remotesupport/trackretentiondays for future playback; unrelated to the ephemeral local_remotesupport_event table">
+    <TABLE NAME="local_remotesupport_track" COMMENT="Permanent recording of a session's page/scroll/chat_message events, kept for local_remotesupport/trackretentiondays for future playback; unrelated to the ephemeral local_remotesupport_event table">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Also the strictly increasing playback order"/>
         <FIELD NAME="sessionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="eventtype" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="page, scroll"/>
+        <FIELD NAME="sourceuserid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+            COMMENT="The user whose browser generated the event; null for rows recorded before this column existed"/>
+        <FIELD NAME="eventtype" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="page, scroll, chat_message"/>
         <FIELD NAME="payload" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="sessionfk" TYPE="foreign" FIELDS="sessionid" REFTABLE="local_remotesupport_session" REFFIELDS="id"/>
+        <KEY NAME="sourceuserfk" TYPE="foreign" FIELDS="sourceuserid" REFTABLE="user" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
         <INDEX NAME="sessionidx" UNIQUE="false" FIELDS="sessionid, id"/>

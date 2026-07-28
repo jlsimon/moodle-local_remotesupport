@@ -98,7 +98,7 @@ class privacy_provider_test extends \core_privacy\tests\provider_testcase {
         $student = $generator->create_and_enrol($course, 'student');
 
         $session = session_manager::create_request($course->id, $student->id);
-        track_manager::record($session->id, 'page', json_encode(['url' => '/a']));
+        track_manager::record($session->id, $student->id, 'page', json_encode(['url' => '/a']));
         $coursecontext = \context_course::instance($course->id);
 
         $approved = new approved_contextlist($student, 'local_remotesupport', [$coursecontext->id]);

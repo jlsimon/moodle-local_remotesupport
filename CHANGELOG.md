@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.15.0 (nueva funcionalidad: reproducción de sesiones grabadas) — 2026-07-29
+
+- **Pedido por el usuario**: que el profesor pueda "reproducir" sesiones
+  de soporte pasadas desde el historial (`sessionhistory.php`), pulsando
+  una columna "#" nueva, viendo "todas las pantallas mandadas por el
+  alumno, junto con el chat, sincronizado".
+- **Revisión consciente de una decisión anterior**: el chat solo
+  persistía mientras la sesión estaba activa, no de forma permanente.
+  Confirmado con el usuario, ahora `chat_message` se graba también en
+  `local_remotesupport_track` (junto a `page`/`scroll`), con las mismas
+  políticas de retención/borrado ya acordadas. Sesiones cerradas antes de
+  este cambio no tienen chat que reproducir, solo pantalla.
+- Columna nueva `sourceuserid` en `local_remotesupport_track` (opcional,
+  vía `db/upgrade.php`), necesaria para saber quién envió cada mensaje de
+  chat al reproducirlo; filas anteriores quedan con el valor `null`.
+- **Capacidad nueva `local/remotesupport:replaysession`**, separada de
+  `viewsessionhistory`: reproducir el contenido completo grabado es más
+  sensible que ver solo los metadatos del listado.
+- Nueva página `sessionreplay.php` (con su plantilla
+  `session_replay.mustache`) y endpoint AJAX
+  `local_remotesupport_get_session_track`, que descarga de una sola vez
+  todo lo grabado de una sesión cerrada (no es un sondeo progresivo,
+  como sí lo es la vista en vivo).
+- Nuevo módulo AMD `session_replay.js`: reproduce la pantalla y el chat
+  con controles de reproducir/pausar, velocidad (1x/2x/4x/8x) y una
+  barra de progreso que permite saltar a cualquier punto sin tener que
+  reproducir desde el principio.
+- La reconstrucción de pantalla (iframe sandbox, simulación de scroll por
+  CSS, `srcdoc`) se extrajo de `event_player.js` a un módulo compartido
+  nuevo, `screen_renderer.js`, usado ahora tanto por la vista en vivo
+  como por la reproducción.
+- Columna "#" en `session_history_table.php`: el id real de la sesión
+  (no un número de fila), como enlace a su reproducción cuando el
+  profesor puede reproducirla.
+- 14 pruebas PHPUnit nuevas/actualizadas (`permission_manager_test.php`,
+  `track_manager_test.php`, `polling_transport_test.php`,
+  `external_api_test.php`), 157 en total, todas en verde. Verificado
+  además con una comprobación de humo por HTTP autenticado contra datos
+  reales del sitio de pruebas (sesión con 76 eventos grabados antes de
+  esta funcionalidad, reproducida sin errores).
+- Documentación actualizada: `docs/architecture.md`, `docs/decisions.md`,
+  `docs/security.md`, `docs/limitations.md`, `docs/testing.md`,
+  `README.md`.
+
 ## 0.14.4 (fix: el título del historial aparecía duplicado) — 2026-07-29
 
 - **Corregido, reportado por el usuario**: "Historial de sesiones de

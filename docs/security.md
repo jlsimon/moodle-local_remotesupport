@@ -5,12 +5,13 @@ profesor no puede señalar, hacer clic ni escribir en la página del
 alumno. Ver `docs/decisions.md` para el porqué de esta decisión y qué
 código/superficie de amenaza se retiró junto con ella.
 
-**Nota (2026-07-29): la sesión se graba de forma permanente para
-reproducción futura**, una excepción deliberada a la política general de
-este plugin de no conservar contenido indefinidamente — ver "Grabación
+**Nota (2026-07-29): la sesión se graba de forma permanente y puede
+reproducirse**, una excepción deliberada a la política general de este
+plugin de no conservar contenido indefinidamente — ver "Grabación
 permanente de la sesión" más abajo y `docs/decisions.md` para el
 razonamiento completo, incluida la colisión consciente con dos
-requisitos del documento base.
+requisitos del documento base y la capacidad `:replaysession` que
+protege quién puede ver el contenido reproducido.
 
 ## Modelo de amenazas
 
@@ -127,17 +128,28 @@ Añadido tras completar el MVP, con el modo de captura `fullpage`:
 (profesor, contexto curso), `:viewsessionhistory` (profesor, contexto
 curso, `RISK_PERSONAL` — tras el MVP, ver más abajo por qué es una
 capacidad aparte y no una reutilización de `:viewactivesessions`),
-`:managesessions` (manager, contexto sistema). Todas las comprobaciones
-pasan por `permission_manager`; ninguna otra clase llama a
-`require_capability()`/`has_capability()` directamente sobre capacidades
-del plugin.
+`:replaysession` (profesor, contexto curso, `RISK_PERSONAL` — tras el
+MVP, ver más abajo), `:managesessions` (manager, contexto sistema).
+Todas las comprobaciones pasan por `permission_manager`; ninguna otra
+clase llama a `require_capability()`/`has_capability()` directamente
+sobre capacidades del plugin.
 
-**`:viewsessionhistory` es la única con `RISK_PERSONAL` entre las de
-solo lectura.** Ver actividad pasada de un alumno concreto, agregada a
-lo largo de meses (fechas, cursos, duraciones), es un perfil de
+**`:viewsessionhistory` y `:replaysession` son las únicas con
+`RISK_PERSONAL` entre las de solo lectura, y son capacidades distintas
+entre sí.** Ver actividad pasada de un alumno concreto, agregada a lo
+largo de meses (fechas, cursos, duraciones), es un perfil de
 comportamiento más revelador que ver una única sesión activa en curso —
-de ahí el riesgo marcado, a diferencia de `:viewactivesessions`, que
-nunca lo tuvo.
+de ahí el riesgo marcado en `:viewsessionhistory`, a diferencia de
+`:viewactivesessions`, que nunca lo tuvo. Reproducir el contenido
+completo grabado (pantallas reales y conversación) es más sensible
+todavía que ver solo los metadatos del listado, así que `:replaysession`
+es una capacidad aparte, no una reutilización de `:viewsessionhistory` —
+un sitio podría, por ejemplo, conceder ver el historial a más
+profesorado del que puede reproducir el contenido íntegro. Además de la
+capacidad, `permission_manager::can_replay_session()`/
+`require_can_replay_session()` exigen que el usuario sea concretamente
+el profesor asignado a esa sesión (o tenga `managesessions`) — tenerla
+en el curso no basta si la sesión es de otro profesor.
 
 Además de la capacidad, cada operación sobre una sesión concreta comprueba
 la propiedad: `session_manager` exige que quien cancela sea el
@@ -265,19 +277,27 @@ desciende dentro de un `iframe` ajeno), contraseñas, cookies, tokens.
 ## Grabación permanente de la sesión (añadido tras el MVP)
 
 `local_remotesupport_track` guarda de forma permanente (dentro de la
-ventana de retención) los mismos eventos `page`/`scroll` ya validados y
-saneados que se transportan en vivo — nada nuevo pasa por saneado aquí,
-`track_manager` reutiliza el payload ya limpio de `event_manager`. Esto
-significa que el contenido capturado (HTML principal saneado, nunca
-valores de campos de formulario, contraseñas, cookies ni tokens — ver
-"Captura" y "Saneamiento de HTML" arriba) queda retenido en base de
-datos durante semanas o meses, no minutos, invirtiendo deliberadamente
-la política de purga rápida que rige el resto del plugin.
+ventana de retención) los mismos eventos `page`/`scroll`/`chat_message`
+ya validados y saneados que se transportan en vivo — nada nuevo pasa por
+saneado aquí, `track_manager` reutiliza el payload ya limpio de
+`event_manager`. Esto significa que el contenido capturado (HTML
+principal saneado, nunca valores de campos de formulario, contraseñas,
+cookies ni tokens — ver "Captura" y "Saneamiento de HTML" arriba, más el
+texto de la conversación de chat desde que se añadió la reproducción)
+queda retenido en base de datos durante semanas o meses, no minutos,
+invirtiendo deliberadamente la política de purga rápida que rige el
+resto del plugin.
 
-- **Sin capacidad ni endpoint nuevos en esta fase.** Solo se graba (en
-  el mismo punto donde `polling_transport::push_event()` ya acepta el
-  evento para entrega en vivo); no hay ninguna forma de leer la
-  grabación todavía — eso es un paso posterior, sin construir.
+- **Endpoint de lectura gateado por `:replaysession`, no por
+  `:viewsessionhistory`.** `get_session_track` (AJAX) y
+  `sessionreplay.php` exigen la capacidad y la propiedad de la sesión —
+  ver "Capacidades" arriba. Solo devuelven algo si, además, la sesión
+  está `closed` (una sesión activa o pendiente se rechaza: la vista en
+  vivo, con su propia autorización, es el camino para eso).
+- **El chat se grabó permanentemente a partir de la reproducción**, revisando
+  la decisión original de esta sección (grabar solo `page`/`scroll`).
+  Sesiones cerradas antes de ese cambio no tienen chat grabado — no es
+  que se oculte, es que nunca se guardó. Ver `docs/decisions.md`.
 - **Retención administrable, no indefinida**: `local_remotesupport/
   trackretentiondays` (15/30/90/180/365 días), aplicada por la tarea
   `purge_track`.

@@ -59,8 +59,27 @@ define(['core/ajax'], function(Ajax) {
         }])[0];
     };
 
+    /**
+     * Fetch a closed session's whole recorded track (screen and chat), for
+     * playback. Unlike pullEvents, this is not a cursor-based poll: the
+     * recording of a closed session never grows, so this returns everything
+     * in one call.
+     *
+     * @param {Number} sessionid
+     * @return {Promise}
+     */
+    var getSessionTrack = function(sessionid) {
+        return Ajax.call([{
+            methodname: 'local_remotesupport_get_session_track',
+            args: {
+                sessionid: sessionid
+            }
+        }])[0];
+    };
+
     return {
         pushEvent: pushEvent,
-        pullEvents: pullEvents
+        pullEvents: pullEvents,
+        getSessionTrack: getSessionTrack
     };
 });

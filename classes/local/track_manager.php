@@ -27,11 +27,14 @@ defined('MOODLE_INTERNAL') || die();
  * exception to that ephemeral-by-default policy, made consciously alongside
  * the retention window and erasure behaviour below (see docs/decisions.md).
  *
- * Only 'page' and 'scroll' are recorded — not 'chat_message' or
- * 'resync_request' — matching the scope the user asked for ("grabación
- * completa de pantalla"); the chat transcript's own persistence is a
- * separate, already-decided design (session-lifetime only, see
- * docs/decisions.md's chat entry).
+ * 'page', 'scroll' and 'chat_message' are recorded — not 'resync_request',
+ * which carries no content of its own. Chat messages were originally
+ * excluded (matching the scope first asked for, "grabación completa de
+ * pantalla") but were added so that session playback can show the
+ * conversation synchronized with the screen; see docs/decisions.md's
+ * playback entry for why that revised the earlier chat-persistence
+ * decision. Sessions closed before that change have no chat to replay,
+ * only screen activity.
  *
  * Callers are responsible for authorization and for only ever passing
  * already-validated, already-sanitized payloads (this class does not
@@ -45,7 +48,7 @@ defined('MOODLE_INTERNAL') || die();
 class track_manager {
 
     /** @var string[] Event types recorded permanently for later playback. */
-    const TRACKED_EVENT_TYPES = ['page', 'scroll'];
+    const TRACKED_EVENT_TYPES = ['page', 'scroll', 'chat_message'];
 
     /**
      * Append one recorded event. Assumes $encodedpayload is already the
@@ -53,18 +56,35 @@ class track_manager {
      * produced for the live event — not re-validated here.
      *
      * @param int $sessionid
+     * @param int $sourceuserid The user whose browser generated the event — only
+     *                          meaningful for 'chat_message' (page/scroll are always
+     *                          the student's), but recorded uniformly for simplicity.
      * @param string $eventtype One of self::TRACKED_EVENT_TYPES.
      * @param string $encodedpayload Already JSON-encoded and sanitized.
      */
-    public static function record(int $sessionid, string $eventtype, string $encodedpayload): void {
+    public static function record(int $sessionid, int $sourceuserid, string $eventtype, string $encodedpayload): void {
         global $DB;
 
         $record = new \stdClass();
         $record->sessionid = $sessionid;
+        $record->sourceuserid = $sourceuserid;
         $record->eventtype = $eventtype;
         $record->payload = $encodedpayload;
         $record->timecreated = time();
         $DB->insert_record('local_remotesupport_track', $record);
+    }
+
+    /**
+     * Fetch a session's whole recording, oldest first, for playback. The
+     * id column doubles as the playback order (see install.xml), same
+     * pattern as event_manager's read cursor.
+     *
+     * @param int $sessionid
+     * @return \stdClass[] Each with 'payload' still JSON-encoded, as stored.
+     */
+    public static function get_track_for_session(int $sessionid): array {
+        global $DB;
+        return array_values($DB->get_records('local_remotesupport_track', ['sessionid' => $sessionid], 'id ASC'));
     }
 
     /**

@@ -105,4 +105,12 @@ $functions = [
         'ajax' => true,
         'loginrequired' => true,
     ],
+    'local_remotesupport_get_session_track' => [
+        'classname' => 'local_remotesupport\external\get_session_track',
+        'methodname' => 'execute',
+        'description' => 'Fetch the whole recorded track (screen and chat) of a closed session, for playback.',
+        'type' => 'read',
+        'ajax' => true,
+        'loginrequired' => true,
+    ],
 ];
