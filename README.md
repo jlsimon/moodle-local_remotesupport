@@ -85,6 +85,14 @@ Colisiona conscientemente con dos requisitos del documento base
 completo de las sesiones indefinidamente) — ver `docs/decisions.md`
 para el razonamiento completo y las políticas acordadas con el usuario.
 
+**Ampliación posterior — historial de sesiones del profesor.** Nueva
+página (`sessionhistory.php`, enlazada desde `view.php`) con un listado
+ordenable (fecha, curso, nombre y apellidos del alumno, duración) de las
+sesiones cerradas de un profesor, usando el `\table_sql` estándar de
+Moodle. Muestra solo metadatos de la sesión, no reproduce todavía el
+contenido grabado en `local_remotesupport_track` — eso sigue siendo un
+paso posterior.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.

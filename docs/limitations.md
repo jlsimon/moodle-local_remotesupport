@@ -286,3 +286,30 @@ decisión y qué código se retiró.
   grabación considerable.
 - **No probado en un navegador real** (mismo motivo que el resto de este
   documento).
+
+## Nuevas tras completar el MVP — historial de sesiones del profesor
+
+- **Solo metadatos de la sesión, no la grabación de pantalla.** El
+  listado muestra fecha, curso, nombre/apellidos del alumno y duración —
+  no reproduce el contenido de `local_remotesupport_track`. Reproducir
+  la grabación en sí sigue siendo un paso posterior sin construir.
+- **Solo profesor, sin vista equivalente para el alumno todavía.** El
+  usuario pidió explícitamente el listado del profesor en este cambio;
+  un listado para que el alumno vea sus propias sesiones pasadas sería
+  una ampliación aparte, con su propia capacidad y página.
+- **Sin filtro por curso/alumno/rango de fechas**, solo ordenación por
+  columna — `table_sql` soporta añadir filtros más adelante si hiciera
+  falta, pero no se ha pedido ni se ha construido en este cambio.
+- **Sin exportación** (CSV/Excel) — `table_sql` también lo soporta de
+  forma nativa si se necesitara más adelante.
+- **Sin pruebas a nivel de renderizado de `table_sql`** (cabeceras
+  ordenables, HTML de paginación): las columnas/orden se verificaron
+  ejecutando directamente el SQL subyacente en PHPUnit y con una
+  comprobación manual de humo contra la base de datos real (ver
+  `docs/testing.md`), no con una prueba automatizada del HTML que
+  `table_sql` genera — mismo tipo de hueco que las pruebas de
+  renderizado JS en el resto del plugin.
+- **No probado en un navegador real** (mismo motivo que el resto de este
+  documento) — en particular, los enlaces de ordenación por columna
+  (que dependen de que el navegador siga un `<a href>` con parámetros
+  GET) no se han probado interactivamente.

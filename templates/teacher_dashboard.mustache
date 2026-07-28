@@ -23,12 +23,18 @@
     * haspending, pending[] {studentname, coursename, waitingsince, reason, accepturl}
     * hasopen, open[] {studentname, coursename, status, enterurl, finishurl}
     * hassettings, settingsurl
+    * hashistory, historyurl
 }}
 {{#hassettings}}
 <p class="text-right">
     <a href="{{{settingsurl}}}">{{#str}}link_mysettings, local_remotesupport{{/str}}</a>
 </p>
 {{/hassettings}}
+{{#hashistory}}
+<p class="text-right">
+    <a href="{{{historyurl}}}">{{#str}}link_sessionhistory, local_remotesupport{{/str}}</a>
+</p>
+{{/hashistory}}
 <h3>{{#str}}heading_pending, local_remotesupport{{/str}}</h3>
 {{#haspending}}
 <table class="generaltable local-remotesupport-pending">

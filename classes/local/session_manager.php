@@ -201,6 +201,32 @@ class session_manager {
     }
 
     /**
+     * SQL fragments (not a result set) for this teacher's closed session
+     * history, joined with course and student names. Returns fragments
+     * rather than rows because the one caller (session_history_table,
+     * a \table_sql) needs to add its own sort/pagination at the SQL level —
+     * this keeps session_manager as the only place that knows this table's
+     * columns/joins, even though the actual query only runs later.
+     *
+     * @param int $teacherid
+     * @return array{fields: string, from: string, where: string, params: array}
+     */
+    public static function get_closed_sessions_sql_for_teacher(int $teacherid): array {
+        return [
+            'fields' => 's.id, s.courseid, s.timestarted, s.timeended,
+                         c.fullname AS coursefullname,
+                         u.firstname AS studentfirstname,
+                         u.lastname AS studentlastname,
+                         (s.timeended - s.timestarted) AS duration',
+            'from' => '{local_remotesupport_session} s
+                       JOIN {course} c ON c.id = s.courseid
+                       JOIN {user} u ON u.id = s.studentid',
+            'where' => 's.teacherid = :teacherid AND s.status = :status',
+            'params' => ['teacherid' => $teacherid, 'status' => self::STATUS_CLOSED],
+        ];
+    }
+
+    /**
      * Fetch a session by id.
      *
      * @param int $sessionid

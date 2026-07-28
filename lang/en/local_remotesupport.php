@@ -30,6 +30,7 @@ $string['pluginname'] = 'Remote assistance';
 $string['remotesupport:requestassistance'] = 'Request remote assistance';
 $string['remotesupport:provideassistance'] = 'Provide remote assistance';
 $string['remotesupport:viewactivesessions'] = 'View pending and active remote assistance sessions';
+$string['remotesupport:viewsessionhistory'] = 'View past remote assistance sessions';
 $string['remotesupport:managesessions'] = 'Manage any remote assistance session';
 
 // Pages: student.
@@ -70,6 +71,14 @@ $string['sessionstatus_accepted'] = 'Accepted, not yet entered';
 $string['sessionstatus_active'] = 'Active';
 $string['link_mysettings'] = 'My settings';
 $string['link_backtorequests'] = 'Back to requests';
+$string['link_sessionhistory'] = 'Session history';
+
+// Pages: teacher session history.
+$string['pagetitle_history'] = 'Assistance session history';
+$string['col_date'] = 'Date';
+$string['col_duration'] = 'Duration';
+$string['col_studentfirstname'] = 'Student first name';
+$string['col_studentlastname'] = 'Student last name';
 
 // Pages: teacher settings.
 $string['pagetitle_settings'] = 'My assistance settings';

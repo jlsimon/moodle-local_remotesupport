@@ -53,6 +53,16 @@ $capabilities = [
         ],
     ],
 
+    'local/remotesupport:viewsessionhistory' => [
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_COURSE,
+        'riskbitmask' => RISK_PERSONAL,
+        'archetypes' => [
+            'teacher' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+        ],
+    ],
+
     'local/remotesupport:managesessions' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,

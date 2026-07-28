@@ -85,6 +85,8 @@ class get_teacher_dashboard extends external_api {
             ])),
             'hassettings' => new external_value(PARAM_BOOL, 'Whether to show the link to teachersettings.php'),
             'settingsurl' => new external_value(PARAM_URL, 'Url of teachersettings.php'),
+            'hashistory' => new external_value(PARAM_BOOL, 'Whether to show the link to sessionhistory.php'),
+            'historyurl' => new external_value(PARAM_URL, 'Url of sessionhistory.php'),
         ]);
     }
 }

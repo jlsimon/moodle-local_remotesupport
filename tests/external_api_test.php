@@ -377,6 +377,11 @@ class external_api_test extends \advanced_testcase {
         $this->assertTrue($result['hasopen']);
         $this->assertStringContainsString('action=enter', $result['open'][0]['enterurl']);
         $this->assertStringContainsString('action=finish', $result['open'][0]['finishurl']);
+
+        // The teacher in this test has viewsessionhistory (default archetype
+        // grant), so the link to sessionhistory.php should be offered too.
+        $this->assertTrue($result['hashistory']);
+        $this->assertStringContainsString('sessionhistory.php', $result['historyurl']);
     }
 
     public function test_get_teacher_dashboard_rejects_user_without_capability_end_to_end(): void {

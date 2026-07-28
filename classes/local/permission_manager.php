@@ -104,6 +104,20 @@ class permission_manager {
     }
 
     /**
+     * Require that a user can view session history (sessionhistory.php):
+     * either they hold viewsessionhistory in at least one course, or they
+     * can manage sessions site-wide.
+     *
+     * @param int $userid
+     * @throws moodle_exception
+     */
+    public static function require_can_view_history(int $userid): void {
+        if (!get_user_capability_course('local/remotesupport:viewsessionhistory', $userid, false) && !self::can_manage($userid)) {
+            throw new moodle_exception('errornopermission', 'local_remotesupport');
+        }
+    }
+
+    /**
      * Require that the current user owns the session (as student or teacher)
      * or holds the managesessions capability.
      *

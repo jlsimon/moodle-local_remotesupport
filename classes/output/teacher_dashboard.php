@@ -101,6 +101,8 @@ class teacher_dashboard {
             'open' => $open,
             'hassettings' => (bool) get_user_capability_course('local/remotesupport:provideassistance', $teacherid, false),
             'settingsurl' => (new moodle_url('/local/remotesupport/teachersettings.php'))->out(false),
+            'hashistory' => (bool) get_user_capability_course('local/remotesupport:viewsessionhistory', $teacherid, false),
+            'historyurl' => (new moodle_url('/local/remotesupport/sessionhistory.php'))->out(false),
         ];
     }
 }

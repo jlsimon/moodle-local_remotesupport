@@ -354,4 +354,72 @@ class session_manager_test extends \advanced_testcase {
         $this->assertCount(1, session_manager::get_pending_requests_for_teacher($teacher->id));
         $this->assertCount(0, session_manager::get_pending_requests_for_teacher($otherteacher->id));
     }
+
+    /**
+     * Runs a session through to 'closed', with a known 5-minute duration.
+     *
+     * @return array [session, course, student, teacher]
+     */
+    private function create_closed_session_with_duration(int $durationseconds): array {
+        global $DB;
+        [$course, $student, $teacher] = $this->setup_course_with_users();
+        $session = session_manager::create_request($course->id, $student->id);
+        session_manager::accept_request($session->id, $teacher->id);
+        $token = session_manager::issue_entry_token($session->id, $teacher->id);
+        $session = session_manager::enter_session($session->id, $teacher->id, $token);
+
+        // Backdate timestarted so timeended - timestarted is a known value;
+        // close_session() always sets timeended to the real current time.
+        $DB->set_field('local_remotesupport_session', 'timestarted', time() - $durationseconds, ['id' => $session->id]);
+
+        session_manager::close_session($session->id, $teacher->id);
+
+        return [$session, $course, $student, $teacher];
+    }
+
+    public function test_closed_sessions_sql_scopes_to_teacher_and_closed_status(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [, , , $teacher] = $this->create_closed_session_with_duration(300);
+
+        // A pending request for the same teacher must not show up: only
+        // 'closed' sessions belong in the history.
+        [$othercourse, $otherstudent] = $this->setup_course_with_users();
+        session_manager::create_request($othercourse->id, $otherstudent->id);
+
+        $sql = session_manager::get_closed_sessions_sql_for_teacher($teacher->id);
+        $rows = $DB->get_records_sql("SELECT {$sql['fields']} FROM {$sql['from']} WHERE {$sql['where']}", $sql['params']);
+
+        $this->assertCount(1, $rows);
+    }
+
+    public function test_closed_sessions_sql_computes_duration_and_names(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [, $course, $student, $teacher] = $this->create_closed_session_with_duration(300);
+
+        $sql = session_manager::get_closed_sessions_sql_for_teacher($teacher->id);
+        $rows = array_values($DB->get_records_sql("SELECT {$sql['fields']} FROM {$sql['from']} WHERE {$sql['where']}", $sql['params']));
+
+        $this->assertCount(1, $rows);
+        $this->assertSame($course->fullname, $rows[0]->coursefullname);
+        $this->assertSame($student->firstname, $rows[0]->studentfirstname);
+        $this->assertSame($student->lastname, $rows[0]->studentlastname);
+        // Allow a couple of seconds of slack: close_session() sets timeended
+        // to the real current time, not a fixed value.
+        $this->assertGreaterThanOrEqual(299, $rows[0]->duration);
+        $this->assertLessThanOrEqual(305, $rows[0]->duration);
+    }
+
+    public function test_closed_sessions_sql_excludes_other_teachers(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [, , , $teacher] = $this->create_closed_session_with_duration(60);
+        $otherteacher = $this->getDataGenerator()->create_user();
+
+        $sql = session_manager::get_closed_sessions_sql_for_teacher($otherteacher->id);
+        $rows = $DB->get_records_sql("SELECT {$sql['fields']} FROM {$sql['from']} WHERE {$sql['where']}", $sql['params']);
+
+        $this->assertCount(0, $rows);
+    }
 }

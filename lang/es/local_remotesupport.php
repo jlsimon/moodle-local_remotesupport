@@ -30,6 +30,7 @@ $string['pluginname'] = 'Asistencia remota';
 $string['remotesupport:requestassistance'] = 'Solicitar asistencia remota';
 $string['remotesupport:provideassistance'] = 'Proporcionar asistencia remota';
 $string['remotesupport:viewactivesessions'] = 'Ver solicitudes y sesiones de asistencia remota';
+$string['remotesupport:viewsessionhistory'] = 'Ver sesiones de asistencia remota pasadas';
 $string['remotesupport:managesessions'] = 'Gestionar cualquier sesión de asistencia remota';
 
 // Páginas: alumno.
@@ -70,6 +71,14 @@ $string['sessionstatus_accepted'] = 'Aceptada, aún sin entrar';
 $string['sessionstatus_active'] = 'Activa';
 $string['link_mysettings'] = 'Mi configuración';
 $string['link_backtorequests'] = 'Volver a las solicitudes';
+$string['link_sessionhistory'] = 'Historial de sesiones';
+
+// Páginas: historial de sesiones del profesor.
+$string['pagetitle_history'] = 'Historial de sesiones de asistencia';
+$string['col_date'] = 'Fecha';
+$string['col_duration'] = 'Duración';
+$string['col_studentfirstname'] = 'Nombre del alumno';
+$string['col_studentlastname'] = 'Apellidos del alumno';
 
 // Páginas: ajustes del profesor.
 $string['pagetitle_settings'] = 'Mis ajustes de asistencia';

@@ -124,10 +124,20 @@ Añadido tras completar el MVP, con el modo de captura `fullpage`:
 
 `local/remotesupport:requestassistance` (alumno, contexto curso),
 `:provideassistance` (profesor, contexto curso), `:viewactivesessions`
-(profesor, contexto curso), `:managesessions` (manager, contexto sistema).
-Todas las comprobaciones pasan por `permission_manager`; ninguna otra
-clase llama a `require_capability()`/`has_capability()` directamente sobre
-capacidades del plugin.
+(profesor, contexto curso), `:viewsessionhistory` (profesor, contexto
+curso, `RISK_PERSONAL` — tras el MVP, ver más abajo por qué es una
+capacidad aparte y no una reutilización de `:viewactivesessions`),
+`:managesessions` (manager, contexto sistema). Todas las comprobaciones
+pasan por `permission_manager`; ninguna otra clase llama a
+`require_capability()`/`has_capability()` directamente sobre capacidades
+del plugin.
+
+**`:viewsessionhistory` es la única con `RISK_PERSONAL` entre las de
+solo lectura.** Ver actividad pasada de un alumno concreto, agregada a
+lo largo de meses (fechas, cursos, duraciones), es un perfil de
+comportamiento más revelador que ver una única sesión activa en curso —
+de ahí el riesgo marcado, a diferencia de `:viewactivesessions`, que
+nunca lo tuvo.
 
 Además de la capacidad, cada operación sobre una sesión concreta comprueba
 la propiedad: `session_manager` exige que quien cancela sea el

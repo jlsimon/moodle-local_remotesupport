@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.14.1 (fecha y duración en formato corto en el historial) — 2026-07-29
+
+- **Pedido por el usuario**: en una tabla de datos, la concisión importa
+  más que la legibilidad "en prosa" de los formatos por defecto.
+- Columna de fecha: `strftimedatetimeshort` en vez de `userdate()` por
+  defecto — mismo formato ya usado en "Esperando desde" de la tabla de
+  solicitudes pendientes de `view.php`, por consistencia.
+- Columna de duración: formato tipo cronómetro (`M:SS`, o `H:MM:SS` a
+  partir de una hora) en vez de la redacción verbosa de `format_time()`
+  ("1 hora 15 minutos" → "1:15:00").
+- Sin cambios de servidor más allá del formateo; sin pruebas nuevas
+  (solo presentación); verificado con una comprobación manual de humo
+  contra la base de datos real (sesión de 1h 15m 30s → "1:15:30").
+
+## 0.14.0 (listado de historial de sesiones para el profesor) — 2026-07-29
+
+- **Pedido por el usuario**: que el profesor pueda ver el listado de
+  sesiones de asistencia que ha tenido, como tabla ordenable por fecha,
+  curso, nombre del alumno, apellidos del alumno y duración de la
+  sesión. Sin colisión con el documento base — es la interfaz de
+  consulta que quedó pendiente al añadir la grabación permanente de
+  sesión.
+- Nueva página `sessionhistory.php`, enlazada desde `view.php` (y
+  reflejada en la respuesta AJAX de `get_teacher_dashboard`, que ahora
+  incluye también `hashistory`/`historyurl`). Lista solo sesiones
+  `closed` del profesor actual.
+- Primer uso de `\table_sql` (API estándar de Moodle) en este plugin,
+  en `classes/table/session_history_table.php`: ordenado y paginación
+  funcionan por parámetros GET en la propia URL, sin AJAX ni
+  JavaScript. Las cinco columnas pedidas son las cinco ordenables;
+  la duración se calcula en la propia consulta SQL
+  (`timeended - timestarted`) para que también se pueda ordenar por
+  ella como cualquier otra columna.
+- Nueva capacidad `local/remotesupport:viewsessionhistory` (lectura,
+  contexto de curso, `RISK_PERSONAL`, profesorado por defecto) — aparte
+  de `viewactivesessions`, no una reutilización: ver una única sesión
+  activa y ver actividad histórica agregada de un alumno son cosas
+  distintas en cuanto a privacidad.
+- `session_manager::get_closed_sessions_sql_for_teacher()` devuelve
+  fragmentos SQL (`fields`/`from`/`where`/`params` con el `JOIN` a
+  `{course}`/`{user}` ya resuelto), no un array de filas — necesario
+  para que `table_sql` pueda añadir su propio `ORDER BY`/`LIMIT` según
+  lo que pida el profesor, sin traer todas las filas a PHP primero.
+  `session_manager` sigue siendo el único sitio que conoce la forma de
+  la tabla `local_remotesupport_session`.
+- Solo muestra metadatos de la sesión (quién, cuándo, cuánto duró); no
+  reproduce el contenido grabado en `local_remotesupport_track` — eso
+  sigue siendo un paso posterior sin construir.
+- 8 tests PHPUnit nuevos (`tests/permission_manager_test.php` nuevo,
+  ampliaciones en `session_manager_test.php`/`external_api_test.php`):
+  aislamiento por profesor/estado, cálculo de nombres/duración,
+  rechazo/permiso de capacidad, y el esquema AJAX real de
+  `get_teacher_dashboard` con los campos nuevos. 146 tests en total
+  (271 assertions). Verificación manual de humo adicional contra la
+  base de datos real (sin navegador disponible): render de la tabla
+  con datos reales, sin errores.
+
 ## 0.13.0 (grabación permanente de la sesión para reproducción futura) — 2026-07-29
 
 - **Pedido por el usuario**: almacenar en el servidor un "track"
