@@ -107,6 +107,14 @@ a partir de esta ampliación: las sesiones cerradas antes no tienen
 conversación que reproducir, solo pantalla. Ver `docs/decisions.md` para
 el razonamiento completo.
 
+**Ampliación posterior — vista de solo chat en el historial.** Junto a
+la columna "#" de reproducción, `sessionhistory.php` tiene ahora una
+columna "Chat" con un enlace "Ver chat" por fila, que lleva a
+`sessionchat.php`: la transcripción completa de la conversación de una
+sesión, sola, sin cargar ni reproducir la pantalla — una alternativa
+más ligera cuando solo interesa repasar lo que se habló. Misma
+capacidad y autorización que la reproducción completa.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.

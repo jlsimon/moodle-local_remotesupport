@@ -369,3 +369,16 @@ decisión y qué código se retiró.
   documento) — en particular, la fluidez de la reproducción a velocidades
   altas (4x/8x) y el comportamiento de la barra de progreso al
   arrastrarla rápidamente no se han probado interactivamente.
+- **`sessionchat.php` (vista de solo chat, añadida después) siempre
+  muestra su enlace en el historial, aunque la sesión no tenga ningún
+  mensaje grabado** — en ese caso la propia página muestra un aviso de
+  "no hubo mensajes" en vez de una lista vacía. No hay una comprobación
+  previa por fila que oculte el enlace cuando no hay chat, por
+  simplicidad (ver `docs/decisions.md`); mismo criterio ya aplicado al
+  enlace "#" de reproducción.
+- **Sin pruebas a nivel de renderizado de `sessionchat.php`/su
+  plantilla** (mismo hueco que el resto de páginas de este plugin, ver
+  "historial de sesiones del profesor" más arriba): verificado con una
+  prueba PHPUnit de `track_manager::get_chat_for_session()` y una
+  comprobación de humo por HTTP autenticado contra el sitio real, no con
+  una prueba automatizada del HTML/Mustache en sí.

@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072906;
+$plugin->version = 2026072910;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.15.0 (nueva funcionalidad: reproducción de sesiones grabadas)';
+$plugin->release = '0.15.4 (el botón de reproducir de la reproducción es ahora un icono)';

@@ -79,6 +79,8 @@ $string['pagetitle_history'] = 'Assistance session history';
 $string['col_date'] = 'Date';
 $string['col_duration'] = 'Duration';
 $string['col_sessionnumber'] = '#';
+$string['col_chat'] = 'Chat';
+$string['link_viewchat'] = 'View chat';
 $string['col_studentfirstname'] = 'Student first name';
 $string['col_studentlastname'] = 'Student last name';
 $string['durationshort_hours'] = '{$a}h';
@@ -93,6 +95,12 @@ $string['button_play'] = 'Play';
 $string['button_pause'] = 'Pause';
 $string['replay_chat_heading'] = 'Chat transcript';
 $string['info_noreplaytrack'] = 'No recording is available for this session.';
+
+// Pages: session chat (chat-only view).
+$string['pagetitle_chat'] = 'Session chat transcript';
+$string['heading_chat'] = 'Chat transcript with {$a}';
+$string['info_nochatmessages'] = 'There were no chat messages in this session.';
+$string['link_toreplay'] = 'Go to full replay';
 
 // Pages: teacher settings.
 $string['pagetitle_settings'] = 'My assistance settings';

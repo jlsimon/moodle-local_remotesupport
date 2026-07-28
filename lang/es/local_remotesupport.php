@@ -79,6 +79,8 @@ $string['pagetitle_history'] = 'Historial de sesiones de asistencia';
 $string['col_date'] = 'Fecha';
 $string['col_duration'] = 'Duración';
 $string['col_sessionnumber'] = '#';
+$string['col_chat'] = 'Chat';
+$string['link_viewchat'] = 'Ver chat';
 $string['col_studentfirstname'] = 'Nombre del alumno';
 $string['col_studentlastname'] = 'Apellidos del alumno';
 $string['durationshort_hours'] = '{$a}h';
@@ -93,6 +95,12 @@ $string['button_play'] = 'Reproducir';
 $string['button_pause'] = 'Pausar';
 $string['replay_chat_heading'] = 'Transcripción del chat';
 $string['info_noreplaytrack'] = 'No hay ninguna grabación disponible para esta sesión.';
+
+// Páginas: chat de sesión (vista solo de chat).
+$string['pagetitle_chat'] = 'Transcripción del chat de la sesión';
+$string['heading_chat'] = 'Transcripción del chat con {$a}';
+$string['info_nochatmessages'] = 'No hubo mensajes de chat en esta sesión.';
+$string['link_toreplay'] = 'Ir a la reproducción completa';
 
 // Páginas: ajustes del profesor.
 $string['pagetitle_settings'] = 'Mis ajustes de asistencia';

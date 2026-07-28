@@ -289,11 +289,16 @@ invirtiendo deliberadamente la política de purga rápida que rige el
 resto del plugin.
 
 - **Endpoint de lectura gateado por `:replaysession`, no por
-  `:viewsessionhistory`.** `get_session_track` (AJAX) y
-  `sessionreplay.php` exigen la capacidad y la propiedad de la sesión —
-  ver "Capacidades" arriba. Solo devuelven algo si, además, la sesión
-  está `closed` (una sesión activa o pendiente se rechaza: la vista en
-  vivo, con su propia autorización, es el camino para eso).
+  `:viewsessionhistory`.** `get_session_track` (AJAX), `sessionreplay.php`
+  y `sessionchat.php` (añadida después, ver `docs/decisions.md`) exigen
+  la capacidad y la propiedad de la sesión — ver "Capacidades" arriba.
+  Solo devuelven algo si, además, la sesión está `closed` (una sesión
+  activa o pendiente se rechaza: la vista en vivo, con su propia
+  autorización, es el camino para eso). `sessionchat.php` no introduce
+  ninguna comprobación nueva: reutiliza exactamente
+  `permission_manager::require_can_replay_session()`, solo cambia qué
+  datos pide (`track_manager::get_chat_for_session()`, filtrado a
+  `chat_message`) y cómo los renderiza (PHP/Mustache, sin AMD ni AJAX).
 - **El chat se grabó permanentemente a partir de la reproducción**, revisando
   la decisión original de esta sección (grabar solo `page`/`scroll`).
   Sesiones cerradas antes de ese cambio no tienen chat grabado — no es

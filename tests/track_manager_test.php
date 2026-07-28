@@ -56,6 +56,24 @@ class track_manager_test extends \advanced_testcase {
         $this->assertSame(5, (int) $track[0]->sourceuserid);
     }
 
+    public function test_get_chat_for_session_returns_only_chat_messages_in_order(): void {
+        $this->resetAfterTest();
+
+        track_manager::record(111, 5, 'page', json_encode(['url' => '/a']));
+        track_manager::record(111, 5, 'chat_message', json_encode(['message' => 'hola']));
+        track_manager::record(111, 7, 'chat_message', json_encode(['message' => 'hola tambien']));
+        track_manager::record(111, 5, 'scroll', json_encode(['x' => 1, 'y' => 2]));
+        track_manager::record(222, 5, 'chat_message', json_encode(['message' => 'otra sesion']));
+
+        $chat = track_manager::get_chat_for_session(111);
+
+        $this->assertCount(2, $chat);
+        $this->assertSame('hola', json_decode($chat[0]->payload, true)['message']);
+        $this->assertSame(5, (int) $chat[0]->sourceuserid);
+        $this->assertSame('hola tambien', json_decode($chat[1]->payload, true)['message']);
+        $this->assertSame(7, (int) $chat[1]->sourceuserid);
+    }
+
     public function test_record_is_isolated_between_sessions(): void {
         global $DB;
         $this->resetAfterTest();

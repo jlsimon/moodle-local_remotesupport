@@ -88,6 +88,23 @@ class track_manager {
     }
 
     /**
+     * Fetch only the chat messages of a session's recording, oldest first —
+     * for a chat-only view (`sessionchat.php`) that skips downloading the
+     * (potentially large) page/scroll payloads a full replay would need.
+     *
+     * @param int $sessionid
+     * @return \stdClass[] Each with 'payload' still JSON-encoded, as stored.
+     */
+    public static function get_chat_for_session(int $sessionid): array {
+        global $DB;
+        return array_values($DB->get_records(
+            'local_remotesupport_track',
+            ['sessionid' => $sessionid, 'eventtype' => 'chat_message'],
+            'id ASC'
+        ));
+    }
+
+    /**
      * Delete every recorded event belonging to a session. Used only for
      * privacy erasure requests (see classes/privacy/provider.php) — NOT
      * called when a session merely closes normally, since the whole point

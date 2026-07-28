@@ -297,9 +297,24 @@
     white-space: nowrap;
 }
 
-.local-remotesupport-replay-speed {
+/* Bootstrap's .custom-select sets width: 100%, same specificity as a
+   plain class selector — an element+class selector here reliably wins
+   regardless of stylesheet load order, without needing !important. */
+select.local-remotesupport-replay-speed {
     width: auto;
     flex: 0 0 auto;
+}
+
+/* Full transcript on its own page (sessionchat.php): unlike the floating
+   widget or the replay side panel, this is the page's main content, so it
+   must not be boxed into a short scrollable area — the whole conversation
+   should flow with the page's own scroll, not need a second one nested
+   inside it. */
+.local-remotesupport-session-chat-full {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
 }
 
 .local-remotesupport-replay-chat {

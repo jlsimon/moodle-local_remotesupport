@@ -87,6 +87,10 @@ define(
         var playButton = document.createElement('button');
         playButton.type = 'button';
         playButton.className = 'btn btn-primary btn-sm';
+        var playIcon = document.createElement('i');
+        playIcon.className = 'icon fa fa-play fa-fw';
+        playIcon.setAttribute('aria-hidden', 'true');
+        playButton.appendChild(playIcon);
         controls.appendChild(playButton);
 
         var seek = document.createElement('input');
@@ -225,7 +229,8 @@ define(
 
         var stop = function() {
             playing = false;
-            playButton.textContent = playButtonLabels.play;
+            playIcon.className = 'icon fa fa-play fa-fw';
+            playButton.setAttribute('aria-label', playButtonLabels.play);
             if (tickHandle !== null) {
                 window.clearInterval(tickHandle);
                 tickHandle = null;
@@ -254,7 +259,8 @@ define(
                 setTime(0);
             }
             playing = true;
-            playButton.textContent = playButtonLabels.pause;
+            playIcon.className = 'icon fa fa-pause fa-fw';
+            playButton.setAttribute('aria-label', playButtonLabels.pause);
             tickHandle = window.setInterval(tick, TICK_MS);
         };
 
@@ -283,7 +289,7 @@ define(
         ]).then(function(strings) {
             playButtonLabels.play = strings[0];
             playButtonLabels.pause = strings[1];
-            playButton.textContent = playButtonLabels.play;
+            playButton.setAttribute('aria-label', playButtonLabels.play);
             chatHeading.textContent = strings[2];
 
             return Transport.getSessionTrack(sessionid).then(function(track) {

@@ -1,5 +1,79 @@
 # Changelog
 
+## 0.15.4 (el botón de reproducir de la reproducción es ahora un icono) — 2026-07-29
+
+- **Pedido por el usuario**: que el botón de reproducir/pausar de
+  `sessionreplay.php` sea un icono en vez de texto, como en cualquier
+  reproductor de vídeo.
+- Iconos `fa-play`/`fa-pause` de Font Awesome (ya disponibles en el
+  núcleo de Moodle, sin dependencias nuevas), alternando según el
+  estado de reproducción.
+- **Accesibilidad**: el icono lleva `aria-hidden="true"` (es puramente
+  decorativo) y el propio botón lleva un `aria-label` con el texto
+  "Reproducir"/"Pausar" localizado, actualizado en cada cambio de
+  estado — quien use un lector de pantalla sigue teniendo una etiqueta
+  clara, aunque visualmente ya no haya texto.
+- El resto de botones del plugin (pantalla completa, aceptar,
+  finalizar) se mantienen con texto, sin cambios — esta ampliación es
+  deliberadamente solo para el control más "de reproductor de vídeo" de
+  toda la interfaz.
+
+## 0.15.3 (fix: el selector de velocidad de la reproducción era demasiado ancho) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: en `sessionreplay.php`, el
+  desplegable de velocidad (1x/2x/4x/8x) ocupaba todo el ancho
+  disponible en vez de ajustarse al texto de sus opciones. Causa: la
+  clase `.custom-select` de Bootstrap fija `width: 100%`, con la misma
+  especificidad CSS (una sola clase) que la regla propia del plugin, así
+  que cuál ganaba dependía del orden de carga de las hojas de estilo.
+- Corregido con un selector más específico (`select.local-remotesupport-replay-speed`,
+  combinando etiqueta y clase), que gana siempre a `.custom-select`
+  independientemente del orden — sin recurrir a `!important`.
+- Solo CSS; sin cambios de servidor ni de JavaScript.
+
+## 0.15.2 (fix: la vista de solo chat solo mostraba el principio de la conversación) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: "no se ve el chat completo,
+  solo una parte del inicio" en `sessionchat.php`. Causa: la plantilla
+  reutilizaba la clase CSS pensada para el panel flotante/lateral del
+  chat (`max-height: 240px; overflow-y: auto`), que en esta página es el
+  contenido principal, sin ningún JavaScript que la desplazara hasta el
+  final — se veían solo los primeros mensajes, recortados dentro de una
+  caja pequeña.
+- Nueva clase `local-remotesupport-session-chat-full`, sin límite de
+  altura propio: la conversación completa fluye ahora con el scroll
+  normal de la página.
+- Sin cambios de servidor; verificado por HTTP autenticado contra una
+  sesión real de 7 mensajes, confirmando que los 7 aparecen ya sin
+  recortar.
+
+## 0.15.1 (nuevo: vista de solo chat en el historial de sesiones) — 2026-07-29
+
+- **Pedido por el usuario**: un enlace en el historial de sesiones para
+  ver "sólo el chat completo" de una sesión, sin entrar en la
+  reproducción completa con su reproductor de pantalla.
+- Nueva columna "Chat" en `session_history_table.php`, junto a la "#" de
+  reproducción, con un enlace "Ver chat" por fila bajo la misma
+  autorización (`replaysession`) que la reproducción completa.
+- Nueva página `sessionchat.php` (con su plantilla
+  `session_chat.mustache`): la transcripción completa de la conversación
+  de una sesión cerrada, renderizada enteramente en PHP/Mustache, sin
+  JavaScript ni endpoint AJAX nuevo — más ligera que la reproducción
+  completa al no tener que descargar ni reconstruir la pantalla.
+- Nuevo método `track_manager::get_chat_for_session()`, con su prueba
+  PHPUnit.
+- **Bug real corregido, encontrado en pruebas de humo (no por
+  PHPUnit)**: la columna "Chat" (un enlace calculado, no una columna
+  SQL real) aparecía marcada como ordenable; pulsar su cabecera habría
+  producido un error de base de datos. Corregido con
+  `$this->no_sorting('chatlink')`.
+- 158 pruebas PHPUnit en total, todas en verde. Verificado además con
+  una comprobación de humo por HTTP autenticado, incluida una sesión
+  real del sitio de pruebas con 7 mensajes de chat.
+- Documentación actualizada: `docs/decisions.md`, `docs/architecture.md`,
+  `docs/security.md`, `docs/limitations.md`, `docs/testing.md`,
+  `README.md`.
+
 ## 0.15.0 (nueva funcionalidad: reproducción de sesiones grabadas) — 2026-07-29
 
 - **Pedido por el usuario**: que el profesor pueda "reproducir" sesiones
