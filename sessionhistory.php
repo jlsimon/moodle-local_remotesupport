@@ -38,10 +38,29 @@ $PAGE->set_pagelayout('standard');
 
 permission_manager::require_can_view_history((int) $USER->id);
 
+// Standard Moodle idiom for a "rows per page" selector (same pattern as
+// tool_dataprivacy's request list and the grader report): remembered as a
+// user preference, only overridden when the GET param is actually present
+// this request (i.e. the select was just submitted).
+$perpageoptions = [10 => 10, 20 => 20, 50 => 50, 100 => 100];
+
+$perpage = optional_param('perpage', 0, PARAM_INT);
+if (array_key_exists($perpage, $perpageoptions)) {
+    set_user_preference(session_history_table::PREF_PERPAGE, $perpage);
+} else {
+    $perpage = (int) get_user_preferences(session_history_table::PREF_PERPAGE, 20);
+    if (!array_key_exists($perpage, $perpageoptions)) {
+        $perpage = 20;
+    }
+}
+
 $table = new session_history_table((int) $USER->id);
 $table->define_baseurl($PAGE->url);
 
+$perpageselect = new single_select($PAGE->url, 'perpage', $perpageoptions, $perpage, null);
+$perpageselect->label = get_string('perpage', 'moodle');
+
 echo $OUTPUT->header();
-echo $OUTPUT->heading(get_string('pagetitle_history', 'local_remotesupport'));
-$table->out(20, true);
+echo html_writer::div($OUTPUT->render($perpageselect), 'local-remotesupport-perpage');
+$table->out($perpage, true);
 echo $OUTPUT->footer();

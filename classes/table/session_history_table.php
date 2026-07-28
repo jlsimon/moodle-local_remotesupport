@@ -37,6 +37,9 @@ require_once($CFG->libdir . '/tablelib.php');
  */
 class session_history_table extends table_sql {
 
+    /** @var string User preference name for the "rows per page" choice on sessionhistory.php. */
+    const PREF_PERPAGE = 'local_remotesupport_sessionhistory-perpage';
+
     /**
      * @param int $teacherid
      */
@@ -112,9 +115,13 @@ class session_history_table extends table_sql {
     }
 
     /**
-     * Stopwatch-style short duration (M:SS, or H:MM:SS once past an hour),
-     * instead of format_time()'s verbose "X mins Y secs" — more concise for
-     * a data table where every row shows one.
+     * Short duration with labelled units ("1h 15m 30s", "5m 30s", "45s"),
+     * instead of format_time()'s verbose "X hours Y mins Z secs" — more
+     * concise for a data table where every row shows one, while still
+     * unambiguous about which number is which (a bare "1:15:30" reads fine
+     * once you know it's H:M:S, but nothing marks it as that on first
+     * glance). Moodle core has no standard short duration format to reuse
+     * here — unlike dates, only the verbose format_time() exists.
      *
      * @param int $seconds
      * @return string
@@ -124,9 +131,15 @@ class session_history_table extends table_sql {
         $minutes = intdiv($seconds % 3600, 60);
         $secs = $seconds % 60;
 
+        $parts = [];
         if ($hours > 0) {
-            return sprintf('%d:%02d:%02d', $hours, $minutes, $secs);
+            $parts[] = get_string('durationshort_hours', 'local_remotesupport', $hours);
         }
-        return sprintf('%d:%02d', $minutes, $secs);
+        if ($hours > 0 || $minutes > 0) {
+            $parts[] = get_string('durationshort_minutes', 'local_remotesupport', $minutes);
+        }
+        $parts[] = get_string('durationshort_seconds', 'local_remotesupport', $secs);
+
+        return implode(' ', $parts);
     }
 }

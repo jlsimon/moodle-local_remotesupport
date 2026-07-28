@@ -313,3 +313,20 @@ decisión y qué código se retiró.
   documento) — en particular, los enlaces de ordenación por columna
   (que dependen de que el navegador siga un `<a href>` con parámetros
   GET) no se han probado interactivamente.
+- **Selector de elementos por página sin opción "Todas"** (10/20/50/100
+  únicamente) — no se pidió, y con un historial que crece sin límite en
+  el tiempo, "mostrar todas" de golpe iría en contra del propio motivo
+  de tener paginación.
+- **Cambiar el número de elementos por página no conserva el orden de
+  columna elegido**, porque el selector envía a la URL base de la
+  página (sin los parámetros `tsort`/`tdir` que `table_sql` añade al
+  ordenar) — una pequeña aspereza de interfaz, no un error, y el mismo
+  compromiso que asumen varias páginas equivalentes del propio núcleo
+  de Moodle.
+- **`export_user_preferences()` de la nueva preferencia
+  (`session_history_table::PREF_PERPAGE`) no tiene una prueba
+  PHPUnit dedicada** — mismo hueco que ya existía para la preferencia
+  del profesor (`teacher_settings::PREF_SUPPORT_ENABLED`), sin cambiar
+  con esta ampliación; verificado en su lugar con una comprobación
+  manual de humo (guardar/leer la preferencia, y que el desplegable
+  refleja el valor seleccionado).

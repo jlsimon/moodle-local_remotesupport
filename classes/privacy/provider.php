@@ -27,6 +27,7 @@ use context_course;
 use local_remotesupport\local\event_manager;
 use local_remotesupport\local\teacher_settings;
 use local_remotesupport\local\track_manager;
+use local_remotesupport\table\session_history_table;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -51,6 +52,10 @@ class provider implements
         $collection->add_user_preference(
             teacher_settings::PREF_SUPPORT_ENABLED,
             'privacy:metadata:preference:supportenabled'
+        );
+        $collection->add_user_preference(
+            session_history_table::PREF_PERPAGE,
+            'privacy:metadata:preference:sessionhistoryperpage'
         );
 
         $collection->add_database_table('local_remotesupport_session', [
@@ -81,7 +86,8 @@ class provider implements
     }
 
     /**
-     * Export the teacher's own support-enabled preference, if they have ever set it.
+     * Export the user's own preferences (support-enabled toggle, session
+     * history rows-per-page), whichever of them they have ever set.
      *
      * @param int $userid
      */
@@ -98,6 +104,16 @@ class provider implements
             $enabled ? get_string('yes') : get_string('no'),
             get_string('privacy:metadata:preference:supportenabled', 'local_remotesupport')
         );
+
+        $perpage = get_user_preferences(session_history_table::PREF_PERPAGE, null, $userid);
+        if ($perpage !== null) {
+            writer::export_user_preference(
+                'local_remotesupport',
+                session_history_table::PREF_PERPAGE,
+                $perpage,
+                get_string('privacy:metadata:preference:sessionhistoryperpage', 'local_remotesupport')
+            );
+        }
     }
 
     public static function get_contexts_for_userid(int $userid): contextlist {

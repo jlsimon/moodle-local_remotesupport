@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072902;
+$plugin->version = 2026072905;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.14.1 (fecha y duración en formato corto en el historial)';
+$plugin->release = '0.14.4 (fix: el título del historial aparecía duplicado)';

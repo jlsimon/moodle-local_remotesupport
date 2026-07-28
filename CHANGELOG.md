@@ -1,5 +1,68 @@
 # Changelog
 
+## 0.14.4 (fix: el título del historial aparecía duplicado) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: "Historial de sesiones de
+  asistencia" aparecía dos veces en `sessionhistory.php`. Causa:
+  `$PAGE->set_heading()` ya hace que el tema renderice el título como
+  `<h1>` dentro de `$OUTPUT->header()`; se añadió además una llamada
+  redundante a `$OUTPUT->heading()` justo después, duplicándolo. No
+  tenía relación con la paginación en sí (pasaba en toda carga de la
+  página) — `view.php`/`teachersettings.php` ya seguían el patrón
+  correcto (solo `set_heading()` + `header()`, sin llamada adicional) y
+  no la tenían.
+- Eliminada la llamada redundante a `$OUTPUT->heading()`.
+- Sin cambios de servidor; sin pruebas nuevas (detalle de plantilla de
+  página).
+
+## 0.14.3 (selector de elementos por página en el historial) — 2026-07-29
+
+- **Pedido por el usuario**: "paginado tipo Moodle, con posibilidad de
+  elegir número de elementos por página" en el historial de sesiones.
+  El paginado (siguiente/anterior) ya lo daba `table_sql` de fábrica;
+  faltaba el propio selector de cuántas filas mostrar.
+- Investigado el núcleo real de Moodle antes de construir nada propio:
+  no hay un componente de "tabla + selector" listo para usar de un solo
+  golpe, pero sí un patrón que se repite (`tool_dataprivacy`, el
+  informe de calificador) — `\core\output\single_select` (un
+  desplegable que se autoenvía por GET) combinado con una preferencia
+  de usuario para recordar la elección. Se replicó ese patrón
+  exactamente en vez de inventar un desplegable a mano.
+- Opciones 10/20/50/100 filas por página (sin "Todas" — no se pidió, y
+  con un historial que crece sin límite en el tiempo iría en contra del
+  propio motivo de paginar). La elección se recuerda entre visitas
+  (`session_history_table::PREF_PERPAGE`, nueva constante), no solo
+  durante la sesión de navegador actual.
+- Nueva preferencia de usuario declarada y exportada en
+  `classes/privacy/provider.php`, igual que la preferencia ya existente
+  del profesor (`teacher_settings::PREF_SUPPORT_ENABLED`) — toda
+  preferencia que este plugin lee/escribe tiene que pasar por ahí.
+- Sin pruebas PHPUnit nuevas (mismo hueco ya existente para
+  `export_user_preferences()`, sin cambiar con esta ampliación);
+  verificado con una comprobación manual de humo contra la base de
+  datos real: guardar/leer la preferencia y renderizar el `single_select`
+  con la opción correcta marcada como seleccionada, sin errores. 146
+  tests siguen pasando (271 assertions, sin cambios en el recuento —
+  esta ampliación no añade lógica de servidor nueva más allá de la
+  preferencia).
+
+## 0.14.2 (duración con unidades abreviadas, sin ambigüedad) — 2026-07-29
+
+- **Pedido por el usuario**: el formato tipo cronómetro de 0.14.1
+  (`1:15:30`) podía resultar confuso sin indicar qué número es horas,
+  cuál minutos y cuál segundos. Se investigó si Moodle tiene algún
+  formato corto de duración estándar (como sí tiene para fechas,
+  `strftimedatetimeshort`) — no existe ninguno; `format_time()` es la
+  única función del núcleo y siempre es verbosa, incluso en tablas de
+  administración como el informe de intentos de un cuestionario.
+- Columna de duración: unidades abreviadas con etiqueta ("1h 15m 30s",
+  "5m 30s", "45s") en vez del formato sin etiquetar — igual de conciso,
+  sin la ambigüedad. Nuevas cadenas `durationshort_hours`/`_minutes`/
+  `_seconds` (en/es, ambas usan las mismas letras h/m/s).
+- Sin cambios de servidor más allá del formateo; sin pruebas nuevas
+  (solo presentación); verificado con una comprobación manual de humo
+  contra la base de datos real (sesión de 1h 15m 30s → "1h 15m 30s").
+
 ## 0.14.1 (fecha y duración en formato corto en el historial) — 2026-07-29
 
 - **Pedido por el usuario**: en una tabla de datos, la concisión importa

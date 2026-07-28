@@ -79,6 +79,9 @@ $string['col_date'] = 'Date';
 $string['col_duration'] = 'Duration';
 $string['col_studentfirstname'] = 'Student first name';
 $string['col_studentlastname'] = 'Student last name';
+$string['durationshort_hours'] = '{$a}h';
+$string['durationshort_minutes'] = '{$a}m';
+$string['durationshort_seconds'] = '{$a}s';
 
 // Pages: teacher settings.
 $string['pagetitle_settings'] = 'My assistance settings';
@@ -154,6 +157,7 @@ $string['privacy:metadata:local_remotesupport_session:teacherid'] = 'The user wh
 $string['privacy:metadata:local_remotesupport_session:status'] = 'The state of the request or session.';
 $string['privacy:metadata:local_remotesupport_session:reason'] = 'The optional free-text reason the student gave when requesting assistance.';
 $string['privacy:metadata:preference:supportenabled'] = 'Whether you currently accept remote assistance requests as a teacher.';
+$string['privacy:metadata:preference:sessionhistoryperpage'] = 'Your chosen number of rows per page for the session history list.';
 $string['privacy:metadata:local_remotesupport_session:timecreated'] = 'The time the request was created.';
 $string['privacy:metadata:local_remotesupport_session:timestarted'] = 'The time the session became active.';
 $string['privacy:metadata:local_remotesupport_session:timeended'] = 'The time the session ended.';

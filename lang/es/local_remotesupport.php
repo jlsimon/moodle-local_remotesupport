@@ -79,6 +79,9 @@ $string['col_date'] = 'Fecha';
 $string['col_duration'] = 'Duración';
 $string['col_studentfirstname'] = 'Nombre del alumno';
 $string['col_studentlastname'] = 'Apellidos del alumno';
+$string['durationshort_hours'] = '{$a}h';
+$string['durationshort_minutes'] = '{$a}m';
+$string['durationshort_seconds'] = '{$a}s';
 
 // Páginas: ajustes del profesor.
 $string['pagetitle_settings'] = 'Mis ajustes de asistencia';
@@ -154,6 +157,7 @@ $string['privacy:metadata:local_remotesupport_session:teacherid'] = 'El usuario 
 $string['privacy:metadata:local_remotesupport_session:status'] = 'El estado de la solicitud o sesión.';
 $string['privacy:metadata:local_remotesupport_session:reason'] = 'El motivo opcional en texto libre que el alumno indicó al solicitar asistencia.';
 $string['privacy:metadata:preference:supportenabled'] = 'Si actualmente aceptas solicitudes de asistencia remota como profesor.';
+$string['privacy:metadata:preference:sessionhistoryperpage'] = 'El número de filas por página que has elegido para el listado de historial de sesiones.';
 $string['privacy:metadata:local_remotesupport_session:timecreated'] = 'La fecha en que se creó la solicitud.';
 $string['privacy:metadata:local_remotesupport_session:timestarted'] = 'La fecha en que la sesión pasó a estar activa.';
 $string['privacy:metadata:local_remotesupport_session:timeended'] = 'La fecha en que finalizó la sesión.';
