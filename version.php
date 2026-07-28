@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072805;
+$plugin->version = 2026072809;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.11.0 (botón de pantalla completa para el profesor)';
+$plugin->release = '0.12.3 (el chat se oculta durante la pantalla completa)';

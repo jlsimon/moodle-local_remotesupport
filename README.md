@@ -55,6 +55,21 @@ laterales y el pie de página, no solo el contenido principal. Aplica a
 todas las sesiones del sitio por igual; por defecto sigue capturando
 solo el contenido principal, como hasta ahora.
 
+**Ampliación posterior — pantalla completa.** Un botón en la vista del
+profesor amplía la reconstrucción a pantalla completa (Fullscreen API
+nativa), reescalándose automáticamente para aprovechar el espacio
+disponible. La reconstrucción no reacciona a clics ni se puede
+desplazar manualmente por ninguna vía (rueda, teclado...) — su posición
+solo cambia por sincronización real con el alumno.
+
+**Ampliación posterior — chat de texto.** Caja flotante de chat entre
+profesor y alumno durante una sesión activa, en ambos lados. Los
+mensajes persisten mientras la sesión está activa (no solo unos
+minutos, como el resto de eventos efímeros) y desaparecen al cerrarla;
+no queda ningún transcript más allá de eso. Ver `docs/decisions.md`
+para el porqué de este diseño frente a la exclusión de "chat complejo"
+del documento base.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.

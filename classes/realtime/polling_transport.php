@@ -28,8 +28,11 @@ defined('MOODLE_INTERNAL') || die();
  *
  * Which event types a participant may push is role-based: the student
  * pushes page/scroll (the teacher watches), the teacher pushes only
- * resync_request (asking the student for a fresh full snapshot). Each side
- * only ever pulls events sourced by the *other* participant.
+ * resync_request (asking the student for a fresh full snapshot). Both
+ * roles may push chat_message — it is the one bidirectional type, see
+ * event_manager::get_events_since(). Each side only ever pulls events
+ * sourced by the *other* participant, except chat_message, which both
+ * need to see in full (including their own messages).
  *
  * @package    local_remotesupport
  * @copyright  2026 Juan Luis Simón
@@ -39,8 +42,8 @@ class polling_transport implements transport_interface {
 
     /** @var array<string,string[]> Event types each role may push. */
     const ROLE_EVENT_TYPES = [
-        'student' => ['page', 'scroll'],
-        'teacher' => ['resync_request'],
+        'student' => ['page', 'scroll', 'chat_message'],
+        'teacher' => ['resync_request', 'chat_message'],
     ];
 
     public function push_event(int $sessionid, int $userid, string $eventtype, array $payload): ?\stdClass {

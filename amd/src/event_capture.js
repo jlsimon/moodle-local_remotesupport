@@ -16,10 +16,11 @@
 /**
  * Student-side screen capture: builds sanitized page snapshots and pushes
  * them for the teacher to see, and shows the persistent "assistance active"
- * status bar with a finish button. View-only: the teacher can watch the
- * student's navigation and scroll position but cannot act on the student's
- * page in any way. Loaded on every Moodle page while the student has an
- * active session (see lib.php::local_remotesupport_before_footer()).
+ * status bar with a finish button and a floating text chat
+ * (local_remotesupport/chat_widget). View-only otherwise: the teacher can
+ * watch the student's navigation and scroll position but cannot act on the
+ * student's page in any way. Loaded on every Moodle page while the student
+ * has an active session (see lib.php::local_remotesupport_before_footer()).
  *
  * Only structure is ever captured, never form field values: input/textarea
  * values are stripped client-side before sending, and stripped again
@@ -30,8 +31,8 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 define(
-    ['jquery', 'core/str', 'local_remotesupport/transport'],
-    function($, Str, Transport) {
+    ['jquery', 'core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_widget'],
+    function($, Str, Transport, ChatWidget) {
 
     var MAIN_CONTENT_SELECTORS = ['#region-main', 'main[role="main"]', 'main', 'body'];
     var MODAL_SELECTOR = '.modal.show, .modal.in, [aria-modal="true"]';
@@ -221,10 +222,13 @@ define(
      * @param {Number} sessionid
      * @param {String} teachername
      * @param {String} capturemode 'main' (default) or 'fullpage'
+     * @param {Number} ownuserid Current user's id, passed to the chat widget.
      */
-    var init = function(sessionid, teachername, capturemode) {
+    var init = function(sessionid, teachername, capturemode, ownuserid) {
         var mode = capturemode === 'fullpage' ? 'fullpage' : 'main';
         var statusbar = null;
+        var chat = ChatWidget.init(sessionid, ownuserid, teachername);
+        var firstPollDone = false;
 
         var sendPageSnapshot = function() {
             Transport.pushEvent(sessionid, 'page', buildPageSnapshot(mode)).catch(function() {
@@ -283,6 +287,7 @@ define(
             if (statusbar && statusbar.parentNode) {
                 statusbar.parentNode.removeChild(statusbar);
             }
+            chat.destroy();
             window.clearInterval(heartbeatHandle);
             window.clearInterval(incomingPollHandle);
             contentObserver.disconnect();
@@ -294,12 +299,16 @@ define(
         var sinceid = 0;
         var pollIncoming = function() {
             Transport.pullEvents(sessionid, sinceid).then(function(events) {
+                var isReplay = !firstPollDone;
+                firstPollDone = true;
                 events.forEach(function(event) {
                     if (event.id > sinceid) {
                         sinceid = event.id;
                     }
                     if (event.eventtype === 'resync_request') {
                         sendPageSnapshot();
+                    } else if (event.eventtype === 'chat_message') {
+                        chat.receive(event, isReplay);
                     }
                 });
                 return null;

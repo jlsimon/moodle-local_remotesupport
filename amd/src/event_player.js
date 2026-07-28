@@ -40,11 +40,17 @@
  * The server-side sanitizer (html_sanitizer.php) is still the authoritative
  * content cleaner; this is a second, independent layer.
  *
+ * Also shows a floating text chat (local_remotesupport/chat_widget),
+ * hidden automatically while in fullscreen — position:fixed nested inside a
+ * :fullscreen element proved unreliable for click hit-testing in at least
+ * one browser, so the chat is simply unavailable there rather than chasing
+ * that further; see chat_widget.js's hide()/show().
+ *
  * @module     local_remotesupport/event_player
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
+define(['core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_widget'], function(Str, Transport, ChatWidget) {
 
     var POLL_INTERVAL_MS = 2000;
     var CONNECTION_LOST_AFTER_MS = 8000;
@@ -64,12 +70,17 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
 
     /**
      * @param {Number} sessionid
+     * @param {Number} ownuserid Current user's (teacher's) id, passed to the chat widget.
+     * @param {String} studentname Display name of the alumno, for the chat panel heading.
      */
-    var init = function(sessionid) {
+    var init = function(sessionid, ownuserid, studentname) {
         var container = document.getElementById('local-remotesupport-player');
         if (!container) {
             return;
         }
+
+        var chat = ChatWidget.init(sessionid, ownuserid, studentname);
+        var firstPollDone = false;
 
         var indicator = document.createElement('div');
         indicator.className = 'local-remotesupport-connection-indicator';
@@ -170,18 +181,28 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
                 }
             });
             // Also fires on Esc (the browser's own way out of fullscreen),
-            // so the label and the rescaled size stay correct either way.
+            // so the label, the rescaled size, and the chat's visibility
+            // all stay correct either way.
             document.addEventListener('fullscreenchange', function() {
                 var isFullscreen = document.fullscreenElement === container;
                 fullscreenButton.textContent = isFullscreen ? strings[7] : strings[6];
+                if (isFullscreen) {
+                    chat.hide();
+                } else {
+                    chat.show();
+                }
                 if (lastViewport) {
                     applyViewportSize(lastViewport);
                 }
             });
 
-            var applyEvent = function(event) {
+            var applyEvent = function(event, isReplay) {
                 var payload = decodePayload(event);
                 if (!payload) {
+                    return;
+                }
+                if (event.eventtype === 'chat_message') {
+                    chat.receive(event, isReplay);
                     return;
                 }
                 if (event.eventtype === 'page' && typeof payload.html === 'string') {
@@ -229,6 +250,7 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
                     pollHandle = null;
                 }
                 setState('ended', label);
+                chat.destroy();
             };
 
             // The connection indicator badge is easy to miss while looking
@@ -277,8 +299,10 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
                             // Non-fatal: the next heartbeat will still resync eventually.
                         });
                     }
+                    var isReplay = !firstPollDone;
+                    firstPollDone = true;
                     events.forEach(function(event) {
-                        applyEvent(event);
+                        applyEvent(event, isReplay);
                         if (event.id > sinceid) {
                             sinceid = event.id;
                         }

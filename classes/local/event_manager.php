@@ -16,6 +16,7 @@
 
 namespace local_remotesupport\local;
 
+use core_text;
 use moodle_exception;
 
 defined('MOODLE_INTERNAL') || die();
@@ -36,7 +37,10 @@ defined('MOODLE_INTERNAL') || die();
 class event_manager {
 
     /** @var string[] The only event types accepted so far. */
-    const EVENT_TYPES = ['page', 'scroll', 'resync_request'];
+    const EVENT_TYPES = ['page', 'scroll', 'resync_request', 'chat_message'];
+
+    /** @var int Maximum length, in characters, of a chat_message payload's 'message'. */
+    const MAX_CHAT_MESSAGE_LENGTH = 1000;
 
     /**
      * @var int Maximum size, in bytes, of a JSON-encoded event payload.
@@ -61,7 +65,9 @@ class event_manager {
      * 'scroll' events get a light shape check of their own (numeric
      * coordinates) — cheap to enforce and closes the gap where a malformed
      * payload would otherwise sail through as long as it stayed under the
-     * overall size cap.
+     * overall size cap. 'chat_message' is always plain text, rendered with
+     * textContent client-side, never interpreted as HTML — no sanitizer
+     * involved, just a non-empty check and a length cap.
      *
      * @param int $sessionid
      * @param int $sourceuserid
@@ -78,7 +84,7 @@ class event_manager {
             throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
         }
 
-        if (!rate_limiter::is_allowed($sessionid, $eventtype)) {
+        if (!rate_limiter::is_allowed($sessionid, $sourceuserid, $eventtype)) {
             return null;
         }
 
@@ -101,6 +107,20 @@ class event_manager {
             if (!isset($payload['x'], $payload['y']) || !is_numeric($payload['x']) || !is_numeric($payload['y'])) {
                 throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
             }
+        }
+
+        if ($eventtype === 'chat_message') {
+            if (!isset($payload['message']) || !is_string($payload['message'])) {
+                throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
+            }
+            $message = trim($payload['message']);
+            if ($message === '') {
+                throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
+            }
+            if (core_text::strlen($message) > self::MAX_CHAT_MESSAGE_LENGTH) {
+                $message = core_text::substr($message, 0, self::MAX_CHAT_MESSAGE_LENGTH);
+            }
+            $payload['message'] = $message;
         }
 
         $encoded = json_encode($payload);
@@ -128,11 +148,16 @@ class event_manager {
      * events from the *other* party (the student never needs to see their
      * own page/scroll events echoed back, and vice versa for the teacher's
      * resync_request events), so this doubles as the "who receives what"
-     * rule without a separate recipient column.
+     * rule without a separate recipient column. 'chat_message' is the one
+     * exception: both participants need to see the *whole* conversation,
+     * including their own messages, so a fresh page load (which always
+     * restarts $sinceid at 0 — this plugin re-injects its capture script on
+     * every Moodle page) naturally replays the full chat history alongside
+     * whatever's new, with no separate "history" endpoint needed.
      *
      * @param int $sessionid
      * @param int $sinceid
-     * @param int $excludeuserid Events sourced by this user are skipped.
+     * @param int $excludeuserid Events sourced by this user are skipped, except chat_message.
      * @param int $limit
      * @return \stdClass[] Ordered oldest-first, each with 'payload' already json_decode()d.
      */
@@ -141,8 +166,8 @@ class event_manager {
 
         $events = $DB->get_records_select(
             'local_remotesupport_event',
-            'sessionid = :sessionid AND id > :sinceid AND sourceuserid != :excludeuserid',
-            ['sessionid' => $sessionid, 'sinceid' => $sinceid, 'excludeuserid' => $excludeuserid],
+            "sessionid = :sessionid AND id > :sinceid AND (sourceuserid != :excludeuserid OR eventtype = :chattype)",
+            ['sessionid' => $sessionid, 'sinceid' => $sinceid, 'excludeuserid' => $excludeuserid, 'chattype' => 'chat_message'],
             'id ASC',
             '*',
             0,
@@ -179,6 +204,12 @@ class event_manager {
      * Safety net for abandoned or long-running sessions; called from the
      * purge_events scheduled task.
      *
+     * 'chat_message' rows are deliberately exempt: unlike a stale 'page' or
+     * 'scroll' snapshot (harmless to lose, the next heartbeat replaces it),
+     * a chat message is content nobody can regenerate. It still cannot
+     * outlive the session itself — purge_session_events() removes it like
+     * everything else the moment the session closes.
+     *
      * @param int $olderthanseconds
      * @return int Number of rows deleted.
      */
@@ -186,8 +217,10 @@ class event_manager {
         global $DB;
 
         $cutoff = time() - $olderthanseconds;
-        $count = $DB->count_records_select('local_remotesupport_event', 'timecreated < :cutoff', ['cutoff' => $cutoff]);
-        $DB->delete_records_select('local_remotesupport_event', 'timecreated < :cutoff', ['cutoff' => $cutoff]);
+        $select = 'timecreated < :cutoff AND eventtype != :chattype';
+        $params = ['cutoff' => $cutoff, 'chattype' => 'chat_message'];
+        $count = $DB->count_records_select('local_remotesupport_event', $select, $params);
+        $DB->delete_records_select('local_remotesupport_event', $select, $params);
 
         return $count;
     }

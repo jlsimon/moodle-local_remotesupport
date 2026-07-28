@@ -127,11 +127,39 @@ class external_api_test extends \advanced_testcase {
 
         $this->setUser($teacher);
         $result = pull_events::execute($session->id, 0);
+        $this->assert_valid_return(pull_events::class, $result);
 
         $this->assertCount(1, $result);
         $this->assertSame('scroll', $result[0]['eventtype']);
+        $this->assertSame((int) $student->id, $result[0]['sourceuserid']);
         $decoded = json_decode($result[0]['payload'], true);
         $this->assertSame(1, $decoded['x']);
+    }
+
+    public function test_chat_message_end_to_end(): void {
+        $this->resetAfterTest();
+        [$session, $student, $teacher] = $this->setup_active_session();
+
+        $this->setUser($student);
+        push_event::execute($session->id, 'chat_message', json_encode(['message' => 'hola']));
+
+        $this->setUser($teacher);
+        push_event::execute($session->id, 'chat_message', json_encode(['message' => 'hola tambien']));
+
+        // Both sides see the full conversation, including their own messages
+        // — see event_manager::get_events_since().
+        $this->setUser($student);
+        $studentview = pull_events::execute($session->id, 0);
+        $this->assert_valid_return(pull_events::class, $studentview);
+
+        $this->setUser($teacher);
+        $teacherview = pull_events::execute($session->id, 0);
+        $this->assert_valid_return(pull_events::class, $teacherview);
+
+        $this->assertCount(2, $studentview);
+        $this->assertCount(2, $teacherview);
+        $this->assertSame((int) $student->id, $studentview[0]['sourceuserid']);
+        $this->assertSame((int) $teacher->id, $studentview[1]['sourceuserid']);
     }
 
     public function test_pull_events_rejects_unrelated_user(): void {

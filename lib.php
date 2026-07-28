@@ -98,6 +98,7 @@ function local_remotesupport_before_footer(): string {
             $session->id,
             fullname($teacher),
             $capturemode !== 'fullpage' ? 'main' : 'fullpage',
+            (int) $USER->id,
         ]);
         return '';
     }

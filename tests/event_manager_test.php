@@ -206,4 +206,86 @@ class event_manager_test extends \advanced_testcase {
         $this->assertArrayHasKey($fresh->id, $remaining);
         $this->assertArrayNotHasKey($old->id, $remaining);
     }
+
+    public function test_chat_message_event_type_accepted(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'chat_message', ['message' => 'hola']);
+
+        $this->assertSame('chat_message', $event->eventtype);
+    }
+
+    public function test_rejects_chat_message_missing_message(): void {
+        $this->resetAfterTest();
+
+        $this->expectException(\moodle_exception::class);
+        event_manager::record_event(1, 2, 'chat_message', []);
+    }
+
+    public function test_rejects_chat_message_blank_after_trim(): void {
+        $this->resetAfterTest();
+
+        $this->expectException(\moodle_exception::class);
+        event_manager::record_event(1, 2, 'chat_message', ['message' => "   \n\t"]);
+    }
+
+    public function test_chat_message_truncates_overlong_message(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'chat_message', [
+            'message' => str_repeat('a', event_manager::MAX_CHAT_MESSAGE_LENGTH + 200),
+        ]);
+
+        $decoded = json_decode($event->payload, true);
+        $this->assertSame(event_manager::MAX_CHAT_MESSAGE_LENGTH, strlen($decoded['message']));
+    }
+
+    public function test_chat_message_is_not_excluded_by_its_own_sender(): void {
+        // Regression: unlike page/scroll/resync_request, a chat participant
+        // must see their own sent messages too when re-fetching the
+        // conversation (e.g. after a fresh page load resets sinceid to 0).
+        $this->resetAfterTest();
+
+        event_manager::record_event(1, 2, 'chat_message', ['message' => 'from student']);
+
+        $ownview = event_manager::get_events_since(1, 0, 2);
+
+        $this->assertCount(1, $ownview);
+        $this->assertSame('from student', $ownview[0]->payload['message']);
+    }
+
+    public function test_chat_messages_are_rate_limited_per_sender(): void {
+        $this->resetAfterTest();
+
+        $first = event_manager::record_event(1, 2, 'chat_message', ['message' => 'hi']);
+        $second = event_manager::record_event(1, 2, 'chat_message', ['message' => 'hi again']);
+        // A different sender in the same session must not share the bucket
+        // (see rate_limiter_test.php for the isolated unit-level version).
+        $fromother = event_manager::record_event(1, 3, 'chat_message', ['message' => 'reply']);
+
+        $this->assertNotNull($first);
+        $this->assertNull($second);
+        $this->assertNotNull($fromother);
+    }
+
+    public function test_purge_stale_events_exempts_chat_message(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $oldchat = event_manager::record_event(111, 2, 'chat_message', ['message' => 'old']);
+        $oldpage = event_manager::record_event(111, 2, 'page', ['url' => '/old']);
+        $DB->set_field('local_remotesupport_event', 'timecreated', time() - 999, [
+            'id' => $oldchat->id,
+        ]);
+        $DB->set_field('local_remotesupport_event', 'timecreated', time() - 999, [
+            'id' => $oldpage->id,
+        ]);
+
+        $purged = event_manager::purge_stale_events(120);
+
+        $this->assertSame(1, $purged);
+        $remaining = $DB->get_records('local_remotesupport_event', ['sessionid' => 111]);
+        $this->assertArrayHasKey($oldchat->id, $remaining);
+        $this->assertArrayNotHasKey($oldpage->id, $remaining);
+    }
 }

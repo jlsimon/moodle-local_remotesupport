@@ -35,6 +35,7 @@ class rate_limiter {
     /** @var array<string,float> Minimum seconds between accepted events, per event type. */
     const MIN_INTERVAL_SECONDS = [
         'scroll' => 0.15,
+        'chat_message' => 0.3,
     ];
 
     /**
@@ -43,18 +44,24 @@ class rate_limiter {
      * Has the side effect of recording "now" as the last-accepted time
      * when it returns true, so calling it doubles as "check and consume".
      *
+     * Keyed per source user, not just per session+type: 'scroll' only ever
+     * has one possible sender (the student), but 'chat_message' is pushed by
+     * both roles, and a shared bucket would let one party's message
+     * silently rate-limit the other's unrelated reply.
+     *
      * @param int $sessionid
+     * @param int $userid
      * @param string $eventtype
      * @return bool
      */
-    public static function is_allowed(int $sessionid, string $eventtype): bool {
+    public static function is_allowed(int $sessionid, int $userid, string $eventtype): bool {
         $mininterval = self::MIN_INTERVAL_SECONDS[$eventtype] ?? null;
         if ($mininterval === null) {
             return true;
         }
 
         $cache = \cache::make('local_remotesupport', 'eventratelimit');
-        $key = $sessionid . '_' . $eventtype;
+        $key = $sessionid . '_' . $eventtype . '_' . $userid;
         $last = $cache->get($key);
         $now = microtime(true);
 

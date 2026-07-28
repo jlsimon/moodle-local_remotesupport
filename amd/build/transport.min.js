@@ -27,7 +27,7 @@ define(['core/ajax'], function(Ajax) {
      * Push a capture event for an active session.
      *
      * @param {Number} sessionid
-     * @param {String} eventtype 'page' or 'scroll'
+     * @param {String} eventtype 'page', 'scroll', 'resync_request' or 'chat_message'
      * @param {Object} payload
      * @return {Promise}
      */

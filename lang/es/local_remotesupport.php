@@ -91,6 +91,10 @@ $string['connection_waiting'] = 'Conectando…';
 $string['connection_lost'] = 'Conexión perdida';
 $string['button_fullscreen'] = 'Pantalla completa';
 $string['button_exitfullscreen'] = 'Salir de pantalla completa';
+$string['chat_toggle'] = 'Chat';
+$string['chat_heading'] = 'Chat con {$a}';
+$string['chat_placeholder'] = 'Escribe un mensaje…';
+$string['chat_send'] = 'Enviar';
 
 // Errores.
 $string['errornopermission'] = 'No tienes permiso para realizar esta acción.';
@@ -136,8 +140,8 @@ $string['privacy:metadata:preference:supportenabled'] = 'Si actualmente aceptas 
 $string['privacy:metadata:local_remotesupport_session:timecreated'] = 'La fecha en que se creó la solicitud.';
 $string['privacy:metadata:local_remotesupport_session:timestarted'] = 'La fecha en que la sesión pasó a estar activa.';
 $string['privacy:metadata:local_remotesupport_session:timeended'] = 'La fecha en que finalizó la sesión.';
-$string['privacy:metadata:local_remotesupport_event'] = 'Eventos efímeros de reconstrucción de pantalla enviados durante una sesión activa; se eliminan al finalizar la sesión y, como máximo, unos minutos después de generarse.';
-$string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'El usuario (siempre el alumno) cuyo navegador generó el evento.';
-$string['privacy:metadata:local_remotesupport_event:eventtype'] = 'El tipo de evento (foto de página o posición de scroll).';
-$string['privacy:metadata:local_remotesupport_event:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport). Nunca incluye valores leídos de los propios campos de formulario del alumno.';
+$string['privacy:metadata:local_remotesupport_event'] = 'Eventos efímeros de reconstrucción de pantalla y de chat enviados durante una sesión activa. Los eventos de pantalla se eliminan, como máximo, unos minutos después de generarse; los mensajes de chat duran mientras la sesión esté activa. Ambos se eliminan siempre al finalizar la sesión.';
+$string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'El usuario (el alumno o, en una solicitud de resincronización o un mensaje de chat, el profesor) cuyo navegador generó el evento.';
+$string['privacy:metadata:local_remotesupport_event:eventtype'] = 'El tipo de evento (foto de página, posición de scroll, solicitud de resincronización o mensaje de chat).';
+$string['privacy:metadata:local_remotesupport_event:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport), o el contenido en texto plano de un mensaje de chat. Nunca incluye valores leídos de los propios campos de formulario del alumno.';
 $string['privacy:metadata:local_remotesupport_event:timecreated'] = 'La fecha en que se generó el evento.';

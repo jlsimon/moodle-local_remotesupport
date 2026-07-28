@@ -1,5 +1,132 @@
 # Changelog
 
+## 0.12.3 (el chat se oculta durante la pantalla completa) — 2026-07-28
+
+- **Decisión del usuario tras 0.12.2**: en vez de seguir persiguiendo el
+  problema de hit-testing de `position: fixed` dentro de un elemento en
+  pantalla completa (dos intentos fallidos: 0.12.1 arregló que el chat
+  desapareciera, 0.12.2 intentó arreglar que el botón de enviar no
+  reaccionara), el chat simplemente se oculta mientras el profesor está
+  en pantalla completa y reaparece al salir. Sin poder probar en un
+  navegador real durante esta sesión, seguir ajustando CSS a ciegas para
+  una combinación que ya había fallado dos veces de formas distintas no
+  era buen uso del tiempo — ver `docs/decisions.md`.
+- `chat_widget.js` expone `hide()`/`show()`; el listener de
+  `fullscreenchange` que ya existía en `event_player.js` (para
+  reescalar la reconstrucción) los llama al entrar/salir.
+- Revertida la complejidad añadida en 0.12.1/0.12.2: el chat vuelve a
+  adjuntarse siempre a `document.body` (igual que en el lado del
+  alumno, sin caso especial), y se elimina la regla CSS
+  `position: absolute` específica para `:fullscreen` — ya no hace
+  falta, el chat nunca está visible mientras dura la pantalla completa.
+- Nueva limitación documentada: el chat no está disponible mientras el
+  profesor está en pantalla completa; debe salir para usarlo.
+- Sin cambios de servidor; sin pruebas nuevas (lógica de cliente, mismo
+  hueco de siempre); paso de verificación manual añadido en
+  `docs/testing.md` (69).
+
+## 0.12.2 (fix: el botón de enviar chat no reaccionaba en pantalla completa) — 2026-07-28
+
+- **Corregido, reportado por el usuario tras 0.12.1**: con el chat ya
+  visible dentro de la pantalla completa, el botón "Enviar" dejó de
+  reaccionar al clic (ninguna reacción en absoluto, ni visual ni de
+  envío). Causa probable: `position: fixed` anidado dentro de un
+  elemento en pantalla completa es poco fiable para el hit-testing en
+  algunos navegadores — la misma categoría de rareza que ya afectó al
+  scroll con rueda del ratón dentro del iframe (0.10.3/0.10.4), esta vez
+  aplicada a la detección de clics en vez del scroll.
+- En vez de perseguir la causa exacta navegador por navegador, se evita
+  la combinación problemática: nueva regla CSS
+  `.local-remotesupport-player:fullscreen .local-remotesupport-chat {
+  position: absolute; }` — mientras `#local-remotesupport-player` es el
+  elemento en pantalla completa (ya convertido en una caja fija que
+  llena la pantalla por la propia hoja de estilos del navegador para
+  `:fullscreen`), sigue siendo un ancestro posicionado válido para un
+  hijo `position: absolute`, sin la combinación fixed-dentro-de-fullscreen
+  que fallaba. Fuera de pantalla completa, y en el lado del alumno
+  (donde nunca hay pantalla completa), el chat sigue siendo
+  `position: fixed` exactamente como antes.
+- Cambio puramente CSS; sin cambios de JS ni de servidor; sin pruebas
+  nuevas.
+
+## 0.12.1 (fix: el chat se ocultaba en pantalla completa) — 2026-07-28
+
+- **Corregido, reportado por el usuario**: al pulsar el profesor
+  "Pantalla completa", la burbuja de chat desaparecía. Causa: el chat se
+  añadía como hijo directo de `document.body`, pero la Fullscreen API
+  solo renderiza el elemento puesto en pantalla completa
+  (`#local-remotesupport-player`) y sus propios descendientes — al
+  quedar el chat como hermano de ese elemento, deja de estar en su
+  subárbol y el navegador lo oculta mientras dura la pantalla completa.
+- `chat_widget.js` acepta ahora un parámetro opcional `appendto` (el
+  nodo donde adjuntarse; por defecto `document.body`, igual que antes).
+  `event_player.js` le pasa su propio `#local-remotesupport-player` en
+  vez de dejarlo caer en `document.body`. Sin cambios en el lado alumno
+  (`event_capture.js`), donde nunca hay pantalla completa y
+  `document.body` sigue siendo correcto.
+- Sin cambios de servidor; sin pruebas nuevas (lógica de cliente, mismo
+  hueco de siempre).
+
+## 0.12.0 (chat de texto entre profesor y alumno) — 2026-07-28
+
+- **Pedido por el usuario**: un chat de texto entre profesor y alumno
+  durante una sesión activa, en una caja flotante. El documento base
+  (`AGENTS.md`) excluye explícitamente "chat complejo" del MVP; se
+  interpreta que esa exclusión apunta a plataformas de chat pesadas
+  (adjuntos, hilos, indicadores de escritura, historial persistente
+  más allá de la sesión), no a un intercambio mínimo de texto plano —
+  confirmado explícitamente con el usuario antes de implementar. Ver
+  `docs/decisions.md` para el diseño completo y por qué.
+- Nuevo tipo de evento `chat_message`, reutilizando la tabla
+  `local_remotesupport_event` y el mecanismo de sondeo ya existente —
+  sin transporte nuevo, sin tabla nueva, sin endpoint nuevo. A
+  diferencia de `page`/`scroll`/`resync_request`, es **bidireccional**:
+  ambos roles pueden empujarlo (`polling_transport::ROLE_EVENT_TYPES`),
+  y `event_manager::get_events_since()` deja de excluir los eventos
+  propios solo para este tipo, de modo que cada participante ve la
+  conversación completa, incluidos sus propios mensajes.
+- **Persiste durante toda la sesión activa**, no solo unos minutos: se
+  exime explícitamente de `purge_stale_events()` (la purga por
+  antigüedad de 2 minutos), y solo desaparece cuando la sesión se
+  cierra (`purge_session_events()`, sin cambios). Como una carga de
+  página nueva del alumno reinicia `sinceid` a 0 (`event_capture.js` se
+  reinyecta en cada página de Moodle), el primer sondeo tras esa
+  recarga recupera solo por eso todo el historial de chat sin
+  necesidad de un endpoint ni almacenamiento de cliente aparte.
+- Validación en `event_manager::record_event()`: campo `message`
+  obligatorio, no vacío tras recortar espacios, truncado a
+  `MAX_CHAT_MESSAGE_LENGTH` (1000 caracteres). Siempre texto plano,
+  pintado con `textContent` en el cliente, nunca interpretado como
+  HTML — no pasa por el saneador de HTML.
+- **Corregido de paso, encontrado al diseñar esto**: `rate_limiter`
+  llevaba la cuenta por `sessionid + eventtype` únicamente, sin
+  distinguir remitente. Para `scroll` (un único remitente posible, el
+  alumno) eso nunca fue un problema, pero `chat_message` lo tiene
+  ambos roles — con la clave antigua, un mensaje del alumno habría
+  limitado por error la respuesta del profesor si llegaba dentro de la
+  misma ventana. La clave de caché ahora incluye también el `userid`.
+- Nuevo módulo AMD compartido `amd/src/chat_widget.js` (caja flotante
+  colapsable, contador de no leídos, formulario de envío), usado por
+  `event_capture.js` (alumno) y `event_player.js` (profesor). El envío
+  es "fire-and-forget": el propio mensaje no se pinta al enviarlo, solo
+  aparece cuando el sondeo normal lo entrega de vuelta — como el tipo
+  ya es bidireccional en el servidor, no hace falta lógica de eco
+  optimista ni de-duplicación en el cliente.
+- El primer sondeo exitoso tras crear el widget se trata como
+  "reposición de historial", no como mensajes nuevos: no incrementa el
+  contador de no leídos, para no mostrar una alarma falsa de "N sin
+  leer" cada vez que el alumno simplemente cambia de página.
+- `pull_events` (`classes/external/pull_events.php`) devuelve ahora
+  también `sourceuserid` en cada evento — necesario para que el
+  widget distinga mensajes propios de ajenos; antes no se exponía al
+  cliente.
+- Nuevas cadenas `chat_toggle`/`chat_heading`/`chat_placeholder`/
+  `chat_send` (en/es); descripciones de privacidad de
+  `local_remotesupport_event` actualizadas para mencionar el chat.
+- 12 tests PHPUnit nuevos (validación, exención de purga, bidireccionalidad,
+  límite de frecuencia por remitente, roles) — 131 tests en total (239
+  assertions). Sin pruebas JavaScript (mismo hueco de siempre).
+
 ## 0.11.0 (botón de pantalla completa para el profesor) — 2026-07-28
 
 - **Pedido por el usuario**: una forma de ampliar la reconstrucción, que

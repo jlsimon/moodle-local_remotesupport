@@ -91,6 +91,10 @@ $string['connection_waiting'] = 'Connecting…';
 $string['connection_lost'] = 'Connection lost';
 $string['button_fullscreen'] = 'Full screen';
 $string['button_exitfullscreen'] = 'Exit full screen';
+$string['chat_toggle'] = 'Chat';
+$string['chat_heading'] = 'Chat with {$a}';
+$string['chat_placeholder'] = 'Write a message…';
+$string['chat_send'] = 'Send';
 
 // Errors.
 $string['errornopermission'] = 'You do not have permission to perform this action.';
@@ -136,8 +140,8 @@ $string['privacy:metadata:preference:supportenabled'] = 'Whether you currently a
 $string['privacy:metadata:local_remotesupport_session:timecreated'] = 'The time the request was created.';
 $string['privacy:metadata:local_remotesupport_session:timestarted'] = 'The time the session became active.';
 $string['privacy:metadata:local_remotesupport_session:timeended'] = 'The time the session ended.';
-$string['privacy:metadata:local_remotesupport_event'] = 'Ephemeral screen-reconstruction events sent during an active session; deleted when the session ends and, at the latest, a few minutes after being generated.';
-$string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'The user (always the student) whose browser generated the event.';
-$string['privacy:metadata:local_remotesupport_event:eventtype'] = 'The kind of event (page snapshot or scroll position).';
-$string['privacy:metadata:local_remotesupport_event:payload'] = 'The captured page snapshot (relative URL, title, sanitized main content, viewport/scroll position). Never includes values read from the student\'s own form fields.';
+$string['privacy:metadata:local_remotesupport_event'] = 'Ephemeral screen-reconstruction and chat events sent during an active session. Screen events are deleted, at the latest, a few minutes after being generated; chat messages last for the whole active session. Both are always deleted when the session ends.';
+$string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'The user (the student or, for a resync request or chat message, the teacher) whose browser generated the event.';
+$string['privacy:metadata:local_remotesupport_event:eventtype'] = 'The kind of event (page snapshot, scroll position, resync request, or chat message).';
+$string['privacy:metadata:local_remotesupport_event:payload'] = 'The captured page snapshot (relative URL, title, sanitized main content, viewport/scroll position), or the plain-text content of a chat message. Never includes values read from the student\'s own form fields.';
 $string['privacy:metadata:local_remotesupport_event:timecreated'] = 'The time the event was generated.';

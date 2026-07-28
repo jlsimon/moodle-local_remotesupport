@@ -71,6 +71,7 @@ class pull_events extends external_api {
             'eventtype' => $event->eventtype,
             'payload' => json_encode($event->payload),
             'timecreated' => (int) $event->timecreated,
+            'sourceuserid' => (int) $event->sourceuserid,
         ], $events);
     }
 
@@ -83,6 +84,7 @@ class pull_events extends external_api {
             'eventtype' => new external_value(PARAM_ALPHAEXT, 'Event type'),
             'payload' => new external_value(PARAM_RAW, 'JSON-encoded event payload'),
             'timecreated' => new external_value(PARAM_INT, 'Unix timestamp'),
+            'sourceuserid' => new external_value(PARAM_INT, 'The user whose browser generated this event'),
         ]));
     }
 }

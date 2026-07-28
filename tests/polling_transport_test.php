@@ -21,9 +21,10 @@ use local_remotesupport\realtime\polling_transport;
 
 /**
  * Tests for polling_transport: role-based push authorization (the student
- * pushes page/scroll, the teacher only pushes resync_request) and the "pull
- * events sourced by the other participant" rule — all independent of the
- * AJAX layer.
+ * pushes page/scroll, the teacher only pushes resync_request; both push
+ * chat_message) and the "pull events sourced by the other participant" rule
+ * — except chat_message, which both roles must see in full — all
+ * independent of the AJAX layer.
  *
  * @package    local_remotesupport
  * @category   test
@@ -148,6 +149,37 @@ class polling_transport_test extends \advanced_testcase {
 
         $this->expectException(\moodle_exception::class);
         (new polling_transport())->pull_events($session->id, $stranger->id, 0, 20);
+    }
+
+    public function test_both_roles_can_push_chat_message(): void {
+        $this->resetAfterTest();
+        [$session, $student, $teacher] = $this->setup_active_session();
+        $transport = new polling_transport();
+
+        $fromstudent = $transport->push_event($session->id, $student->id, 'chat_message', ['message' => 'hola']);
+        $fromteacher = $transport->push_event($session->id, $teacher->id, 'chat_message', ['message' => 'hola tambien']);
+
+        $this->assertSame('chat_message', $fromstudent->eventtype);
+        $this->assertSame('chat_message', $fromteacher->eventtype);
+    }
+
+    public function test_chat_message_pull_includes_own_and_other_messages(): void {
+        // Unlike page/scroll/resync_request, chat is bidirectional: each
+        // side must see the whole conversation, including what they sent
+        // themselves — this is what lets a fresh page load (sinceid reset
+        // to 0) replay the full history without a separate endpoint.
+        $this->resetAfterTest();
+        [$session, $student, $teacher] = $this->setup_active_session();
+        $transport = new polling_transport();
+
+        $transport->push_event($session->id, $student->id, 'chat_message', ['message' => 'from student']);
+        $transport->push_event($session->id, $teacher->id, 'chat_message', ['message' => 'from teacher']);
+
+        $studentview = $transport->pull_events($session->id, $student->id, 0, 20);
+        $teacherview = $transport->pull_events($session->id, $teacher->id, 0, 20);
+
+        $this->assertCount(2, $studentview);
+        $this->assertCount(2, $teacherview);
     }
 
     public function test_closing_session_purges_its_events(): void {

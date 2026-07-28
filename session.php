@@ -79,6 +79,10 @@ if ($isstudent) {
     ];
     echo $OUTPUT->header();
     echo $OUTPUT->render_from_template('local_remotesupport/session_player', $data);
-    $PAGE->requires->js_call_amd('local_remotesupport/event_player', 'init', [$session->id]);
+    $PAGE->requires->js_call_amd('local_remotesupport/event_player', 'init', [
+        $session->id,
+        (int) $USER->id,
+        fullname($student),
+    ]);
     echo $OUTPUT->footer();
 }

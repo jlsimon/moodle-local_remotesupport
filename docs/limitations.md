@@ -211,3 +211,42 @@ decisión y qué código se retiró.
   este patrón. Aceptado conscientemente a cambio de que el profesor no
   pueda desplazar la reconstrucción manualmente por ninguna vía. Ver
   `docs/decisions.md`.
+
+## Nuevas tras completar el MVP — chat de texto
+
+- **Alcance deliberadamente mínimo.** Solo texto plano: sin adjuntos,
+  sin emojis con selector propio, sin indicadores de "escribiendo...",
+  sin confirmaciones de lectura, sin edición ni borrado de mensajes
+  enviados. El documento base excluye "chat complejo" del MVP; este es
+  el intercambio mínimo que se consideró fuera de esa exclusión — ver
+  `docs/decisions.md`.
+- **Nada sobrevive al cierre de la sesión.** Los mensajes persisten
+  mientras la sesión está activa (a diferencia de `page`/`scroll`, que
+  se purgan a los 2 minutos si nadie los consume), pero desaparecen por
+  completo al cerrarla, igual que el resto de eventos. No queda ningún
+  transcript, exportación ni registro de auditoría del contenido de la
+  conversación en ningún sitio.
+- **Límite de longitud por mensaje** (1000 caracteres,
+  `MAX_CHAT_MESSAGE_LENGTH`); un mensaje más largo se trunca, no se
+  rechaza. No hay límite al número total de mensajes de una sesión más
+  allá de su propia duración.
+- **No disponible mientras el profesor está en pantalla completa.**
+  `position: fixed` anidado dentro de un elemento en pantalla completa
+  resultó poco fiable para el hit-testing de clics en al menos un
+  navegador probado por el usuario (el botón "Enviar" no reaccionaba).
+  En vez de perseguir esa combinación sin poder probar en un navegador
+  real durante esta sesión, el chat se oculta automáticamente al entrar
+  en pantalla completa y reaparece al salir — el profesor debe salir de
+  pantalla completa para usarlo. Ver `docs/decisions.md`.
+- **Sin pruebas JavaScript** (mismo hueco de siempre, ver "Vigentes
+  desde la Fase 2" más abajo): la lógica de `chat_widget.js` (bidireccional
+  own/other, contador de no leídos, heurística de "primera tanda no es
+  no-leído") solo se ha verificado con `node --check` y pruebas manuales,
+  no con un runner JS.
+- **No probado en un navegador real** (mismo motivo que el resto de este
+  documento: sin esa herramienta en esta sesión) — en particular, si dos
+  pestañas del profesor abren la misma sesión simultáneamente, ambas
+  recibirían y marcarían como consumidos los mismos mensajes entrantes,
+  pudiendo dividir la conversación entre las dos en vez de que ambas
+  vean todo (mismo comportamiento, y misma limitación, que ya existía
+  para `page`/`scroll` antes del chat).

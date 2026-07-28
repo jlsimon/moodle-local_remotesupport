@@ -147,34 +147,58 @@ solicitud (no en cualquier curso), y que quien cierra o entra sea el
 ## Eventos permitidos
 
 Lista blanca cerrada en `event_manager::EVENT_TYPES`: `page`, `scroll`,
-`resync_request`. Cualquier otro valor (`eval`, `script`, `html`, etc.)
-es rechazado con `errorinvalideventtype` antes de llegar a almacenarse.
-También se valida el tamaño (`MAX_PAYLOAD_BYTES`, 260 000 bytes de JSON)
-y, para `page`, el propio contenido HTML (y, desde la Fase 4, el HTML
-del modal si lo hay, y las URLs de CSS) se sanea/filtra antes de guardar
-(ver "Saneamiento de HTML" más abajo). Las acciones de las páginas
-(`request`, `cancel`, `accept`, `enter`, `finish`) siguen validándose
-igual que en la Fase 1, con `PARAM_ALPHA` y una lista fija reconocida.
+`resync_request`, `chat_message`. Cualquier otro valor (`eval`, `script`,
+`html`, etc.) es rechazado con `errorinvalideventtype` antes de llegar a
+almacenarse. También se valida el tamaño (`MAX_PAYLOAD_BYTES`, 600 000
+bytes de JSON) y, para `page`, el propio contenido HTML (y, desde la
+Fase 4, el HTML del modal si lo hay, y las URLs de CSS) se sanea/filtra
+antes de guardar (ver "Saneamiento de HTML" más abajo). `chat_message`
+requiere un campo `message` de texto no vacío (tras recortar espacios),
+truncado a `MAX_CHAT_MESSAGE_LENGTH` (1000 caracteres) — siempre texto
+plano, nunca pasa por el saneador de HTML porque nunca se interpreta
+como HTML: el cliente lo pinta con `textContent`. Las acciones de las
+páginas (`request`, `cancel`, `accept`, `enter`, `finish`) siguen
+validándose igual que en la Fase 1, con `PARAM_ALPHA` y una lista fija
+reconocida.
 
 Cada tipo de evento tiene, además, un **rol autorizado a emitirlo**
 (`polling_transport::ROLE_EVENT_TYPES`): el alumno empuja `page`/
-`scroll`; el profesor solo `resync_request`. Que el usuario sea
-participante de la sesión no basta — si un alumno intenta empujar un
-`resync_request`, se rechaza igual que si no perteneciera a la sesión en
-absoluto, y se registra como `access_denied` con motivo `wrongrole`.
+`scroll`/`chat_message`; el profesor `resync_request`/`chat_message`.
+Que el usuario sea participante de la sesión no basta — si un alumno
+intenta empujar un `resync_request`, se rechaza igual que si no
+perteneciera a la sesión en absoluto, y se registra como `access_denied`
+con motivo `wrongrole`.
+
+`chat_message` es también el único tipo que **no** excluye al propio
+emisor al leer: `get_events_since()` normalmente filtra "no me devuelvas
+mis propios eventos" (el alumno nunca necesita ver su propio `page`/
+`scroll` reflejado de vuelta), pero un chat necesita que cada
+participante vea la conversación completa, incluidos sus propios
+mensajes. Esto no relaja ninguna comprobación de autorización: solo
+altera qué fila de una sesión ya validada como propia se devuelve, no
+quién puede pedir qué sesión.
 
 ## Límite de frecuencia
 
 `rate_limiter::is_allowed()` exige al menos 150 ms entre eventos
-`scroll` de la misma sesión, respaldado por una caché de aplicación (no
-por la tabla de eventos, cuyo `timecreated` solo tiene resolución de un
-segundo). Un evento que llega demasiado pronto **no se guarda ni se
-lanza un error**: `record_event()` devuelve `null` y el llamador AJAX
-responde con éxito de todos modos (`id: 0`), porque llegar un poco
-rápido no es un intento de abuso, es tráfico normal de un scroll
-continuo. `page` y `resync_request` no tienen límite de frecuencia
-propio (el cliente ya limita `page` razonablemente, y `resync_request`
-solo se dispara por una recuperación de conexión, no continuamente).
+`scroll` y 300 ms entre eventos `chat_message` de la misma sesión,
+respaldado por una caché de aplicación (no por la tabla de eventos,
+cuyo `timecreated` solo tiene resolución de un segundo). Un evento que
+llega demasiado pronto **no se guarda ni se lanza un error**:
+`record_event()` devuelve `null` y el llamador AJAX responde con éxito
+de todos modos (`id: 0`), porque llegar un poco rápido no es un intento
+de abuso, es tráfico normal de un scroll continuo (o de un doble envío
+accidental de chat). `page` y `resync_request` no tienen límite de
+frecuencia propio (el cliente ya limita `page` razonablemente, y
+`resync_request` solo se dispara por una recuperación de conexión, no
+continuamente).
+
+La clave de la caché de límite de frecuencia incluye el **remitente**
+(`sessionid_eventtype_userid`), no solo sesión y tipo — necesario desde
+que `chat_message` es el primer tipo con más de un remitente posible
+por sesión; con una clave compartida, un mensaje de un lado habría
+podido bloquear por error la respuesta del otro si llegaba dentro de la
+misma ventana.
 
 ## Saneamiento de HTML (Fase 2)
 
@@ -266,13 +290,23 @@ capturan.
   pueda escribir en sesiones propias (con el rol correcto) acotan el
   daño a esa única sesión.
 - **Ancho de banda por foto completa**: cada evento `page` reenvía el
-  contenido principal completo (hasta 200 000 caracteres saneados), no un
-  diff. Es una decisión deliberada de simplicidad (ver
-  `docs/decisions.md`), pero implica más tráfico que un enfoque
-  incremental si la página es grande y cambia a menudo.
+  contenido principal completo (hasta 150 000 caracteres saneados en
+  modo `main`, 400 000 en `fullpage`), no un diff. Es una decisión
+  deliberada de simplicidad (ver `docs/decisions.md`), pero implica más
+  tráfico que un enfoque incremental si la página es grande y cambia a
+  menudo.
 - **`resync_request` sin límite de frecuencia**: en teoría un profesor
   (o alguien que consiguiera su sesión) podría disparar resincronizaciones
   completas repetidamente. En la práctica solo se dispara una vez por
   recuperación de conexión desde el cliente oficial, y el coste de cada
   una es el mismo que el latido periódico normal (una foto `page`), así
   que no es una vía de amplificación real.
+- **`chat_message` sobrevive más tiempo que el resto de eventos, por
+  diseño**: exento de `purge_stale_events()` (la purga de 2 minutos),
+  solo desaparece al cerrarse la sesión. Esto significa que, durante una
+  sesión larga, el texto de la conversación completa queda en la base de
+  datos durante toda su duración, no solo unos minutos — una excepción
+  deliberada a la política general del plugin de no acumular datos (ver
+  `docs/decisions.md`), aceptada porque un mensaje de chat, a diferencia
+  de una foto de pantalla obsoleta, no se puede regenerar si se pierde.
+  Sigue sin sobrevivir al cierre de la sesión.
