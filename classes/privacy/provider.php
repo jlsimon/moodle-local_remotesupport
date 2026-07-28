@@ -57,7 +57,6 @@ class provider implements
             'studentid' => 'privacy:metadata:local_remotesupport_session:studentid',
             'teacherid' => 'privacy:metadata:local_remotesupport_session:teacherid',
             'status' => 'privacy:metadata:local_remotesupport_session:status',
-            'controllevel' => 'privacy:metadata:local_remotesupport_session:controllevel',
             'reason' => 'privacy:metadata:local_remotesupport_session:reason',
             'timecreated' => 'privacy:metadata:local_remotesupport_session:timecreated',
             'timestarted' => 'privacy:metadata:local_remotesupport_session:timestarted',
@@ -142,7 +141,6 @@ class provider implements
                 $data[] = (object) [
                     'role' => $session->studentid == $userid ? 'student' : 'teacher',
                     'status' => $session->status,
-                    'controllevel' => $session->controllevel,
                     'reason' => $session->reason,
                     'timecreated' => \core_privacy\local\request\transform::datetime($session->timecreated),
                     'timestarted' => $session->timestarted

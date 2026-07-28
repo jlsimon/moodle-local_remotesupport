@@ -23,7 +23,7 @@ defined('MOODLE_INTERNAL') || die();
  *
  * Backed by an application MUC cache (db/caches.php) rather than the
  * events table itself: the events table's timecreated has one-second
- * resolution, too coarse for something like cursor movement, which needs
+ * resolution, too coarse for something like scroll events, which need
  * sub-second throttling.
  *
  * @package    local_remotesupport
@@ -34,9 +34,7 @@ class rate_limiter {
 
     /** @var array<string,float> Minimum seconds between accepted events, per event type. */
     const MIN_INTERVAL_SECONDS = [
-        'cursor' => 0.05,
         'scroll' => 0.15,
-        'scroll_request' => 0.15,
     ];
 
     /**
@@ -55,7 +53,7 @@ class rate_limiter {
             return true;
         }
 
-        $cache = \cache::make('local_remotesupport', 'cursorthrottle');
+        $cache = \cache::make('local_remotesupport', 'eventratelimit');
         $key = $sessionid . '_' . $eventtype;
         $last = $cache->get($key);
         $now = microtime(true);

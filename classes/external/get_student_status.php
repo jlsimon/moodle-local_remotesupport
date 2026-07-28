@@ -68,7 +68,6 @@ class get_student_status extends external_api {
      */
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
-            'accesslevel' => new external_value(PARAM_TEXT, 'Current control level label'),
             'isnone' => new external_value(PARAM_BOOL, 'No open request'),
             'isrequested' => new external_value(PARAM_BOOL, 'Waiting for a teacher to accept'),
             'isaccepted' => new external_value(PARAM_BOOL, 'Accepted, not yet entered'),

@@ -80,7 +80,6 @@ class session_manager {
         $record->status = self::STATUS_REQUESTED;
         $record->tokenhashstudent = null;
         $record->tokenhashteacher = null;
-        $record->controllevel = control_level::VIEW;
         $record->reason = $reason !== '' ? $reason : null;
         $record->timecreated = $now;
         $record->timerequestexpires = $now + self::get_request_expiry_seconds();
@@ -391,45 +390,6 @@ class session_manager {
 
         event_manager::purge_session_events($session->id);
         audit_manager::session_ended($session, $userid);
-
-        return $session;
-    }
-
-    /**
-     * Grant or revoke a control level. Only the session's own student may
-     * change it — this is their consent to give, not the teacher's or
-     * anyone else's to take.
-     *
-     * @param int $sessionid
-     * @param int $studentid
-     * @param string $level One of control_level::all().
-     * @return \stdClass Updated session row.
-     * @throws moodle_exception
-     */
-    public static function set_control_level(int $sessionid, int $studentid, string $level): \stdClass {
-        global $DB;
-
-        $session = self::get_session($sessionid);
-
-        if ($session->studentid != $studentid) {
-            audit_manager::access_denied(context_course::instance($session->courseid), 'notowner');
-            throw new moodle_exception('errornopermission', 'local_remotesupport');
-        }
-        if (!in_array($level, control_level::all(), true)) {
-            throw new moodle_exception('errorinvalidcontrollevel', 'local_remotesupport');
-        }
-        if ($session->status !== self::STATUS_ACTIVE) {
-            throw new moodle_exception('errorsessionnotactive', 'local_remotesupport');
-        }
-
-        $from = $session->controllevel;
-        $session->controllevel = $level;
-        $session->timemodified = time();
-        $DB->update_record('local_remotesupport_session', $session);
-
-        if ($from !== $level) {
-            audit_manager::control_level_changed($session, $from, $level);
-        }
 
         return $session;
     }

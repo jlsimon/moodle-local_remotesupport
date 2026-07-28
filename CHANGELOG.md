@@ -1,5 +1,135 @@
 # Changelog
 
+## 0.10.4 (la reconstrucción ya no es scrollable de forma nativa) — 2026-07-28
+
+- **Pedido por el usuario, tras comprobar que 0.10.3 no bastaba**: en
+  vez de seguir bloqueando reactivamente cada vía de scroll manual
+  (rueda, teclado...), el documento capturado dentro del iframe deja de
+  tener overflow scrollable por completo. `html`/`body` pasan a
+  `overflow: hidden`, y `payload.html` se envuelve en un `<div>` interno
+  que se posiciona con `transform: translate(-x, -y)` en vez de
+  `contentWindow.scrollTo()`. Sin ninguna caja con scroll nativo, no
+  hay nada que la rueda, el teclado o cualquier otro input puedan
+  mover — la posición solo cambia cuando llega un evento `page`/`scroll`
+  sincronizado del alumno.
+- Se elimina el bloqueo de `wheel`/`keydown` de 0.10.3 (ya no hace
+  falta: no hay scroll nativo que interceptar).
+- El modal capturado se mantiene fuera del `<div>` traducido, para que
+  siga comportándose como `position: fixed` normal — un `transform` en
+  un ancestro convertiría a ese `<div>` en el contenedor de referencia
+  de cualquier descendiente `fixed`/`sticky`, rompiendo ese
+  comportamiento.
+- **Limitación conocida, aceptada conscientemente**: cualquier elemento
+  `position: fixed`/`sticky` *dentro del propio contenido capturado*
+  (no el modal, que queda aparte) deja de comportarse como fijo y se
+  desplaza junto con el resto — en la práctica solo relevante en el
+  modo de captura `fullpage` (p. ej. una barra de navegación `sticky`
+  del tema); el modo `main` (por defecto) rara vez tiene este patrón.
+  Documentado en `docs/limitations.md` y `docs/decisions.md`.
+- Sin cambios de servidor; sin pruebas nuevas (lógica de cliente, mismo
+  hueco de siempre).
+
+## 0.10.3 (fix: el profesor podía desplazar la reconstrucción manualmente) — 2026-07-28
+
+- **Corregido, reportado por el usuario**: pese al `pointer-events: none`
+  de 0.10.2, el profesor todavía podía desplazar el scroll de la
+  reconstrucción con la rueda del ratón, de forma independiente a la
+  posición real del alumno. Causa: en navegadores basados en Chromium,
+  el scroll con rueda sobre un `<iframe>` puede resolverse por un camino
+  optimizado (compositor thread) que no pasa por el hit-testing normal,
+  saltándose `pointer-events: none`.
+- `event_player.js` añade ahora, cada vez que se carga contenido nuevo
+  en el iframe (mismo punto donde ya se sincroniza el scroll del
+  alumno), un listener `wheel` (con `{passive: false}`) y otro
+  `keydown` (para Espacio/Re Pág/Av Pág/Inicio/Fin/flechas) sobre
+  `iframe.contentWindow`, ambos con `preventDefault()`. Misma técnica de
+  acceso ya usada para `scrollTo()` (permitida por `allow-same-origin`,
+  sin que el iframe ejecute script propio) — la reconstrucción ya solo
+  puede moverse por un evento `scroll` sincronizado del alumno.
+- Sin cambios de servidor; sin pruebas nuevas (lógica de cliente, mismo
+  hueco de siempre).
+
+## 0.10.2 (fix: los enlaces de la reconstrucción reaccionaban al clic) — 2026-07-28
+
+- **Corregido, reportado por el usuario**: al pulsar un enlace dentro de
+  la reconstrucción de pantalla del profesor, este reaccionaba
+  (navegaba), cuando debería ser una vista puramente pasiva. Causa: el
+  `<iframe>` usa `sandbox="allow-same-origin"` sin `allow-scripts`, lo
+  que ya bloquea JS y formularios, pero un `<a href>` normal navega de
+  forma nativa sin depender de JS — el atributo `sandbox` sin
+  `allow-top-navigation` solo impide navegar el contexto de nivel
+  superior, no que el propio iframe navegue su contenido interno. Antes
+  esto quedaba bloqueado como efecto colateral del listener de clic de
+  la Fase 3/5 (llamaba `e.preventDefault()` antes de nada); al
+  eliminarse ese código entero en 0.10.0, se perdió el efecto colateral
+  sin que nada lo sustituyera.
+- Añadido `pointer-events: none` a `.local-remotesupport-player-frame`
+  en `styles.css`: el navegador deja de entregarle al iframe cualquier
+  evento de ratón, así que ningún enlace, botón o elemento futuro dentro
+  del contenido capturado puede reaccionar nunca — no depende de qué
+  contenga la foto de página, a diferencia de una solución basada en JS
+  o en reescribir los `href` durante el saneado.
+- Sin cambios de servidor; sin pruebas nuevas (regla CSS pura).
+
+## 0.10.1 (fix: el campo de motivo se vaciaba al escribir) — 2026-07-28
+
+- **Corregido, reportado por el usuario**: al escribir en el campo
+  "Motivo (opcional)" del formulario de solicitud, el texto desaparecía
+  a los pocos segundos. Causa: `student_client.js` sondea el estado cada
+  4 s y volvía a renderizar todo el panel incondicionalmente —
+  `Templates.replaceNodeContents()` destruye y recrea el `<input>` en
+  el que el alumno está escribiendo, y la plantilla no conoce ese valor
+  todavía (no se ha enviado el formulario), así que el campo nuevo nace
+  vacío.
+- `refresh()` ahora compara el estado recién sondeado con el anterior
+  (`JSON.stringify`) y solo vuelve a renderizar si algo cambió realmente
+  — mientras el alumno solo está escribiendo el motivo sin enviar nada,
+  el estado del servidor no cambia entre sondeos, así que el panel deja
+  de tocarse.
+- Sin cambios de servidor; sin pruebas nuevas (lógica de cliente, mismo
+  hueco de siempre).
+
+## 0.10.0 (solo visualización: sin cursor remoto, clic remoto ni escritura remota) — 2026-07-28
+
+- **Pedido por el usuario**: eliminar toda capacidad del profesor de
+  actuar sobre la pantalla del alumno, dejando únicamente visualización
+  pasiva. Se elimina por completo lo añadido en la Fase 3 (cursor remoto
+  y resaltado), la Fase 5 (clic remoto seguro), la Fase 6 (escritura
+  remota en formularios) y la ampliación posterior de scroll
+  bidireccional (el profesor moviendo el scroll del alumno). Se
+  mantienen las Fases 1 y 2 completas, y el scroll unidireccional
+  alumno→profesor de la Fase 4 (el profesor sigue viendo por dónde se
+  desplaza el alumno).
+- El sistema de niveles de consentimiento (`view`/`pointer`/`click`/
+  `input`) desaparece por completo: una sesión activa ya solo implica
+  visualización, sin nada que el alumno deba conceder o revocar más
+  allá de aceptar la sesión en sí. Se elimina la columna `controllevel`
+  de `local_remotesupport_session` vía un nuevo paso de
+  `db/upgrade.php` (no se reescribe el paso histórico que la añadió).
+- Eliminados: `classes/local/control_level.php`,
+  `classes/external/set_control_level.php`,
+  `classes/event/control_level_changed.php`,
+  `classes/event/remote_click.php`, `classes/event/remote_input.php`,
+  `amd/src/interaction_policy.js`. El servicio AJAX
+  `local_remotesupport_set_control_level` desaparece de
+  `db/services.php` (quedan diez).
+- `event_capture.js`/`event_player.js` pierden toda la lógica de cursor,
+  resaltado, petición/resultado de clic, petición/resultado de
+  escritura y scroll dirigido por el profesor; la barra de estado del
+  alumno pierde los botones "Permitir señalar/clics/escritura".
+  `event_manager::EVENT_TYPES` queda en `page`, `scroll`,
+  `resync_request`; `polling_transport` ya no gatea por nivel, solo por
+  rol (alumno empuja `page`/`scroll`, profesor solo `resync_request`).
+- El código completo previo a este cambio queda accesible en el tag de
+  git `pre-viewonly-full-featured`, por si alguna de estas capacidades
+  se necesita retomar más adelante — ver `docs/decisions.md`.
+- Pruebas: 119 tests PHPUnit pasando (211 assertions), tras eliminar o
+  adaptar los tests específicos de cursor/resaltado/clic/escritura/
+  niveles de consentimiento en `tests/event_manager_test.php`,
+  `tests/polling_transport_test.php`, `tests/external_api_test.php`,
+  `tests/session_manager_test.php`, `tests/rate_limiter_test.php`;
+  `tests/control_level_test.php` eliminado.
+
 ## 0.9.2 (aviso al profesor cuando el alumno finaliza) — 2026-07-27
 
 - **Pedido por el usuario**: al finalizar el alumno la asistencia (lo

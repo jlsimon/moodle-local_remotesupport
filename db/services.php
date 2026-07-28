@@ -41,14 +41,6 @@ $functions = [
         'ajax' => true,
         'loginrequired' => true,
     ],
-    'local_remotesupport_set_control_level' => [
-        'classname' => 'local_remotesupport\external\set_control_level',
-        'methodname' => 'execute',
-        'description' => 'Grant or revoke a control level; callable only by the session\'s own student.',
-        'type' => 'write',
-        'ajax' => true,
-        'loginrequired' => true,
-    ],
     'local_remotesupport_get_student_status' => [
         'classname' => 'local_remotesupport\external\get_student_status',
         'methodname' => 'execute',

@@ -45,7 +45,6 @@ class student_status {
         $session = session_manager::get_open_request_for_student($studentid, $courseid);
 
         $data = [
-            'accesslevel' => get_string('level_' . ($session->controllevel ?? 'view'), 'local_remotesupport'),
             'isnone' => false,
             'isrequested' => false,
             'isaccepted' => false,

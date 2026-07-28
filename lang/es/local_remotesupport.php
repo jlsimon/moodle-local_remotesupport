@@ -86,42 +86,9 @@ $string['button_continuebrowsing'] = 'Ir al curso';
 $string['sessionclosed'] = 'La sesión ha finalizado.';
 $string['sessionendedbystudent'] = 'El alumno ha finalizado la asistencia.';
 $string['statusbar_active'] = 'Asistencia activa con {$a}';
-$string['hint_pointandclick'] = 'Mueve el ratón sobre la vista previa para señalar; haz clic en un elemento para resaltarlo para el alumno.';
-$string['button_clearhighlight'] = 'Quitar resaltado';
 $string['connection_connected'] = 'Conectado';
 $string['connection_waiting'] = 'Conectando…';
 $string['connection_lost'] = 'Conexión perdida';
-
-// Niveles de control.
-$string['level_view'] = 'Solo visualización';
-$string['level_pointer'] = 'Señalización permitida';
-$string['level_click'] = 'Clics permitidos';
-$string['level_input'] = 'Escritura permitida';
-$string['button_allowpointer'] = 'Permitir señalar';
-$string['button_allowclick'] = 'Permitir clics';
-$string['button_allowinput'] = 'Permitir escritura';
-$string['button_revokeall'] = 'Revocar todo';
-$string['controllevelchanged'] = 'Nivel de acceso actualizado.';
-
-// Clic remoto.
-$string['button_requestclick'] = 'Solicitar clic';
-$string['clickconfirm_message'] = 'El profesor solicita hacer clic en: «{$a}». ¿Lo permites?';
-$string['button_allowonce'] = 'Permitir';
-$string['button_decline'] = 'Rechazar';
-$string['clickresult_clicked'] = 'Clic realizado.';
-$string['clickresult_blocked'] = 'Bloqueado: este elemento no está en la lista permitida.';
-$string['clickresult_declined'] = 'El alumno ha rechazado el clic.';
-$string['clickresult_notfound'] = 'No se ha podido identificar de forma fiable el elemento en la página actual del alumno.';
-$string['clickresult_nohighlight'] = 'Resalta un elemento primero.';
-
-// Escritura remota.
-$string['inputvalue_placeholder'] = 'Texto a escribir…';
-$string['button_setvalue'] = 'Establecer valor';
-$string['button_appendtext'] = 'Añadir texto';
-$string['button_clearvalue'] = 'Vaciar campo';
-$string['inputresult_applied'] = 'El campo se ha actualizado.';
-$string['inputresult_blocked'] = 'Bloqueado: este campo no está en la lista permitida.';
-$string['inputresult_notfound'] = 'No se ha podido identificar de forma fiable el campo en la página actual del alumno.';
 
 // Errores.
 $string['errornopermission'] = 'No tienes permiso para realizar esta acción.';
@@ -133,8 +100,6 @@ $string['errorinvalidtoken'] = 'El enlace de la sesión no es válido o ha caduc
 $string['errorsessionnotactive'] = 'Esta acción requiere una sesión activa.';
 $string['errorinvalideventtype'] = 'Tipo de evento no reconocido.';
 $string['erroreventtoolarge'] = 'Este evento es demasiado grande para enviarse.';
-$string['errorinvalidcontrollevel'] = 'Nivel de acceso no reconocido.';
-$string['errorinsufficientlevel'] = 'El alumno no ha concedido este nivel de acceso.';
 $string['errornosupportavailable'] = 'No hay personal de soporte disponible en este curso en este momento.';
 
 // Eventos.
@@ -144,9 +109,6 @@ $string['event_request_cancelled'] = 'Solicitud de asistencia cancelada o caduca
 $string['event_session_started'] = 'Sesión de asistencia iniciada';
 $string['event_session_ended'] = 'Sesión de asistencia finalizada';
 $string['event_access_denied'] = 'Acceso a asistencia denegado';
-$string['event_control_level_changed'] = 'Nivel de acceso de asistencia modificado';
-$string['event_remote_click'] = 'Clic remoto de asistencia resuelto';
-$string['event_remote_input'] = 'Escritura remota de asistencia resuelta';
 
 // Tareas programadas.
 $string['task_expiresessions'] = 'Caducar solicitudes de asistencia remota pendientes';
@@ -167,7 +129,6 @@ $string['privacy:metadata:local_remotesupport_session:courseid'] = 'El curso en 
 $string['privacy:metadata:local_remotesupport_session:studentid'] = 'El usuario que solicitó asistencia.';
 $string['privacy:metadata:local_remotesupport_session:teacherid'] = 'El usuario que proporcionó asistencia.';
 $string['privacy:metadata:local_remotesupport_session:status'] = 'El estado de la solicitud o sesión.';
-$string['privacy:metadata:local_remotesupport_session:controllevel'] = 'El nivel de control que el alumno ha concedido al profesor (visualización, señalización o clics).';
 $string['privacy:metadata:local_remotesupport_session:reason'] = 'El motivo opcional en texto libre que el alumno indicó al solicitar asistencia.';
 $string['privacy:metadata:preference:supportenabled'] = 'Si actualmente aceptas solicitudes de asistencia remota como profesor.';
 $string['privacy:metadata:local_remotesupport_session:timecreated'] = 'La fecha en que se creó la solicitud.';
@@ -176,5 +137,5 @@ $string['privacy:metadata:local_remotesupport_session:timeended'] = 'La fecha en
 $string['privacy:metadata:local_remotesupport_event'] = 'Eventos efímeros de reconstrucción de pantalla enviados durante una sesión activa; se eliminan al finalizar la sesión y, como máximo, unos minutos después de generarse.';
 $string['privacy:metadata:local_remotesupport_event:sourceuserid'] = 'El usuario (siempre el alumno) cuyo navegador generó el evento.';
 $string['privacy:metadata:local_remotesupport_event:eventtype'] = 'El tipo de evento (foto de página o posición de scroll).';
-$string['privacy:metadata:local_remotesupport_event:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport), coordenadas de cursor/resaltado/clic, o, en una escritura remota iniciada por el profesor, el texto que el profesor decidió escribir. Nunca incluye valores leídos de los propios campos de formulario del alumno.';
+$string['privacy:metadata:local_remotesupport_event:payload'] = 'La foto de la página capturada (URL relativa, título, contenido principal saneado, posición de scroll/viewport). Nunca incluye valores leídos de los propios campos de formulario del alumno.';
 $string['privacy:metadata:local_remotesupport_event:timecreated'] = 'La fecha en que se generó el evento.';

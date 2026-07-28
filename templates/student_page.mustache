@@ -22,7 +22,6 @@
     Context variables required by this template:
     * isnone, isrequested, isaccepted, isactive - mutually exclusive state flags
     * statusmessage - human readable status text
-    * accesslevel - current access level label
     * supportavailable - present only when isnone; false hides the request form
     * requestformurl, sesskey, maxreasonlength - present only when isnone and supportavailable, to build the request form
     * cancelurl, enterurl, finishurl - action links (present only when relevant)
@@ -55,13 +54,11 @@
     {{/isrequested}}
 
     {{#isaccepted}}
-        <p class="local-remotesupport-accesslevel">{{accesslevel}}</p>
         <a class="btn btn-primary" href="{{{enterurl}}}">{{#str}}button_enter, local_remotesupport{{/str}}</a>
         <a class="btn btn-secondary" href="{{{finishurl}}}">{{#str}}button_finish, local_remotesupport{{/str}}</a>
     {{/isaccepted}}
 
     {{#isactive}}
-        <p class="local-remotesupport-accesslevel">{{accesslevel}}</p>
         <a class="btn btn-primary" href="{{{enterurl}}}">{{#str}}button_enter, local_remotesupport{{/str}}</a>
         <a class="btn btn-secondary" href="{{{finishurl}}}">{{#str}}button_finish, local_remotesupport{{/str}}</a>
     {{/isactive}}

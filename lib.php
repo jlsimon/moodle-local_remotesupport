@@ -97,7 +97,6 @@ function local_remotesupport_before_footer(): string {
         $PAGE->requires->js_call_amd('local_remotesupport/event_capture', 'init', [
             $session->id,
             fullname($teacher),
-            $session->controllevel,
             $capturemode !== 'fullpage' ? 'main' : 'fullpage',
         ]);
         return '';

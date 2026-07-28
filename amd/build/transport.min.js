@@ -59,27 +59,8 @@ define(['core/ajax'], function(Ajax) {
         }])[0];
     };
 
-    /**
-     * Grant or revoke a control level. Only the session's own student may
-     * call this successfully.
-     *
-     * @param {Number} sessionid
-     * @param {String} level 'view', 'pointer', 'click' or 'input'
-     * @return {Promise}
-     */
-    var setControlLevel = function(sessionid, level) {
-        return Ajax.call([{
-            methodname: 'local_remotesupport_set_control_level',
-            args: {
-                sessionid: sessionid,
-                level: level
-            }
-        }])[0];
-    };
-
     return {
         pushEvent: pushEvent,
-        pullEvents: pullEvents,
-        setControlLevel: setControlLevel
+        pullEvents: pullEvents
     };
 });

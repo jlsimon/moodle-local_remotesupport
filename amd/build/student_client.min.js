@@ -56,7 +56,6 @@ define(['core/templates', 'core/notification', 'local_remotesupport/session_requ
         };
 
         var render = function(data) {
-            currentStatus = data;
             return Templates.renderForPromise('local_remotesupport/student_page', data).then(function(result) {
                 Templates.replaceNodeContents(container, result.html, result.js);
                 return null;
@@ -64,7 +63,15 @@ define(['core/templates', 'core/notification', 'local_remotesupport/session_requ
         };
 
         var refresh = function() {
-            return SessionRequests.getStudentStatus(courseid).then(render).catch(function() {
+            return SessionRequests.getStudentStatus(courseid).then(function(data) {
+                // Re-rendering replaces the whole panel's DOM, including any
+                // field the student is mid-typing into (e.g. the optional
+                // reason field, before a request exists yet) — skip it
+                // whenever nothing has actually changed since the last poll.
+                var unchanged = currentStatus !== null && JSON.stringify(data) === JSON.stringify(currentStatus);
+                currentStatus = data;
+                return unchanged ? null : render(data);
+            }).catch(function() {
                 // Transient errors ignored; the next poll tick will retry naturally.
             });
         };

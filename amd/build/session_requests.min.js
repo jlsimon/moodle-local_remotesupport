@@ -19,7 +19,7 @@
  * shared by student_client.js, teacher_client.js and navbar_badge.js.
  *
  * Kept separate from transport.js, which is specific to the in-session
- * screen-reconstruction/cursor/click/input event stream.
+ * screen-reconstruction event stream.
  *
  * @module     local_remotesupport/session_requests
  * @copyright  2026 Juan Luis Simón

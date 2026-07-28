@@ -8,23 +8,16 @@ remoto. Ver [docs/architecture.md](docs/architecture.md) para el diseño,
 
 ## Estado
 
-**Fase 6 — Escritura remota en formularios**, completa. Además de lo de
-las Fases 1 a 5 (solicitud, sesión, reconstrucción de pantalla con
-scroll/modales/CSS real, cursor remoto y resaltado, clic remoto seguro
-con confirmación), el alumno puede conceder también el nivel más alto,
-`input`: el profesor resalta un campo de texto seguro (nunca contraseña,
-correo, oculto, o dentro de una página de examen/entrega) y puede
-establecer su valor, añadir texto o vaciarlo — sin confirmación
-individual por escritura, a diferencia del clic, porque el propio nivel
-ya es el consentimiento y el resultado queda siempre a la vista del
-alumno. Con esto quedan completas las seis fases del MVP definidas en
-`AGENTS.md`.
-
-**Ampliación posterior — scroll bidireccional.** Tras probar el MVP
-completo, se añadió que el profesor también pueda desplazar la página
-real del alumno (no solo al revés, como en la Fase 4), reutilizando el
-nivel `pointer` ya existente. Es una ampliación consciente fuera de las
-seis fases originales, documentada como tal en `docs/decisions.md`.
+**Solo visualización.** El plugin implementa las Fases 1 y 2 del MVP
+definido en `AGENTS.md` (solicitud/sesión, y reconstrucción de pantalla
+con scroll/modales/CSS real), pero no las Fases 3, 5 y 6 ni la extensión
+de scroll bidireccional que llegaron a implementarse en una versión
+anterior: el profesor únicamente observa la navegación del alumno, sin
+cursor remoto, resaltado, clic remoto, escritura remota ni capacidad de
+mover el scroll del alumno. Esta reducción de alcance fue una decisión
+explícita del usuario, documentada en `docs/decisions.md`; el código y
+las pruebas de esas capacidades se conservan accesibles en el tag de git
+`pre-viewonly-full-featured` por si se necesitan más adelante.
 
 **Ampliación posterior — icono de solicitudes pendientes.** Un icono
 junto a mensajes/notificaciones en la barra de navegación avisa al
@@ -73,7 +66,7 @@ solo el contenido principal, como hasta ahora.
    `dirroot` de Moodle.
 2. Visitar `admin/index.php` como administrador para completar la
    instalación (crea las tablas `local_remotesupport_session` y
-   `local_remotesupport_event`, las capacidades, los once servicios
+   `local_remotesupport_event`, las capacidades, los diez servicios
    AJAX, las tareas programadas y la caché de límite de frecuencia).
 3. Asignar las capacidades si el instalador no las deja como se espera:
    - `local/remotesupport:requestassistance` — alumnado (por defecto, vía

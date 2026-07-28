@@ -16,7 +16,6 @@
 
 namespace local_remotesupport;
 
-use local_remotesupport\local\control_level;
 use local_remotesupport\local\session_manager;
 use local_remotesupport\local\token_manager;
 
@@ -354,64 +353,5 @@ class session_manager_test extends \advanced_testcase {
 
         $this->assertCount(1, session_manager::get_pending_requests_for_teacher($teacher->id));
         $this->assertCount(0, session_manager::get_pending_requests_for_teacher($otherteacher->id));
-    }
-
-    public function test_new_session_defaults_to_view_level(): void {
-        $this->resetAfterTest();
-        [$course, $student] = $this->setup_course_with_users();
-
-        $session = session_manager::create_request($course->id, $student->id);
-
-        $this->assertSame(control_level::VIEW, $session->controllevel);
-    }
-
-    public function test_student_can_grant_and_revoke_control_level(): void {
-        $this->resetAfterTest();
-        [$course, $student, $teacher] = $this->setup_course_with_users();
-        $session = session_manager::create_request($course->id, $student->id);
-        session_manager::accept_request($session->id, $teacher->id);
-        $token = session_manager::issue_entry_token($session->id, $teacher->id);
-        session_manager::enter_session($session->id, $teacher->id, $token);
-
-        $granted = session_manager::set_control_level($session->id, $student->id, control_level::CLICK);
-        $this->assertSame(control_level::CLICK, $granted->controllevel);
-
-        $revoked = session_manager::set_control_level($session->id, $student->id, control_level::VIEW);
-        $this->assertSame(control_level::VIEW, $revoked->controllevel);
-    }
-
-    public function test_teacher_cannot_set_control_level(): void {
-        $this->resetAfterTest();
-        [$course, $student, $teacher] = $this->setup_course_with_users();
-        $session = session_manager::create_request($course->id, $student->id);
-        session_manager::accept_request($session->id, $teacher->id);
-        $token = session_manager::issue_entry_token($session->id, $teacher->id);
-        session_manager::enter_session($session->id, $teacher->id, $token);
-
-        $this->expectException(\moodle_exception::class);
-        session_manager::set_control_level($session->id, $teacher->id, control_level::CLICK);
-    }
-
-    public function test_set_control_level_rejects_unknown_level(): void {
-        $this->resetAfterTest();
-        [$course, $student, $teacher] = $this->setup_course_with_users();
-        $session = session_manager::create_request($course->id, $student->id);
-        session_manager::accept_request($session->id, $teacher->id);
-        $token = session_manager::issue_entry_token($session->id, $teacher->id);
-        session_manager::enter_session($session->id, $teacher->id, $token);
-
-        $this->expectException(\moodle_exception::class);
-        session_manager::set_control_level($session->id, $student->id, 'superadmin');
-    }
-
-    public function test_set_control_level_requires_active_session(): void {
-        $this->resetAfterTest();
-        [$course, $student, $teacher] = $this->setup_course_with_users();
-        $session = session_manager::create_request($course->id, $student->id);
-        session_manager::accept_request($session->id, $teacher->id);
-        // Accepted, but nobody has entered yet: status is 'accepted', not 'active'.
-
-        $this->expectException(\moodle_exception::class);
-        session_manager::set_control_level($session->id, $student->id, control_level::POINTER);
     }
 }

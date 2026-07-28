@@ -15,14 +15,11 @@
 
 /**
  * Student-side screen capture: builds sanitized page snapshots and pushes
- * them for the teacher to see, shows the persistent "assistance active"
- * status bar with the control-level buttons, renders the teacher's remote
- * cursor/highlight, follows the teacher's scroll (scroll_request, requires
- * 'pointer' level), and resolves remote click requests through the
- * centralised interaction_policy (with an explicit confirmation for every
- * click, no exceptions, in this MVP). Loaded on every Moodle page while
- * the student has an active session (see
- * lib.php::local_remotesupport_before_footer()).
+ * them for the teacher to see, and shows the persistent "assistance active"
+ * status bar with a finish button. View-only: the teacher can watch the
+ * student's navigation and scroll position but cannot act on the student's
+ * page in any way. Loaded on every Moodle page while the student has an
+ * active session (see lib.php::local_remotesupport_before_footer()).
  *
  * Only structure is ever captured, never form field values: input/textarea
  * values are stripped client-side before sending, and stripped again
@@ -33,8 +30,8 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 define(
-    ['jquery', 'core/str', 'local_remotesupport/transport', 'local_remotesupport/interaction_policy'],
-    function($, Str, Transport, InteractionPolicy) {
+    ['jquery', 'core/str', 'local_remotesupport/transport'],
+    function($, Str, Transport) {
 
     var MAIN_CONTENT_SELECTORS = ['#region-main', 'main[role="main"]', 'main', 'body'];
     var MODAL_SELECTOR = '.modal.show, .modal.in, [aria-modal="true"]';
@@ -47,9 +44,6 @@ define(
     var MAX_FULLPAGE_HTML_LENGTH = 400000;
     var MAX_MODAL_HTML_LENGTH = 30000;
     var INCOMING_POLL_INTERVAL_MS = 500;
-    var HIGHLIGHT_CLASS = 'local-remotesupport-highlighted';
-    var CLICK_CONFIRM_TIMEOUT_MS = 15000;
-    var SUPPRESS_ECHO_MS = 50;
 
     /**
      * @return {Element}
@@ -224,230 +218,13 @@ define(
     };
 
     /**
-     * Creates the (initially hidden) remote-cursor overlay element.
-     *
-     * @param {String} teachername
-     * @return {Element}
-     */
-    var createCursorOverlay = function(teachername) {
-        var cursor = document.createElement('div');
-        cursor.className = 'local-remotesupport-remote-cursor';
-        cursor.style.display = 'none';
-        cursor.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20">' +
-            '<path d="M2 2 L18 9 L11 11 L9 18 Z" fill="#2f3a4a" stroke="#fff" stroke-width="1"/></svg>';
-        var label = document.createElement('span');
-        label.className = 'local-remotesupport-remote-cursor-label';
-        label.textContent = teachername;
-        cursor.appendChild(label);
-        document.body.appendChild(cursor);
-        return cursor;
-    };
-
-    /**
      * @param {Number} sessionid
      * @param {String} teachername
-     * @param {String} initiallevel
      * @param {String} capturemode 'main' (default) or 'fullpage'
      */
-    var init = function(sessionid, teachername, initiallevel, capturemode) {
+    var init = function(sessionid, teachername, capturemode) {
         var mode = capturemode === 'fullpage' ? 'fullpage' : 'main';
-        var currentLevel = initiallevel || 'view';
         var statusbar = null;
-        var levelTextEl = null;
-        var buttonsEl = null;
-        var activeClickConfirm = null;
-
-        var cursorOverlay = createCursorOverlay(teachername);
-        var highlightedElement = null;
-        // Set right before programmatically scrolling the page to follow an
-        // incoming scroll_request from the teacher, so sendScroll() does not
-        // immediately echo that same position back as the alumno's own
-        // 'scroll' — see docs/decisions.md.
-        var suppressOutgoingScroll = false;
-
-        var applyHighlight = function(selector) {
-            if (highlightedElement) {
-                highlightedElement.classList.remove(HIGHLIGHT_CLASS);
-                highlightedElement = null;
-            }
-            if (!selector) {
-                return;
-            }
-            var el;
-            try {
-                el = document.querySelector(selector);
-            } catch (e) {
-                return;
-            }
-            if (el) {
-                el.classList.add(HIGHLIGHT_CLASS);
-                highlightedElement = el;
-            }
-        };
-
-        var moveCursor = function(fractionx, fractiony) {
-            cursorOverlay.style.display = 'block';
-            cursorOverlay.style.left = (fractionx * window.innerWidth) + 'px';
-            cursorOverlay.style.top = (fractiony * window.innerHeight) + 'px';
-        };
-
-        var dismissClickConfirm = function(confirmed) {
-            if (!activeClickConfirm) {
-                return;
-            }
-            window.clearTimeout(activeClickConfirm.timeout);
-            if (activeClickConfirm.element.parentNode) {
-                activeClickConfirm.element.parentNode.removeChild(activeClickConfirm.element);
-            }
-            var callback = activeClickConfirm.callback;
-            activeClickConfirm = null;
-            callback(confirmed);
-        };
-
-        var showClickConfirmation = function(el, callback) {
-            dismissClickConfirm(false);
-
-            Str.get_strings([
-                {key: 'clickconfirm_message', component: 'local_remotesupport', param: InteractionPolicy.visibleLabel(el) || '…'},
-                {key: 'button_allowonce', component: 'local_remotesupport'},
-                {key: 'button_decline', component: 'local_remotesupport'}
-            ]).then(function(strings) {
-                var panel = document.createElement('div');
-                panel.className = 'local-remotesupport-clickconfirm';
-                panel.setAttribute('role', 'alertdialog');
-
-                var message = document.createElement('p');
-                message.textContent = strings[0];
-                panel.appendChild(message);
-
-                var allow = document.createElement('button');
-                allow.type = 'button';
-                allow.className = 'btn btn-primary btn-sm';
-                allow.textContent = strings[1];
-                allow.addEventListener('click', function() {
-                    dismissClickConfirm(true);
-                });
-                panel.appendChild(allow);
-
-                var decline = document.createElement('button');
-                decline.type = 'button';
-                decline.className = 'btn btn-secondary btn-sm';
-                decline.textContent = strings[2];
-                decline.addEventListener('click', function() {
-                    dismissClickConfirm(false);
-                });
-                panel.appendChild(decline);
-
-                document.body.appendChild(panel);
-
-                activeClickConfirm = {
-                    element: panel,
-                    callback: callback,
-                    timeout: window.setTimeout(function() {
-                        dismissClickConfirm(false);
-                    }, CLICK_CONFIRM_TIMEOUT_MS)
-                };
-                return null;
-            }).catch(function() {
-                callback(false);
-            });
-        };
-
-        var handleClickRequest = function(selector) {
-            var respond = function(outcome) {
-                Transport.pushEvent(sessionid, 'click_result', {selector: selector, outcome: outcome}).catch(function() {
-                    // Transient errors ignored; the teacher will see no result for this one.
-                });
-            };
-
-            var matches;
-            try {
-                matches = document.querySelectorAll(selector);
-            } catch (e) {
-                respond('notfound');
-                return;
-            }
-            if (matches.length !== 1) {
-                // Either nothing matched, or the selector was ambiguous: the
-                // document explicitly wants unreliable identification blocked.
-                respond('notfound');
-                return;
-            }
-
-            var el = matches[0];
-            var decision = InteractionPolicy.canClick(el);
-            if (!decision.allowed) {
-                respond('blocked');
-                return;
-            }
-
-            showClickConfirmation(el, function(confirmed) {
-                if (!confirmed) {
-                    respond('declined');
-                    return;
-                }
-                el.classList.add('local-remotesupport-click-flash');
-                window.setTimeout(function() {
-                    el.classList.remove('local-remotesupport-click-flash');
-                }, 600);
-                el.click();
-                respond('clicked');
-            });
-        };
-
-        var handleInputRequest = function(selector, action, value) {
-            var respond = function(outcome) {
-                Transport.pushEvent(sessionid, 'input_result', {
-                    selector: selector, action: action, outcome: outcome
-                }).catch(function() {
-                    // Transient errors ignored; the teacher will see no result for this one.
-                });
-            };
-
-            var matches;
-            try {
-                matches = document.querySelectorAll(selector);
-            } catch (e) {
-                respond('notfound');
-                return;
-            }
-            if (matches.length !== 1) {
-                respond('notfound');
-                return;
-            }
-
-            var el = matches[0];
-            var decision = InteractionPolicy.canSetValue(el);
-            if (!decision.allowed) {
-                respond('blocked');
-                return;
-            }
-
-            // Step 4 of the document's flow: show which field is about to
-            // change. No confirmation dialog here — unlike a click, setting
-            // a field's value has no side effect beyond what the alumno can
-            // immediately see and undo themselves, and the 'input' level
-            // was already granted explicitly as coarse-grained consent.
-            el.classList.add('local-remotesupport-input-flash');
-            window.setTimeout(function() {
-                el.classList.remove('local-remotesupport-input-flash');
-            }, 600);
-
-            if (action === 'clear') {
-                el.value = '';
-            } else if (action === 'append_text') {
-                el.value = (el.value || '') + (typeof value === 'string' ? value : '');
-            } else if (action === 'set_value') {
-                el.value = typeof value === 'string' ? value : '';
-            } else {
-                respond('blocked');
-                return;
-            }
-
-            el.dispatchEvent(new Event('input', {bubbles: true}));
-            el.dispatchEvent(new Event('change', {bubbles: true}));
-            respond('applied');
-        };
 
         var sendPageSnapshot = function() {
             Transport.pushEvent(sessionid, 'page', buildPageSnapshot(mode)).catch(function() {
@@ -455,33 +232,23 @@ define(
             });
         };
         var sendScroll = function() {
-            if (suppressOutgoingScroll) {
-                return;
-            }
             Transport.pushEvent(sessionid, 'scroll', {x: window.scrollX, y: window.scrollY}).catch(function() {
                 // Ignored, see above.
             });
         };
-        var handleScrollRequest = function(x, y) {
-            suppressOutgoingScroll = true;
-            window.scrollTo(x, y);
-            window.setTimeout(function() {
-                suppressOutgoingScroll = false;
-            }, SUPPRESS_ECHO_MS);
-        };
         var debouncedSnapshot = debounce(sendPageSnapshot, PAGE_DEBOUNCE_MS);
 
-        // Own elements (status bar, cursor overlay, click confirmation) live
-        // directly under <body> too; the observers below must not mistake
-        // their own insertions/removals for alumno-driven changes worth
-        // re-syncing over — that would just be a spurious resend, not an
-        // infinite loop, but it is exactly the local/remote conflation the
-        // spec asks to avoid. Checked via closest(), not just the node's own
-        // class list, so it still catches e.g. a button added deep inside
-        // the status bar while watching the whole <body> in 'fullpage' mode
-        // — a case the original direct-children-only check never had to
-        // handle, since in 'main' mode none of this plugin's own elements
-        // live inside the observed main-content root at all.
+        // The status bar lives directly under <body> too; the observers
+        // below must not mistake its own insertions/removals for
+        // alumno-driven changes worth re-syncing over — that would just be a
+        // spurious resend, not an infinite loop, but it is exactly the
+        // local/remote conflation the spec asks to avoid. Checked via
+        // closest(), not just the node's own class list, so it still catches
+        // e.g. a button added deep inside the status bar while watching the
+        // whole <body> in 'fullpage' mode — a case the original
+        // direct-children-only check never had to handle, since in 'main'
+        // mode the status bar never lives inside the observed main-content
+        // root at all.
         var isOwnElement = function(node) {
             return node.nodeType === 1 && !!(node.closest && node.closest('[class*="' + OWN_CLASS_PREFIX + '"]'));
         };
@@ -516,11 +283,6 @@ define(
             if (statusbar && statusbar.parentNode) {
                 statusbar.parentNode.removeChild(statusbar);
             }
-            if (cursorOverlay.parentNode) {
-                cursorOverlay.parentNode.removeChild(cursorOverlay);
-            }
-            dismissClickConfirm(false);
-            applyHighlight(null);
             window.clearInterval(heartbeatHandle);
             window.clearInterval(incomingPollHandle);
             contentObserver.disconnect();
@@ -536,25 +298,8 @@ define(
                     if (event.id > sinceid) {
                         sinceid = event.id;
                     }
-                    var payload;
-                    try {
-                        payload = JSON.parse(event.payload);
-                    } catch (e) {
-                        return;
-                    }
-                    if (event.eventtype === 'cursor') {
-                        moveCursor(payload.x, payload.y);
-                    } else if (event.eventtype === 'highlight') {
-                        applyHighlight(payload.selector || null);
-                    } else if (event.eventtype === 'resync_request') {
+                    if (event.eventtype === 'resync_request') {
                         sendPageSnapshot();
-                    } else if (event.eventtype === 'scroll_request' &&
-                            typeof payload.x === 'number' && typeof payload.y === 'number') {
-                        handleScrollRequest(payload.x, payload.y);
-                    } else if (event.eventtype === 'click_request' && typeof payload.selector === 'string') {
-                        handleClickRequest(payload.selector);
-                    } else if (event.eventtype === 'input_request' && typeof payload.selector === 'string') {
-                        handleInputRequest(payload.selector, payload.action, payload.value);
                     }
                 });
                 return null;
@@ -563,72 +308,6 @@ define(
                     cleanup();
                 }
             });
-        };
-
-        // -- Status bar with control-level buttons --------------------------
-
-        var renderLevelButtons = function() {
-            buttonsEl.innerHTML = '';
-
-            var addButton = function(labelkey, onclick) {
-                Str.get_string(labelkey, 'local_remotesupport').then(function(label) {
-                    var btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'btn btn-outline-light btn-sm';
-                    btn.textContent = label;
-                    btn.addEventListener('click', onclick);
-                    buttonsEl.appendChild(btn);
-                    return null;
-                }).catch(function() {
-                    // Non-fatal: the button just would not appear.
-                });
-            };
-
-            var changeLevel = function(level) {
-                Transport.setControlLevel(sessionid, level).then(function(result) {
-                    currentLevel = result.level;
-                    updateLevelUI();
-                    return null;
-                }).catch(function() {
-                    // Transient error: level stays as it was, nothing to update.
-                });
-            };
-
-            if (currentLevel === 'view') {
-                addButton('button_allowpointer', function() {
-                    changeLevel('pointer');
-                });
-            } else if (currentLevel === 'pointer') {
-                addButton('button_allowclick', function() {
-                    changeLevel('click');
-                });
-            } else if (currentLevel === 'click') {
-                addButton('button_allowinput', function() {
-                    changeLevel('input');
-                });
-            }
-            if (currentLevel !== 'view') {
-                addButton('button_revokeall', function() {
-                    changeLevel('view');
-                });
-            }
-        };
-
-        var updateLevelUI = function() {
-            if (!levelTextEl) {
-                return;
-            }
-            Str.get_string('level_' + currentLevel, 'local_remotesupport').then(function(label) {
-                levelTextEl.textContent = label;
-                return null;
-            }).catch(function() {
-                // Non-fatal.
-            });
-            renderLevelButtons();
-            if (currentLevel === 'view') {
-                applyHighlight(null);
-                cursorOverlay.style.display = 'none';
-            }
         };
 
         Str.get_strings([
@@ -640,14 +319,8 @@ define(
             statusbar.setAttribute('role', 'status');
 
             var text = document.createElement('span');
-            text.textContent = strings[0] + ' — ';
-            levelTextEl = document.createElement('strong');
-            text.appendChild(levelTextEl);
+            text.textContent = strings[0];
             statusbar.appendChild(text);
-
-            buttonsEl = document.createElement('span');
-            buttonsEl.className = 'local-remotesupport-statusbar-buttons';
-            statusbar.appendChild(buttonsEl);
 
             var finishurl = M.cfg.wwwroot + '/local/remotesupport/session.php?id=' + encodeURIComponent(sessionid) +
                 '&action=finish&sesskey=' + encodeURIComponent(M.cfg.sesskey);
@@ -658,7 +331,6 @@ define(
             statusbar.appendChild(finish);
 
             document.body.appendChild(statusbar);
-            updateLevelUI();
             return null;
         }).catch(function() {
             // Non-fatal: the bar is a convenience, capture still proceeds without it.

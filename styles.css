@@ -35,6 +35,13 @@
     height: 480px;
     border: 0;
     transform-origin: top left;
+    /* Purely a passive reconstruction: the sandbox attribute already blocks
+       scripts and form submission, but a plain <a href> still navigates the
+       iframe natively (sandbox only restricts navigating the *top-level*
+       browsing context, not the iframe itself). This blocks the browser
+       from delivering any pointer event to the frame at all, so no link,
+       button or future element inside the captured content can ever react. */
+    pointer-events: none;
 }
 
 .local-remotesupport-connection-indicator {
@@ -72,42 +79,6 @@
     word-break: break-all;
 }
 
-.local-remotesupport-hint {
-    font-size: 0.85rem;
-    color: #6c757d;
-}
-
-.local-remotesupport-remote-cursor {
-    position: fixed;
-    z-index: 10001;
-    pointer-events: none;
-    transform: translate(-2px, -2px);
-}
-
-.local-remotesupport-remote-cursor-label {
-    position: absolute;
-    left: 18px;
-    top: 16px;
-    background: #2f3a4a;
-    color: #fff;
-    font-size: 0.7rem;
-    padding: 1px 6px;
-    border-radius: 3px;
-    white-space: nowrap;
-}
-
-.local-remotesupport-highlighted,
-.local-remotesupport-teacher-highlight {
-    outline: 3px solid #ff9800 !important;
-    outline-offset: 2px;
-    background-color: rgba(255, 152, 0, 0.12) !important;
-}
-
-.local-remotesupport-statusbar-buttons {
-    display: flex;
-    gap: 0.4rem;
-}
-
 .local-remotesupport-sessionended {
     position: fixed;
     top: 1rem;
@@ -125,62 +96,6 @@
 
 .local-remotesupport-sessionended p {
     margin-bottom: 0.5rem;
-}
-
-.local-remotesupport-clickconfirm {
-    position: fixed;
-    top: 1rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10002;
-    background: #fff;
-    color: #212529;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-    padding: 0.75rem 1rem;
-    max-width: 90vw;
-    text-align: center;
-}
-
-.local-remotesupport-clickconfirm p {
-    margin-bottom: 0.5rem;
-    word-break: break-word;
-}
-
-.local-remotesupport-clickconfirm button {
-    margin: 0 0.25rem;
-}
-
-.local-remotesupport-click-flash {
-    outline: 3px solid #28a745 !important;
-    outline-offset: 2px;
-    transition: outline-color 0.2s ease;
-}
-
-.local-remotesupport-clickresult {
-    font-size: 0.85rem;
-    margin-bottom: 0.4rem;
-    min-height: 1.1em;
-}
-
-.local-remotesupport-inputcomposer {
-    display: flex;
-    gap: 0.4rem;
-    align-items: center;
-    margin: 0.5rem 0;
-    flex-wrap: wrap;
-}
-
-.local-remotesupport-inputcomposer input[type="text"] {
-    flex: 1 1 200px;
-    min-width: 150px;
-}
-
-.local-remotesupport-input-flash {
-    outline: 3px solid #17a2b8 !important;
-    outline-offset: 2px;
-    transition: outline-color 0.2s ease;
 }
 
 .local-remotesupport-navbar-badge {

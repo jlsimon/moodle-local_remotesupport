@@ -1,5 +1,10 @@
 # Limitaciones conocidas
 
+**Nota: este plugin es deliberadamente de solo visualización.** El
+profesor no puede señalar, hacer clic ni escribir en la página del
+alumno — solo observarla. Ver `docs/decisions.md` para el porqué de esta
+decisión y qué código se retiró.
+
 ## Vigentes desde la Fase 1
 
 - **El token de entrada viaja en la URL.** Ver
@@ -74,54 +79,6 @@
   `iframe` cubre el caso más común, pero no se ha verificado
   exhaustivamente contra cada tipo de actividad.
 
-## Nuevas desde la Fase 3
-
-- **El selector de resaltado puede apuntar a un elemento distinto del que
-  el profesor creyó señalar, o a ninguno.** Se construye sobre la foto
-  del profesor y se resuelve sobre la página real del alumno; si la
-  página cambió entre medias (contenido dinámico, `id` generado de nuevo
-  en cada carga), el selector puede no encontrar nada — en ese caso no se
-  resalta nada, sin error visible para ninguna de las dos partes. No hay
-  todavía una verificación de "sigue siendo el mismo elemento" como la
-  que pedirá la Fase 5 para clics.
-- **Sin última red de coordenadas relativas para el resaltado.** El
-  documento base la lista como quinta opción; no se implementó (ver
-  `docs/decisions.md`). Si ninguna de las cuatro anteriores encuentra
-  nada, simplemente no se resalta.
-- **La interacción del profesor depende de que `allow-same-origin` sin
-  `allow-scripts` permita escuchar eventos del `iframe` desde la ventana
-  padre.** Es un patrón válido de la especificación HTML, pero no se ha
-  verificado en un navegador real en este MVP (sin esa herramienta
-  disponible aquí) — ver el paso 27 de `docs/testing.md` y la
-  justificación en `docs/decisions.md`.
-- **El cursor remoto no tiene en cuenta el scroll del profesor dentro de
-  su propia reconstrucción.** La fracción se calcula sobre el viewport
-  visible del `iframe`, no sobre la posición absoluta en el documento
-  reconstruido; si el profesor ha hecho scroll dentro de su recuadro,
-  la posición que ve el alumno puede no corresponder exactamente al
-  mismo punto visual. Aceptable para el MVP porque el recuadro del
-  profesor normalmente muestra el mismo tramo de página que ve el
-  alumno (ambos reciben actualizaciones de scroll independientemente).
-- **Sin lista blanca de elementos "seguros" para resaltar.** Cualquier
-  elemento es resaltable, incluidos botones destructivos — sigue sin ser
-  un riesgo real porque resaltar no ejecuta ninguna acción; la lista
-  blanca de la Fase 5 se aplica solo al *clic*, no al resaltado.
-- **La precisión del cursor depende del último `payload.viewport`
-  recibido, no del tamaño en tiempo real** (corrección añadida tras el
-  MVP, ver `docs/decisions.md`). Si el alumno redimensiona su ventana
-  justo entre dos fotos, la posición puede quedar ligeramente
-  desalineada hasta que llegue la siguiente (como mucho, el intervalo
-  del latido periódico, 10 s). El ancho/alto reportado se acota además
-  entre 200 y 4000 px como saneamiento defensivo básico (no es un
-  control de seguridad, solo evita valores degenerados en el CSS del
-  profesor).
-- **No probado en un navegador real** (mismo motivo que el resto de la
-  Fase 3): en particular, que `transform: scale()` sobre el `<iframe>`
-  no altere lo que `iframe.contentWindow.innerWidth` reporta por dentro
-  es el supuesto técnico en el que descansa toda la corrección — válido
-  según la especificación CSS, pero sin verificación visual propia en
-  esta sesión.
-
 ## Nuevas tras completar el MVP — aviso al profesor cuando el alumno finaliza
 
 - **No se puede saber con certeza quién cerró la sesión**, solo que no
@@ -163,102 +120,7 @@
   una foto nueva", no un mecanismo genérico de resincronización por tipo.
 - **No se ha verificado en un navegador real que la carga del `<link>`
   de CSS dentro del `iframe` sandbox funcione exactamente como se
-  espera** (mismo razonamiento que el paso 27 de la Fase 3 sobre
-  `allow-same-origin`) — ver el paso 28 de `docs/testing.md`.
-
-## Nuevas desde la Fase 5
-
-- **La política de clic remoto no tiene ninguna prueba automatizada.**
-  Es la limitación más importante de esta fase, no una más: toda la
-  garantía de "un conjunto pequeño y claramente definido de clics
-  seguros" descansa en `interaction_policy.js`, sin PHPUnit ni Jest
-  detrás. Ver `docs/security.md`.
-- **Heurística de palabras clave en un idioma limitado.** La lista de
-  bloqueo por texto reconoce español e inglés; un tema o plugin de
-  actividad en otro idioma con la misma acción destructiva no quedaría
-  cubierto por esa capa concreta (las comprobaciones estructurales —
-  envío de formulario, `type=file`, enlaces externos — siguen aplicando
-  igual, en cualquier idioma).
-- **Confirmación de clic para absolutamente todo, sin gradación.** El
-  documento base sugiere confirmar solo "acciones potencialmente
-  importantes"; este MVP interpreta "en caso de duda" de la forma más
-  conservadora y pide confirmación siempre. Una fase futura podría querer
-  distinguir clics triviales (una pestaña) de clics con más peso, pero
-  eso exige una clasificación de severidad que no existe todavía.
-- **El "Solicitar clic" del profesor actúa sobre el resaltado actual, no
-  sobre un clic directo.** Si el profesor resalta un elemento y luego
-  el alumno navega a otra página antes de pulsar "Solicitar clic", la
-  petición viaja con un selector que ya no corresponde a nada visible —
-  se resuelve como "no encontrado", pero no hay ninguna advertencia
-  previa al profesor de que el contexto cambió.
-- **`input[type=file]` se bloquea, pero no se ha probado con selectores
-  de archivo personalizados (drag-and-drop, botones que abren un diálogo
-  del sistema operativo mediante JavaScript sobre un `input` oculto).**
-  El bloqueo cubre el `input` en sí; un patrón de UI que oculte el
-  `input` real detrás de un botón visible distinto dependería de que ese
-  botón también caiga en alguna regla de bloqueo (por ejemplo, palabra
-  clave), no hay una regla genérica "esto abre un selector de archivos".
-- **Sin límite de frecuencia para `click_request`/`click_result`.** No
-  supone un riesgo de por sí (cada clic exige una acción deliberada del
-  profesor y una confirmación del alumno), pero no hay ninguna protección
-  contra un profesor que solicitara clics repetidamente en sucesión
-  rápida más allá de la molestia que eso causaría al alumno.
-
-## Nuevas desde la Fase 6
-
-- **La política de escritura remota tampoco tiene ninguna prueba
-  automatizada**, por el mismo motivo que la de clic (Fase 5): solo puede
-  evaluarse contra el DOM real, que el servidor nunca ve. Ver
-  `docs/security.md`.
-- **Sin editores enriquecidos (TinyMCE u otros).** El documento base
-  excluye esto explícitamente del MVP inicial. Solo `<textarea>` e
-  `<input type="text"|"search">` son candidatos; cualquier editor que
-  reemplace un `<textarea>` con su propia interfaz (TinyMCE, Atto)
-  presenta al DOM una estructura distinta que `canSetValue()` no
-  reconoce, así que queda fuera de la lista blanca sin necesidad de una
-  regla explícita para excluirlo.
-- **Sin transmisión tecla a tecla.** Se transmiten cambios semánticos
-  (`set_value`/`append_text`/`clear`), no eventos de teclado en crudo, tal
-  como pide el documento base — significa que el alumno ve el campo
-  cambiar de golpe, no letra a letra como si el profesor estuviera
-  escribiendo en vivo.
-- **Sin confirmación explícita por escritura individual**, a diferencia
-  del clic (ver "Política de escritura remota" en `docs/security.md`
-  para la justificación). El nivel `input` en sí es el paso de
-  consentimiento; no hay una segunda confirmación por cada
-  `set_value`/`append_text`/`clear` como si la hay por cada clic.
-- **Sin límite de frecuencia para `input_request`/`input_result`**, mismo
-  análisis que `click_request`/`click_result` en la Fase 5.
-- **`isBlockedPageForInput()` usa una lista fija de fragmentos de ruta**
-  (`/mod/quiz/attempt`, `/mod/quiz/summary`, `/mod/quiz/review`,
-  `/mod/assign/view`). Otras actividades evaluables de Moodle (por
-  ejemplo, algunos plugins de tipo `mod` de terceros con su propia
-  página de intento) no están cubiertas por esta lista concreta si no
-  comparten esos mismos fragmentos de URL.
-
-## Nuevas tras completar el MVP — scroll dirigido por el profesor
-
-- **Depende de que la reconstrucción del profesor tenga la misma altura
-  de documento que la página real del alumno.** Las coordenadas de
-  scroll que envía el profesor son absolutas (`scrollX`/`scrollY` de su
-  propio `iframe`), no relativas; si el contenido reconstruido difiere
-  en altura del real (por ejemplo, una imagen que aún no ha cargado en
-  uno de los dos lados), el destino puede no ser exactamente el mismo
-  punto visual, aunque sí el mismo entorno del documento.
-- **Sin límite de frecuencia distinto del que ya tenía `scroll`.**
-  `scroll_request` reutiliza la misma ventana de 150 ms que el scroll
-  del alumno; no se ha ajustado de forma independiente.
-- **La guarda anti-eco usa un temporizador fijo (50 ms), no una
-  comprobación semántica de "es la misma posición que acabo de
-  aplicar".** En una red muy lenta, en teoría un evento de scroll
-  legítimo podría llegar justo durante esa ventana de 50 ms y perderse
-  silenciosamente; en la práctica el margen es amplio comparado con la
-  latencia normal de un evento `scroll` del navegador tras `scrollTo()`.
-- **No se ha verificado en un navegador real que el listener `scroll`
-  adjuntado a `contentWindow` del `iframe` sandbox se comporte como se
-  espera**, mismo razonamiento que otros supuestos técnicos de
-  `allow-same-origin` ya señalados para cursor/resaltado (Fase 3) y CSS
-  (Fase 4) — ver los pasos 63-67 de `docs/testing.md`.
+  espera.**
 
 ## Nuevas tras completar el MVP — icono de solicitudes pendientes
 
@@ -331,3 +193,21 @@
   la reconstrucción de página completa se vea notablemente distinta al
   original. Ver pasos de verificación manual añadidos en
   `docs/testing.md`.
+
+## Nuevas tras completar el MVP — la reconstrucción no es scrollable de forma nativa
+
+- **Elementos `position: fixed`/`sticky` dentro del contenido capturado
+  no se comportan como tales.** El documento del iframe ya no tiene
+  overflow scrollable propio: la posición de scroll se simula
+  aplicando `transform: translate()` a un `<div>` que envuelve todo el
+  contenido capturado, y un `transform` en un ancestro convierte a ese
+  `<div>` en el contenedor de referencia de cualquier descendiente
+  `fixed`/`sticky` (deja de posicionarse respecto al viewport). En la
+  práctica solo relevante en el modo de captura `fullpage` (por ejemplo,
+  una barra de navegación `sticky` del tema, que se desplazaría junto
+  con el resto en vez de quedarse fija); el modal (que sí sigue
+  comportándose como `position: fixed` normal) se mantiene
+  deliberadamente fuera de ese `<div>`, y el modo `main` rara vez tiene
+  este patrón. Aceptado conscientemente a cambio de que el profesor no
+  pueda desplazar la reconstrucción manualmente por ninguna vía. Ver
+  `docs/decisions.md`.

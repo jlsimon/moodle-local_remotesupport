@@ -36,17 +36,7 @@ defined('MOODLE_INTERNAL') || die();
 class event_manager {
 
     /** @var string[] The only event types accepted so far. */
-    const EVENT_TYPES = [
-        'page', 'scroll', 'cursor', 'highlight', 'resync_request',
-        'click_request', 'click_result', 'input_request', 'input_result',
-        'scroll_request',
-    ];
-
-    /** @var string[] Recognised values for an 'input_request' payload's 'action'. */
-    const INPUT_ACTIONS = ['set_value', 'append_text', 'clear'];
-
-    /** @var int Maximum length, in characters, of an 'input_request' payload's 'value'. */
-    const MAX_INPUT_VALUE_LENGTH = 4000;
+    const EVENT_TYPES = ['page', 'scroll', 'resync_request'];
 
     /**
      * @var int Maximum size, in bytes, of a JSON-encoded event payload.
@@ -68,11 +58,10 @@ class event_manager {
      * For 'page' events, the payload's 'html' field is run through
      * html_sanitizer before storage: this is the single point where
      * untrusted captured HTML becomes safe to relay to another user.
-     * Other frequent, small event types ('cursor', 'scroll',
-     * 'scroll_request', 'highlight') get a light shape check of their own
-     * (numeric coordinates, non-empty selector) — cheap to enforce and
-     * closes the gap where a malformed payload would otherwise sail
-     * through as long as it stayed under the overall size cap.
+     * 'scroll' events get a light shape check of their own (numeric
+     * coordinates) — cheap to enforce and closes the gap where a malformed
+     * payload would otherwise sail through as long as it stayed under the
+     * overall size cap.
      *
      * @param int $sessionid
      * @param int $sourceuserid
@@ -108,23 +97,8 @@ class event_manager {
             }
         }
 
-        if ($eventtype === 'input_request') {
-            if (!isset($payload['action']) || !in_array($payload['action'], self::INPUT_ACTIONS, true)) {
-                throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
-            }
-            if (isset($payload['value']) && is_string($payload['value']) && strlen($payload['value']) > self::MAX_INPUT_VALUE_LENGTH) {
-                $payload['value'] = substr($payload['value'], 0, self::MAX_INPUT_VALUE_LENGTH);
-            }
-        }
-
-        if (in_array($eventtype, ['cursor', 'scroll', 'scroll_request'], true)) {
+        if ($eventtype === 'scroll') {
             if (!isset($payload['x'], $payload['y']) || !is_numeric($payload['x']) || !is_numeric($payload['y'])) {
-                throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
-            }
-        }
-
-        if ($eventtype === 'highlight') {
-            if (!isset($payload['selector']) || !is_string($payload['selector']) || $payload['selector'] === '') {
                 throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
             }
         }
@@ -153,7 +127,7 @@ class event_manager {
      * Excludes events sourced by $excludeuserid: a recipient only ever wants
      * events from the *other* party (the student never needs to see their
      * own page/scroll events echoed back, and vice versa for the teacher's
-     * cursor/highlight events), so this doubles as the "who receives what"
+     * resync_request events), so this doubles as the "who receives what"
      * rule without a separate recipient column.
      *
      * @param int $sessionid

@@ -64,7 +64,6 @@ if ($isstudent) {
     $teacher = core_user::get_user($session->teacherid);
     $data = [
         'heading' => get_string('heading_session_student', 'local_remotesupport', fullname($teacher)),
-        'accesslevel' => get_string('level_' . $session->controllevel, 'local_remotesupport'),
         'info' => get_string('info_studentcontinuebrowsing', 'local_remotesupport'),
         'continueurl' => (new moodle_url('/course/view.php', ['id' => $course->id]))->out(false),
         'finishurl' => $finishurl,

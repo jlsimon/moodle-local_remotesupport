@@ -35,28 +35,6 @@ class rate_limiter_test extends \advanced_testcase {
         $this->assertTrue(rate_limiter::is_allowed(1, 'page'));
     }
 
-    public function test_second_cursor_event_within_window_is_rejected(): void {
-        $this->resetAfterTest();
-
-        $this->assertTrue(rate_limiter::is_allowed(1, 'cursor'));
-        $this->assertFalse(rate_limiter::is_allowed(1, 'cursor'));
-    }
-
-    public function test_cursor_event_allowed_again_after_window_elapses(): void {
-        $this->resetAfterTest();
-
-        $this->assertTrue(rate_limiter::is_allowed(1, 'cursor'));
-        usleep((int) (rate_limiter::MIN_INTERVAL_SECONDS['cursor'] * 1_000_000) + 10_000);
-        $this->assertTrue(rate_limiter::is_allowed(1, 'cursor'));
-    }
-
-    public function test_rate_limit_is_independent_per_session(): void {
-        $this->resetAfterTest();
-
-        $this->assertTrue(rate_limiter::is_allowed(1, 'cursor'));
-        $this->assertTrue(rate_limiter::is_allowed(2, 'cursor'));
-    }
-
     public function test_second_scroll_event_within_window_is_rejected(): void {
         $this->resetAfterTest();
 
@@ -64,10 +42,18 @@ class rate_limiter_test extends \advanced_testcase {
         $this->assertFalse(rate_limiter::is_allowed(1, 'scroll'));
     }
 
-    public function test_cursor_and_scroll_limits_are_independent_of_each_other(): void {
+    public function test_scroll_event_allowed_again_after_window_elapses(): void {
         $this->resetAfterTest();
 
-        $this->assertTrue(rate_limiter::is_allowed(1, 'cursor'));
         $this->assertTrue(rate_limiter::is_allowed(1, 'scroll'));
+        usleep((int) (rate_limiter::MIN_INTERVAL_SECONDS['scroll'] * 1_000_000) + 10_000);
+        $this->assertTrue(rate_limiter::is_allowed(1, 'scroll'));
+    }
+
+    public function test_rate_limit_is_independent_per_session(): void {
+        $this->resetAfterTest();
+
+        $this->assertTrue(rate_limiter::is_allowed(1, 'scroll'));
+        $this->assertTrue(rate_limiter::is_allowed(2, 'scroll'));
     }
 }

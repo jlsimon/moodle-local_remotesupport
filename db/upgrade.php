@@ -82,5 +82,20 @@ function xmldb_local_remotesupport_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026072710, 'local', 'remotesupport');
     }
 
+    if ($oldversion < 2026072800) {
+        // The plugin no longer supports the teacher acting on the student's
+        // page (remote cursor/highlight, remote click, remote input, or
+        // teacher-driven scroll): it is now view-only, so the consent-level
+        // column has nothing left to record.
+        $table = new xmldb_table('local_remotesupport_session');
+        $field = new xmldb_field('controllevel', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'view', 'tokenhashteacher');
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026072800, 'local', 'remotesupport');
+    }
+
     return true;
 }
