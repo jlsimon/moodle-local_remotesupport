@@ -75,6 +75,12 @@
  * re-querying it there rather than trusting the dot's own coordinates.
  * This stays exact even when the reconstruction's layout does not match
  * the real page's pixel-for-pixel, which the dot's position alone cannot.
+ * Unlike the cursor dot (a sibling of the iframe, unaffected by it), the
+ * highlight lives *inside* the iframe's own document, so renderPage()
+ * rebuilding iframe.srcdoc — which happens on every 'page' event, not
+ * just real navigations — would otherwise wipe it out even while the
+ * student's mouse stays right where it was; renderPage() re-applies
+ * lastHoverSelector once the new document loads to compensate.
  *
  * @module     local_remotesupport/screen_renderer
  * @copyright  2026 Juan Luis Simón
@@ -134,6 +140,7 @@ define([], function() {
         var cursorEl = null;
         var lastUrl = null;
         var lastHighlightedEl = null;
+        var lastHoverSelector = null;
 
         // Forces the iframe to actually be the alumno's own reported
         // viewport size (not just visually similar), then shrinks it back
@@ -189,9 +196,18 @@ define([], function() {
          * whether $selector matches anything now, so hovering away from a
          * clickable element (selector goes null) removes the old highlight.
          *
+         * Remembers $selector (lastHoverSelector) regardless of whether it
+         * actually matched anything, so renderPage() can re-apply it after
+         * rebuilding the iframe's document for a same-page snapshot
+         * refresh — see renderPage()'s doc comment for why that is
+         * necessary (rebuilding the srcdoc discards the highlight class
+         * along with the rest of the old document, even though nothing
+         * about the actual hover state changed).
+         *
          * @param {String|null|undefined} selector
          */
         var applyHoverHighlight = function(selector) {
+            lastHoverSelector = selector || null;
             if (lastHighlightedEl) {
                 lastHighlightedEl.classList.remove('local-remotesupport-hover-highlight');
                 lastHighlightedEl = null;
@@ -305,6 +321,14 @@ define([], function() {
                 hideCursor();
             }
             lastUrl = payload.url;
+            // Rebuilding iframe.srcdoc below replaces the iframe's whole
+            // document, discarding the highlight class applied to whatever
+            // element carried it — including on a same-page refresh, where
+            // nothing about the actual hover state changed. Re-applying
+            // lastHoverSelector once the new document is ready (below) is
+            // what iframe.onload is for; if this *is* a real navigation,
+            // hideCursor() just above already reset it to null, so this
+            // ends up being a harmless no-op in that case.
 
             var links = (Array.isArray(payload.css) ? payload.css : [])
                 .filter(function(href) {
@@ -341,6 +365,7 @@ define([], function() {
                 if (pendingScroll) {
                     applyScrollPosition(pendingScroll.x, pendingScroll.y);
                 }
+                applyHoverHighlight(lastHoverSelector);
             };
             // html/body get no scrollable overflow of their own — see the
             // module doc comment. The modal and any extracted fixed

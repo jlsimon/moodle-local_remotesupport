@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.18.3 (fix: el resaltado ya no desaparece con cada actualización periódica de la página) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: al situar el cursor del
+  alumno sobre una zona clicable, el resaltado aparecía en la
+  reconstrucción pero, a los pocos segundos, desaparecía por sí solo
+  aunque el alumno no hubiera movido el ratón.
+- Causa: `renderPage()` reconstruye `iframe.srcdoc` por completo en
+  cada evento `page`, no solo al navegar de verdad — también en cada
+  latido (cada 5 s) y tras cada clic. Eso recarga el `iframe` entero;
+  el punto del cursor no se ve afectado (vive fuera del `iframe`), pero
+  el resaltado sí, porque es una clase CSS aplicada dentro del
+  documento del `iframe`, que desaparece con la recarga.
+- `applyHoverHighlight()` recuerda ahora el último selector aplicado
+  (`lastHoverSelector`); `renderPage()` lo reaplica en `iframe.onload`
+  tras cada reconstrucción del documento, salvo que sea una navegación
+  real (en cuyo caso ya se había puesto a `null` correctamente).
+
 ## 0.18.2 (fix: el resaltado del elemento bajo el cursor ahora encuentra el elemento en páginas con anidamiento profundo) — 2026-07-29
 
 - **Corregido, reportado por el usuario**: tras el fix de precisión
