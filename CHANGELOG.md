@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.18.1 (fix: la última posición del cursor ya no se pierde al parar el ratón bruscamente) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: moviendo el ratón del
+  alumno rápido y parándolo de golpe, a veces el cursor (y el
+  resaltado del elemento bajo él) se quedaba "perdido" en una posición
+  anterior a la real, sin recuperarse nunca.
+- Causa: `throttle()` (compartida por los eventos `cursor` y `scroll`)
+  solo tenía flanco de subida — una llamada que caía dentro de la
+  ventana de espera se descartaba sin más, en vez de posponerse. Si la
+  posición final de una ráfaga de movimiento caía en ese hueco, y el
+  ratón se paraba justo después, no había ningún `mousemove` posterior
+  que la reintentara: esa posición no llegaba a mandarse nunca.
+- `throttle()` ahora también dispara una única llamada pendiente al
+  terminar la ventana de espera cuando descarta una — sin ningún
+  cambio en `sendCursor()`, que ya lee la posición/resaltado más
+  recientes de su propio cierre en el momento de ejecutarse. Arregla
+  cursor y resaltado a la vez (viajan en el mismo evento), y de paso
+  el mismo fallo latente en `scroll`.
+
 ## 0.18.0 (nuevo: la reconstrucción resalta el elemento clicable que el alumno está señalando) — 2026-07-29
 
 - **Propuesto por el usuario** para compensar la imprecisión geométrica

@@ -34,7 +34,10 @@
  * an idle mouse fires no events at all, so nothing is sent or stored while
  * the student isn't moving it, regardless of the configured sample rate.
  * That rate (local_remotesupport/cursorsamplems, passed in as
- * cursorsamplems) only throttles how often a *moving* mouse is sampled.
+ * cursorsamplems) only throttles how often a *moving* mouse is sampled —
+ * throttle() below still guarantees the student's actual final position
+ * gets sent shortly after the mouse stops, even if that exact moment
+ * doesn't land on a sample tick; see its own doc comment.
  *
  * Each 'cursor' event also carries an optional `hover` selector
  * identifying the nearest clickable ancestor of whatever the mouse is
@@ -484,17 +487,41 @@ define(
     };
 
     /**
+     * Leading-edge call, plus a single trailing-edge call so the *last*
+     * invocation of a fast burst is never simply dropped — without this, a
+     * caller like sendCursor() (reads the latest position from its own
+     * closure rather than taking it as an argument) could lose the
+     * student's actual final position: if the mouse stops moving right
+     * after a call that landed inside the wait window, there is no later
+     * 'mousemove' to trigger a retry, so that position would otherwise
+     * never be sent at all. The pending trailing call always reads
+     * whatever $fn's closure holds at the moment it actually fires, not
+     * whatever it held when it was scheduled, so it naturally reflects the
+     * true final state.
+     *
      * @param {Function} fn
      * @param {Number} wait
      * @return {Function}
      */
     var throttle = function(fn, wait) {
         var last = 0;
+        var timer = null;
         return function() {
             var now = Date.now();
-            if (now - last >= wait) {
+            var remaining = wait - (now - last);
+            if (remaining <= 0) {
+                if (timer !== null) {
+                    window.clearTimeout(timer);
+                    timer = null;
+                }
                 last = now;
                 fn();
+            } else if (timer === null) {
+                timer = window.setTimeout(function() {
+                    last = Date.now();
+                    timer = null;
+                    fn();
+                }, remaining);
             }
         };
     };
