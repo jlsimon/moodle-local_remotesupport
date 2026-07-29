@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.20.1 (mejora: el enlace "Ver chat" del historial aparece deshabilitado si la sesión no tiene chat) — 2026-07-29
+
+- **Propuesto por el usuario**: revisar la decisión original de
+  mostrar siempre el enlace "Ver chat" en el historial de sesiones,
+  aunque a veces llevara a una transcripción vacía — muchas sesiones
+  reales no tienen ningún mensaje.
+- `session_history_table::query_db()` ahora hace, tras la consulta
+  paginada estándar, una única consulta adicional acotada a los ids de
+  la página actual (`IN (...)`) para saber cuáles tienen chat — no una
+  subconsulta por fila, la preocupación de rendimiento que motivó la
+  decisión original. `col_chatlink()` renderiza un `<button disabled>`
+  (mismo patrón ya usado para "No hay personal de soporte disponible")
+  en vez del enlace cuando no hay chat que ver.
+- Solo afecta a "Ver chat" — la columna "#" (reproducción) sigue
+  mostrando siempre el enlace, ya que toda sesión activa graba al
+  menos una foto de pantalla, a diferencia del chat, que es
+  verdaderamente opcional.
+
 ## 0.20.0 (nuevo: el alumno vuelve a la página exacta donde pidió asistencia, sin doble confirmación) — 2026-07-29
 
 - **Pedido por el usuario**: al aceptar, el alumno tenía que confirmar

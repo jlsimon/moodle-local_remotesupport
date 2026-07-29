@@ -45,6 +45,13 @@ class session_history_table extends table_sql {
     private int $teacherid;
 
     /**
+     * @var array<int,\stdClass> Session ids on the *current page* known to have at
+     *      least one recorded chat_message, keyed by session id — populated by
+     *      query_db() below, read by col_chatlink().
+     */
+    private array $sessionidswithchat = [];
+
+    /**
      * @param int $teacherid
      */
     public function __construct(int $teacherid) {
@@ -77,6 +84,38 @@ class session_history_table extends table_sql {
     }
 
     /**
+     * Extends the standard paginated fetch with a single follow-up query —
+     * not a subquery per row — to find out, of just the rows on this page,
+     * which ones have any recorded chat to show. Lets col_chatlink() grey
+     * out the link instead of it always leading somewhere, sometimes to an
+     * empty transcript; deliberately not attempted at first (see
+     * docs/decisions.md) to avoid a per-row cost, but a single bounded
+     * IN (...) query against the current page's ids is cheap enough.
+     *
+     * @param int $pagesize
+     * @param bool $useinitialsbar
+     */
+    public function query_db($pagesize, $useinitialsbar = true) {
+        global $DB;
+
+        parent::query_db($pagesize, $useinitialsbar);
+
+        if (!$this->rawdata) {
+            return;
+        }
+
+        $ids = array_map(static fn ($row) => (int) $row->id, $this->rawdata);
+        [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_QM);
+        $params = array_merge(['chat_message'], $inparams);
+        $this->sessionidswithchat = $DB->get_records_sql(
+            "SELECT DISTINCT sessionid
+               FROM {local_remotesupport_track}
+              WHERE eventtype = ? AND sessionid $insql",
+            $params
+        );
+    }
+
+    /**
      * The session id, as a link to its replay if the viewer is still
      * allowed to replay it (see permission_manager::can_replay_session()),
      * otherwise plain text. Every row already belongs to $this->teacherid
@@ -99,7 +138,9 @@ class session_history_table extends table_sql {
     /**
      * A link to sessionchat.php (the full chat transcript alone, without
      * the screen replay), under the same authorization as col_id() — it is
-     * the same recorded content, just filtered to one event type.
+     * the same recorded content, just filtered to one event type. Rendered
+     * as a disabled button, not a link, for a session with no chat at all
+     * (see query_db() above) — nothing to show there, so nothing to click.
      *
      * @param \stdClass $row
      * @return string
@@ -109,8 +150,16 @@ class session_history_table extends table_sql {
         if (!permission_manager::can_replay_session($pseudosession, $this->teacherid)) {
             return '-';
         }
+        $label = get_string('link_viewchat', 'local_remotesupport');
+        if (!isset($this->sessionidswithchat[$row->id])) {
+            return \html_writer::tag('button', $label, [
+                'type' => 'button',
+                'class' => 'btn btn-link btn-sm p-0',
+                'disabled' => 'disabled',
+            ]);
+        }
         $url = new \moodle_url('/local/remotesupport/sessionchat.php', ['id' => $row->id]);
-        return \html_writer::link($url, get_string('link_viewchat', 'local_remotesupport'));
+        return \html_writer::link($url, $label);
     }
 
     /**
