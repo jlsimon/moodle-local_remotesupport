@@ -75,6 +75,10 @@
  * re-querying it there rather than trusting the dot's own coordinates.
  * This stays exact even when the reconstruction's layout does not match
  * the real page's pixel-for-pixel, which the dot's position alone cannot.
+ * Once an element is found this way, the dot itself is re-centered on it
+ * too, overriding its raw coordinate position: matching by identity is
+ * strictly more trustworthy than the dot's own (only ever approximate)
+ * x/y math, so whenever both disagree, the element wins.
  * Unlike the cursor dot (a sibling of the iframe, unaffected by it), the
  * highlight lives *inside* the iframe's own document, so renderPage()
  * rebuilding iframe.srcdoc — which happens on every 'page' event, not
@@ -204,6 +208,17 @@ define([], function() {
          * along with the rest of the old document, even though nothing
          * about the actual hover state changed).
          *
+         * Also re-centers the cursor dot on the highlighted element once
+         * found, overriding whatever the raw x/y coordinate placed it at.
+         * The dot's own coordinate math is only ever approximate (see
+         * docs/decisions.md, "precisión 'lo bastante cerca'"), but once an
+         * element is identified by matching, not by position, we know for
+         * certain the real mouse is somewhere on it — its center is a
+         * strictly better estimate than an imprecise raw coordinate that
+         * might not even land inside it. Only affects positioning while a
+         * highlight is actually showing; with none, the dot keeps the
+         * coordinate-based position applyCursorPosition() already gave it.
+         *
          * @param {String|null|undefined} selector
          */
         var applyHoverHighlight = function(selector) {
@@ -230,6 +245,21 @@ define([], function() {
             if (el) {
                 el.classList.add('local-remotesupport-hover-highlight');
                 lastHighlightedEl = el;
+                // getBoundingClientRect() here is relative to the iframe's
+                // own (unscaled, full-size) internal viewport — the same
+                // convention positionCursorEl() already expects for its
+                // x/y, since the outer `transform: scale()` on the iframe
+                // element is a purely visual effect its own document has
+                // no notion of. No extra conversion needed.
+                var rect = el.getBoundingClientRect();
+                var centerX = rect.left + (rect.width / 2);
+                var centerY = rect.top + (rect.height / 2);
+                positionCursorEl(centerX, centerY);
+                // Also updates lastCursor (not just the DOM position) so a
+                // later resize/fullscreen toggle re-applies the snapped
+                // position via applyViewportSize(), not the raw coordinate
+                // this overrode.
+                lastCursor = {x: centerX, y: centerY};
             }
         };
 

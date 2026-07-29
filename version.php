@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072922;
+$plugin->version = 2026072923;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.18.3 (fix: el resaltado ya no desaparece con cada actualización periódica de la página)';
+$plugin->release = '0.18.4 (mejora: el punto del cursor se centra en el elemento resaltado, más fiable que la coordenada bruta)';

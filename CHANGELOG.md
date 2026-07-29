@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.18.4 (mejora: el punto del cursor se centra en el elemento resaltado, más fiable que la coordenada bruta) — 2026-07-29
+
+- **Propuesto por el usuario**: puesto que un elemento resaltado
+  significa, por construcción, que el ratón real está sobre él, si el
+  punto de cursor no coincide visualmente con la zona resaltada hay
+  que mover el punto hasta que coincida — la identidad del elemento es
+  más fiable que la coordenada.
+- `applyHoverHighlight()`, al encontrar el elemento, reposiciona ahora
+  el punto en su centro (`getBoundingClientRect()` dentro del propio
+  documento del `iframe`, mismo sistema de coordenadas que ya usaba el
+  punto, sin conversión nueva), sobrescribiendo la posición que la
+  coordenada bruta le había dado un instante antes. Sin resaltado, el
+  punto sigue con su comportamiento de siempre.
+- `lastCursor` se actualiza también al centro, para que un
+  redimensionado o cambio a pantalla completa posterior respete el
+  punto ya centrado en vez de volver a la coordenada bruta.
+
 ## 0.18.3 (fix: el resaltado ya no desaparece con cada actualización periódica de la página) — 2026-07-29
 
 - **Corregido, reportado por el usuario**: al situar el cursor del
