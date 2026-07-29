@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.15.6 (fix: la barra inferior del alumno ya no oculta el pie fijo de Moodle) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: la barra persistente
+  "Asistencia activa..." (`position: fixed` al pie de la ventana) tapaba
+  el pie fijo propio de Moodle (`.stickyfooter`, el bloque con los
+  botones "Guardar cambios"/"Cancelar" de formularios largos como la
+  edición del perfil), que también es `position: fixed` al pie de la
+  ventana. Un primer intento (0.15.5, nunca llegó a publicarse en el
+  changelog) añadía `padding-bottom` a `<body>` para reservar espacio,
+  pero no funcionaba: el pie de Moodle está igualmente fuera del flujo
+  del documento, así que el padding no lo desplaza.
+- `event_capture.js` ahora vigila la clase `hasstickyfooter` de
+  `<body>` (así es como `theme_boost/sticky-footer.js` marca el pie de
+  Moodle como visible u oculto, incluso dinámicamente al hacer scroll
+  en pantallas estrechas) y, mientras esté visible, desplaza la propia
+  barra (`bottom`) por encima de él una altura igual a la real del pie
+  de Moodle.
+- Solo JavaScript del lado del alumno; sin cambios de servidor ni de
+  pruebas PHPUnit (no hay suite JS en este proyecto, ver
+  `docs/limitations.md`).
+
 ## 0.15.4 (el botón de reproducir de la reproducción es ahora un icono) — 2026-07-29
 
 - **Pedido por el usuario**: que el botón de reproducir/pausar de

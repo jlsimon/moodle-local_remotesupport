@@ -26,6 +26,18 @@
  * values are stripped client-side before sending, and stripped again
  * authoritatively on the server regardless of what this code does.
  *
+ * The status bar is `position: fixed` at the bottom of the viewport, same
+ * as Moodle core's own sticky footer (theme_boost, `.stickyfooter` /
+ * `body.hasstickyfooter`, used for e.g. the Save/Cancel row on long forms
+ * like the profile edit page) — without help the two just stack, and ours
+ * wins on z-index, hiding the page's own action buttons. Body padding does
+ * NOT fix this: the sticky footer is itself `position: fixed`, so it is out
+ * of document flow and padding on `<body>` never moves it. Instead this bar
+ * watches `body`'s `class` attribute (the sticky footer toggles
+ * `hasstickyfooter` on show/hide — including automatically on scroll on
+ * narrow viewports, not just once at load) and offsets its own `bottom` by
+ * the sticky footer's real height whenever it is visible.
+ *
  * @module     local_remotesupport/event_capture
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -230,6 +242,26 @@ define(
         var chat = ChatWidget.init(sessionid, ownuserid, teachername);
         var firstPollDone = false;
 
+        // Moodle core's sticky footer (theme_boost/sticky-footer.js) marks
+        // itself visible by adding 'hasstickyfooter' to <body>, and removes
+        // it again when hidden (e.g. scrolling down on a narrow viewport) —
+        // there is no other reliable moment to hook, since it can toggle
+        // repeatedly during a page's lifetime, not just once at load.
+        var STICKY_FOOTER_CLASS = 'hasstickyfooter';
+        var STICKY_FOOTER_SELECTOR = '.stickyfooter';
+
+        var repositionStatusBar = function() {
+            if (!statusbar) {
+                return;
+            }
+            var footerVisible = document.body.classList.contains(STICKY_FOOTER_CLASS);
+            var footer = footerVisible ? document.querySelector(STICKY_FOOTER_SELECTOR) : null;
+            statusbar.style.bottom = (footer ? footer.offsetHeight : 0) + 'px';
+        };
+
+        var stickyFooterObserver = new MutationObserver(repositionStatusBar);
+        stickyFooterObserver.observe(document.body, {attributes: true, attributeFilter: ['class']});
+
         var sendPageSnapshot = function() {
             Transport.pushEvent(sessionid, 'page', buildPageSnapshot(mode)).catch(function() {
                 // Transient network/server errors are expected during navigation; ignored.
@@ -287,6 +319,7 @@ define(
             if (statusbar && statusbar.parentNode) {
                 statusbar.parentNode.removeChild(statusbar);
             }
+            stickyFooterObserver.disconnect();
             chat.destroy();
             window.clearInterval(heartbeatHandle);
             window.clearInterval(incomingPollHandle);
@@ -340,6 +373,7 @@ define(
             statusbar.appendChild(finish);
 
             document.body.appendChild(statusbar);
+            repositionStatusBar();
             return null;
         }).catch(function() {
             // Non-fatal: the bar is a convenience, capture still proceeds without it.
