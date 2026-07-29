@@ -34,6 +34,7 @@
         <form method="post" action="{{{requestformurl}}}" class="local-remotesupport-requestform">
             <input type="hidden" name="action" value="request">
             <input type="hidden" name="sesskey" value="{{sesskey}}">
+            <p class="local-remotesupport-info-whatisassistance text-muted small">{{#str}}info_whatisassistance, local_remotesupport{{/str}}</p>
             <div class="form-group">
                 <label for="local-remotesupport-reason">{{#str}}label_reason, local_remotesupport{{/str}}</label>
                 <input type="text" class="form-control" id="local-remotesupport-reason"

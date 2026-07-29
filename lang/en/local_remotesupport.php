@@ -49,6 +49,7 @@ $string['requestcreated'] = 'Your assistance request has been sent.';
 $string['requestcancelled'] = 'Your request has been cancelled.';
 $string['button_viewmyrequest'] = 'View my request';
 $string['button_nosupportavailable'] = 'No support staff available';
+$string['info_whatisassistance'] = 'A teacher will be able to see, in real time, the Moodle page you\'re using — not the rest of your screen or other tabs — to help you better. They can only watch: they can\'t click or type for you, you can talk to them through the chat, and you can end the assistance whenever you want.';
 $string['label_reason'] = 'Reason (optional)';
 
 // Pages: teacher.

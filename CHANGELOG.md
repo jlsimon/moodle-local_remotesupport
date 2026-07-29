@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.19.1 (mejora: mensaje explicativo de qué es la asistencia remota en el formulario de solicitud) — 2026-07-29
+
+- **Pedido por el usuario**: el formulario "Solicitar asistencia" no
+  explicaba al alumno qué implica realmente — solo mostraba el campo
+  de motivo y el botón.
+- Nuevo párrafo explicativo (`info_whatisassistance`), acordado con el
+  usuario antes de implementarlo, encima del campo "Motivo": qué puede
+  ver el profesor (la página de Moodle, no el resto de la pantalla),
+  que solo observa (no actúa por el alumno), que hay chat, y que el
+  alumno puede finalizar cuando quiera. Solo visible cuando el
+  formulario de solicitud realmente se muestra.
+
 ## 0.19.0 (nuevo: aviso explícito de despedida al alumno cuando el profesor finaliza la sesión) — 2026-07-29
 
 - **Pedido por el usuario**: cuando el profesor finaliza la sesión, la

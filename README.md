@@ -156,6 +156,11 @@ sesión termina desde el otro lado (normalmente el profesor), la barra
 "Asistencia activa" del alumno se convierte en un aviso explícito de
 despedida con un botón "Cerrar", en vez de desaparecer sin más.
 
+**Ampliación posterior — mensaje explicativo en el formulario de
+solicitud.** El formulario "Solicitar asistencia" explica ahora en dos
+frases qué implica: qué puede ver el profesor, que solo observa, que
+hay chat, y que el alumno puede finalizar cuando quiera.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.

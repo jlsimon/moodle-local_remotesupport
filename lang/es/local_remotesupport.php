@@ -49,6 +49,7 @@ $string['requestcreated'] = 'Tu solicitud de asistencia ha sido enviada.';
 $string['requestcancelled'] = 'Tu solicitud ha sido cancelada.';
 $string['button_viewmyrequest'] = 'Ver mi solicitud';
 $string['button_nosupportavailable'] = 'No hay personal de soporte disponible';
+$string['info_whatisassistance'] = 'Un profesor podrá ver en tiempo real la página de Moodle que estás usando —no el resto de tu pantalla ni otras pestañas— para ayudarte mejor. Solo observa: no puede hacer clic ni escribir por ti, puedes hablar con él por chat, y puedes finalizar la asistencia cuando quieras.';
 $string['label_reason'] = 'Motivo (opcional)';
 
 // Páginas: profesor.

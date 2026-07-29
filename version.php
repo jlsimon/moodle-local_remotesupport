@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072924;
+$plugin->version = 2026072925;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.19.0 (nuevo: aviso explícito de despedida al alumno cuando el profesor finaliza la sesión)';
+$plugin->release = '0.19.1 (mejora: mensaje explicativo de qué es la asistencia remota en el formulario de solicitud)';
