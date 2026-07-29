@@ -59,8 +59,13 @@ class event_manager {
     /** @var int Maximum length, in characters, of a 'page' payload's 'inlineCss' field. */
     const MAX_INLINE_CSS_LENGTH = 40000;
 
-    /** @var int Maximum length, in characters, of a 'cursor' payload's 'hover' selector. */
-    const MAX_HOVER_SELECTOR_LENGTH = 300;
+    /**
+     * @var int Maximum length, in characters, of a 'cursor' payload's 'hover' selector.
+     * Sized generously for event_capture.js's structural-path fallback, which can now
+     * walk up to HOVER_SELECTOR_MAX_DEPTH (30) ancestors deep — still tiny next to the
+     * other 'page' payload fields.
+     */
+    const MAX_HOVER_SELECTOR_LENGTH = 1500;
 
     /**
      * Validate and store a new event.

@@ -188,7 +188,7 @@ numéricos) — ninguno es HTML, así que no pasan por el saneador.
 `cursor` acepta además un campo opcional `hover` (el selector del
 elemento clicable bajo el ratón del alumno, añadido tras el MVP —
 ver `docs/decisions.md`): si es una cadena, se acota a
-`MAX_HOVER_SELECTOR_LENGTH` (300 caracteres); si no lo es, se
+`MAX_HOVER_SELECTOR_LENGTH` (1500 caracteres); si no lo es, se
 descarta. Un `hover` inválido o desproporcionado nunca rechaza el
 evento completo, a diferencia de `x`/`y` — es auxiliar a la posición,
 no la razón de ser del evento. No se sanea como HTML porque no lo es:

@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072920;
+$plugin->version = 2026072921;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.18.1 (fix: la última posición del cursor ya no se pierde al parar el ratón bruscamente)';
+$plugin->release = '0.18.2 (fix: el resaltado del elemento bajo el cursor ahora encuentra el elemento en páginas con anidamiento profundo)';

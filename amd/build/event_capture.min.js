@@ -105,7 +105,17 @@ define(
     var CLICKABLE_SELECTOR = 'a[href], button, input[type="submit"], input[type="button"], ' +
         'input[type="checkbox"], input[type="radio"], select, summary, label, ' +
         '[role="button"], [role="link"], [role="tab"], [role="menuitem"]';
-    var HOVER_SELECTOR_MAX_DEPTH = 5;
+    // A safety net against a pathological/circular DOM, not a real limit:
+    // real Moodle markup can easily nest 10-15+ levels deep (Bootstrap
+    // wrappers, section/activity containers) before reaching either an
+    // ancestor with an id or the document root, and buildRobustSelector()
+    // needs to actually reach one of those two to produce a selector
+    // querySelector() can resolve reliably — stopping short at an
+    // arbitrary depth produced a selector anchored to nothing, which
+    // essentially never matched anything for elements without an id (the
+    // common case: most Moodle links/buttons don't have one). See
+    // docs/decisions.md.
+    var HOVER_SELECTOR_MAX_DEPTH = 30;
     var PAGE_HEARTBEAT_MS = 5000;
     var PAGE_DEBOUNCE_MS = 1500;
     var SCROLL_THROTTLE_MS = 300;
@@ -155,10 +165,11 @@ define(
      * robustos" guidance from the original spec for the (since removed)
      * teacher-driven highlight feature: a stable `id` first (survives
      * reordering/insertions elsewhere on the page, so the most reliable
-     * choice by far), falling back to a short structural path (tag +
-     * position among same-tag siblings) up to HOVER_SELECTOR_MAX_DEPTH
-     * ancestors, stopping early if an ancestor with an `id` is reached.
-     * The structural fallback is genuinely best-effort: if the captured
+     * choice by far), falling back to a structural path (tag + position
+     * among same-tag siblings) that walks up to either an ancestor with an
+     * `id` or the document root, whichever comes first — HOVER_SELECTOR_MAX_DEPTH
+     * only guards against never terminating, it is not meant to be hit in
+     * practice. The structural fallback is genuinely best-effort: if the captured
      * snapshot is even slightly stale, sibling order could have shifted
      * and the selector might miss or match the wrong element — accepted,
      * see docs/limitations.md, since a miss just means no highlight

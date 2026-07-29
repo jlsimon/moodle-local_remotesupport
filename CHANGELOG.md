@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.18.2 (fix: el resaltado del elemento bajo el cursor ahora encuentra el elemento en páginas con anidamiento profundo) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: tras el fix de precisión
+  del cursor, el resaltado del elemento clicable bajo el ratón seguía
+  sin funcionar. Causa: el respaldo estructural del selector
+  (`buildRobustSelector()`, usado cuando el elemento no tiene `id` —
+  el caso más común en enlaces/botones de Moodle) se cortaba a 5
+  niveles de profundidad, muy por debajo de lo habitual en el HTML
+  real de Moodle (10-15+ niveles con Bootstrap). El resultado era una
+  cadena de selector sin anclar a ningún punto real, que en la
+  práctica casi nunca coincidía con nada al buscarla en la
+  reconstrucción — no impreciso, prácticamente inoperante.
+- `HOVER_SELECTOR_MAX_DEPTH` sube de 5 a 30 (una red de seguridad
+  contra un bucle patológico, no un límite pensado para alcanzarse) —
+  la ruta ahora sube de verdad hasta un `id` o hasta la raíz del
+  documento. `MAX_HOVER_SELECTOR_LENGTH` en el servidor sube de 300 a
+  1500 caracteres en proporción, para no truncar a mitad de cadena las
+  rutas más largas que esto puede producir.
+
 ## 0.18.1 (fix: la última posición del cursor ya no se pierde al parar el ratón bruscamente) — 2026-07-29
 
 - **Corregido, reportado por el usuario**: moviendo el ratón del
