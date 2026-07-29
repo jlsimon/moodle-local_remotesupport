@@ -47,6 +47,9 @@ class session_manager {
     /** @var int Maximum stored length of the student's optional request reason. */
     const MAX_REASON_LENGTH = 255;
 
+    /** @var int Maximum stored length of the optional return url. */
+    const MAX_RETURNURL_LENGTH = 255;
+
     /**
      * Create a new assistance request for a student in a course.
      *
@@ -56,10 +59,15 @@ class session_manager {
      * @param int $courseid
      * @param int $studentid
      * @param string $reason Optional free text the student gives the teacher; blank means none.
+     * @param string $returnurl Optional local url of the page the student requested assistance
+     *                          from, used by session.php to send them back there once the
+     *                          session starts instead of the course page; blank means none
+     *                          (or too long to fit — silently dropped rather than rejecting an
+     *                          otherwise valid request over an oversized, non-essential value).
      * @return \stdClass The new session row.
      * @throws moodle_exception
      */
-    public static function create_request(int $courseid, int $studentid, string $reason = ''): \stdClass {
+    public static function create_request(int $courseid, int $studentid, string $reason = '', string $returnurl = ''): \stdClass {
         global $DB;
 
         if (self::get_open_request_for_student($studentid, $courseid)) {
@@ -69,6 +77,11 @@ class session_manager {
         $reason = trim($reason);
         if (core_text::strlen($reason) > self::MAX_REASON_LENGTH) {
             $reason = core_text::substr($reason, 0, self::MAX_REASON_LENGTH);
+        }
+
+        $returnurl = trim($returnurl);
+        if (core_text::strlen($returnurl) > self::MAX_RETURNURL_LENGTH) {
+            $returnurl = '';
         }
 
         $now = time();
@@ -81,6 +94,7 @@ class session_manager {
         $record->tokenhashstudent = null;
         $record->tokenhashteacher = null;
         $record->reason = $reason !== '' ? $reason : null;
+        $record->returnurl = $returnurl !== '' ? $returnurl : null;
         $record->timecreated = $now;
         $record->timerequestexpires = $now + self::get_request_expiry_seconds();
         $record->timestarted = null;

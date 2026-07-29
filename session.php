@@ -18,7 +18,11 @@
  * Shared active-session page for student and teacher.
  *
  * Reached only via a one-time link containing a token issued by
- * session_manager::issue_entry_token() from request.php or view.php.
+ * session_manager::issue_entry_token() from request.php or view.php. The
+ * teacher gets the reconstruction view rendered here; the student is
+ * redirected straight on to wherever they requested assistance from (or
+ * the course page, see $destination below) — this page itself renders
+ * nothing for them, on purpose (see docs/decisions.md).
  *
  * @package    local_remotesupport
  * @copyright  2026 Juan Luis Simón
@@ -56,34 +60,46 @@ $PAGE->set_pagelayout('standard');
 
 $isstudent = ((int) $session->studentid === (int) $USER->id);
 
+if ($isstudent) {
+    // Straight back into browsing, no extra confirmation click: the
+    // status bar (injected on whatever page this lands on, via
+    // event_capture.js/lib.php's before_footer hook) already carries its
+    // own "Finalizar" action, so nothing is lost by not stopping here.
+    // Prefers the page the student was actually on when they requested
+    // assistance (session_manager::create_request()'s $returnurl) over
+    // the course's front page — falls back to that if there is none
+    // stored (older requests, or a url that no longer parses as local).
+    $destination = null;
+    if (!empty($session->returnurl)) {
+        try {
+            $destination = new moodle_url($session->returnurl);
+        } catch (moodle_exception $e) {
+            $destination = null;
+        }
+    }
+    if (!$destination) {
+        $destination = new moodle_url('/course/view.php', ['id' => $course->id]);
+    }
+
+    $teacher = core_user::get_user($session->teacherid);
+    redirect($destination, get_string('heading_session_student', 'local_remotesupport', fullname($teacher)));
+}
+
 $finishurl = (new moodle_url('/local/remotesupport/session.php', [
     'id' => $sessionid, 'action' => 'finish', 'sesskey' => sesskey(),
 ]))->out(false);
 
-if ($isstudent) {
-    $teacher = core_user::get_user($session->teacherid);
-    $data = [
-        'heading' => get_string('heading_session_student', 'local_remotesupport', fullname($teacher)),
-        'info' => get_string('info_studentcontinuebrowsing', 'local_remotesupport'),
-        'continueurl' => (new moodle_url('/course/view.php', ['id' => $course->id]))->out(false),
-        'finishurl' => $finishurl,
-    ];
-    echo $OUTPUT->header();
-    echo $OUTPUT->render_from_template('local_remotesupport/session_active', $data);
-    echo $OUTPUT->footer();
-} else {
-    $student = core_user::get_user($session->studentid);
-    $data = [
-        'heading' => get_string('heading_session_teacher', 'local_remotesupport', fullname($student)),
-        'finishurl' => $finishurl,
-    ];
-    echo $OUTPUT->header();
-    echo $OUTPUT->render_from_template('local_remotesupport/session_player', $data);
-    $PAGE->requires->js_call_amd('local_remotesupport/event_player', 'init', [
-        $session->id,
-        (int) $USER->id,
-        fullname($student),
-        (bool) get_config('local_remotesupport', 'clicksound'),
-    ]);
-    echo $OUTPUT->footer();
-}
+$student = core_user::get_user($session->studentid);
+$data = [
+    'heading' => get_string('heading_session_teacher', 'local_remotesupport', fullname($student)),
+    'finishurl' => $finishurl,
+];
+echo $OUTPUT->header();
+echo $OUTPUT->render_from_template('local_remotesupport/session_player', $data);
+$PAGE->requires->js_call_amd('local_remotesupport/event_player', 'init', [
+    $session->id,
+    (int) $USER->id,
+    fullname($student),
+    (bool) get_config('local_remotesupport', 'clicksound'),
+]);
+echo $OUTPUT->footer();

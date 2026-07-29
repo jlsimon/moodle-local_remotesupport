@@ -39,9 +39,16 @@ class student_status {
     /**
      * @param int $courseid
      * @param int $studentid
+     * @param string $fromurl Local url of the page the student was on before reaching the
+     *                        request form, rendered as a hidden field so it survives the
+     *                        request submission — see request.php. Only meaningful for the
+     *                        no-JS form fallback: student_client.js's own AJAX submission
+     *                        path carries this itself (passed into its own init()), not by
+     *                        re-reading the DOM, so it is unaffected by this value going
+     *                        stale across the AJAX-driven re-renders that follow.
      * @return array Template context for local_remotesupport/student_page.
      */
-    public static function export(int $courseid, int $studentid): array {
+    public static function export(int $courseid, int $studentid, string $fromurl = ''): array {
         $session = session_manager::get_open_request_for_student($studentid, $courseid);
 
         $data = [
@@ -62,6 +69,7 @@ class student_status {
                 ]))->out(false);
                 $data['sesskey'] = sesskey();
                 $data['maxreasonlength'] = session_manager::MAX_REASON_LENGTH;
+                $data['fromurl'] = $fromurl;
             } else {
                 $data['statusmessage'] = get_string('status_nosupport', 'local_remotesupport');
             }

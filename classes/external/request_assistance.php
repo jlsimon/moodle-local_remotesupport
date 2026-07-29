@@ -45,20 +45,28 @@ class request_assistance extends external_api {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Course id'),
             'reason' => new external_value(PARAM_TEXT, 'Optional reason', VALUE_DEFAULT, ''),
+            'fromurl' => new external_value(
+                PARAM_LOCALURL,
+                'Local url of the page the student requested assistance from, to return to once the session starts',
+                VALUE_DEFAULT,
+                ''
+            ),
         ]);
     }
 
     /**
      * @param int $courseid
      * @param string $reason
+     * @param string $fromurl
      * @return array
      */
-    public static function execute($courseid, $reason = ''): array {
+    public static function execute($courseid, $reason = '', $fromurl = ''): array {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'courseid' => $courseid,
             'reason' => $reason,
+            'fromurl' => $fromurl,
         ]);
 
         $context = context_course::instance($params['courseid']);
@@ -69,7 +77,12 @@ class request_assistance extends external_api {
             throw new moodle_exception('errornosupportavailable', 'local_remotesupport');
         }
 
-        $session = session_manager::create_request($params['courseid'], (int) $USER->id, $params['reason']);
+        $session = session_manager::create_request(
+            $params['courseid'],
+            (int) $USER->id,
+            $params['reason'],
+            $params['fromurl']
+        );
 
         return ['sessionid' => (int) $session->id];
     }

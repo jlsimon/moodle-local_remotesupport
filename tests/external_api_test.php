@@ -235,6 +235,18 @@ class external_api_test extends \advanced_testcase {
         $this->assertTrue($status['isrequested']);
     }
 
+    public function test_request_assistance_stores_fromurl_as_returnurl(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $this->setUser($student);
+        $result = request_assistance::execute($course->id, '', '/mod/forum/discuss.php?d=5');
+        $this->assert_valid_return(request_assistance::class, $result);
+
+        $session = session_manager::get_session($result['sessionid']);
+        $this->assertSame('/mod/forum/discuss.php?d=5', $session->returnurl);
+    }
+
     public function test_request_assistance_rejects_second_open_request_end_to_end(): void {
         $this->resetAfterTest();
         [$course, $student] = $this->setup_course_with_users();

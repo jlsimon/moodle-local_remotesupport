@@ -23,7 +23,7 @@
     * isnone, isrequested, isaccepted, isactive - mutually exclusive state flags
     * statusmessage - human readable status text
     * supportavailable - present only when isnone; false hides the request form
-    * requestformurl, sesskey, maxreasonlength - present only when isnone and supportavailable, to build the request form
+    * requestformurl, sesskey, maxreasonlength, fromurl - present only when isnone and supportavailable, to build the request form
     * cancelurl, enterurl, finishurl - action links (present only when relevant)
 }}
 <div class="local-remotesupport-panel" role="status">
@@ -34,6 +34,7 @@
         <form method="post" action="{{{requestformurl}}}" class="local-remotesupport-requestform">
             <input type="hidden" name="action" value="request">
             <input type="hidden" name="sesskey" value="{{sesskey}}">
+            <input type="hidden" name="fromurl" value="{{fromurl}}">
             <p class="local-remotesupport-info-whatisassistance text-muted small">{{#str}}info_whatisassistance, local_remotesupport{{/str}}</p>
             <div class="form-group">
                 <label for="local-remotesupport-reason">{{#str}}label_reason, local_remotesupport{{/str}}</label>

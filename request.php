@@ -33,6 +33,12 @@ $courseid = required_param('id', PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA);
 $sessionid = optional_param('sessionid', 0, PARAM_INT);
 $reason = optional_param('reason', '', PARAM_TEXT);
+// The page the student was on before reaching this one — carried through
+// as a query param from wherever the "Solicitar asistencia" link was
+// clicked (see lib.php's entry points), then as a hidden form field once
+// rendered here, so it survives the POST below. PARAM_LOCALURL both
+// cleans and validates it stays a url local to this site.
+$fromurl = optional_param('fromurl', '', PARAM_LOCALURL);
 
 $course = get_course($courseid);
 require_login($course);
@@ -55,7 +61,7 @@ if ($action !== '') {
         if (!teacher_settings::is_support_available_for_course($course->id)) {
             throw new moodle_exception('errornosupportavailable', 'local_remotesupport');
         }
-        session_manager::create_request($course->id, $USER->id, $reason);
+        session_manager::create_request($course->id, $USER->id, $reason, $fromurl);
         redirect($returnurl, get_string('requestcreated', 'local_remotesupport'));
     } else if ($action === 'cancel' && $sessionid) {
         session_manager::cancel_request($sessionid, $USER->id);
@@ -69,11 +75,11 @@ if ($action !== '') {
     }
 }
 
-$data = student_status::export($course->id, $USER->id);
+$data = student_status::export($course->id, $USER->id, $fromurl);
 
 echo $OUTPUT->header();
 echo '<div id="local-remotesupport-student-panel">';
 echo $OUTPUT->render_from_template('local_remotesupport/student_page', $data);
 echo '</div>';
-$PAGE->requires->js_call_amd('local_remotesupport/student_client', 'init', [$course->id]);
+$PAGE->requires->js_call_amd('local_remotesupport/student_client', 'init', [$course->id, $fromurl]);
 echo $OUTPUT->footer();

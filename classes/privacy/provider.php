@@ -64,6 +64,7 @@ class provider implements
             'teacherid' => 'privacy:metadata:local_remotesupport_session:teacherid',
             'status' => 'privacy:metadata:local_remotesupport_session:status',
             'reason' => 'privacy:metadata:local_remotesupport_session:reason',
+            'returnurl' => 'privacy:metadata:local_remotesupport_session:returnurl',
             'timecreated' => 'privacy:metadata:local_remotesupport_session:timecreated',
             'timestarted' => 'privacy:metadata:local_remotesupport_session:timestarted',
             'timeended' => 'privacy:metadata:local_remotesupport_session:timeended',
@@ -166,6 +167,7 @@ class provider implements
                     'role' => $session->studentid == $userid ? 'student' : 'teacher',
                     'status' => $session->status,
                     'reason' => $session->reason,
+                    'returnurl' => $session->returnurl,
                     'timecreated' => \core_privacy\local\request\transform::datetime($session->timecreated),
                     'timestarted' => $session->timestarted
                         ? \core_privacy\local\request\transform::datetime($session->timestarted) : null,

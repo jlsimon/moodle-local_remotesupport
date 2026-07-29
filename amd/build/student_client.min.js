@@ -32,8 +32,15 @@ define(['core/templates', 'core/notification', 'local_remotesupport/session_requ
 
     /**
      * @param {Number} courseid
+     * @param {String} [fromurl] Local url of the page the student was on before reaching
+     *                           request.php (see lib.php's entry points), passed straight
+     *                           through to requestAssistance() below rather than read back
+     *                           out of the form's own hidden field — refresh() replaces that
+     *                           field (along with the rest of the form) on every poll tick
+     *                           that finds anything changed, but this closure value doesn't
+     *                           go stale the same way, since it is set once here.
      */
-    var init = function(courseid) {
+    var init = function(courseid, fromurl) {
         var container = document.getElementById('local-remotesupport-student-panel');
         if (!container) {
             return;
@@ -83,7 +90,7 @@ define(['core/templates', 'core/notification', 'local_remotesupport/session_requ
             }
             e.preventDefault();
             var reasonField = form.querySelector('[name="reason"]');
-            SessionRequests.requestAssistance(courseid, reasonField ? reasonField.value : '')
+            SessionRequests.requestAssistance(courseid, reasonField ? reasonField.value : '', fromurl)
                 .then(refresh)
                 .catch(Notification.exception);
         });

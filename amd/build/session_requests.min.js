@@ -38,12 +38,13 @@ define(['core/ajax'], function(Ajax) {
     /**
      * @param {Number} courseid
      * @param {String} reason
+     * @param {String} [fromurl] Local url of the page the student requested assistance from.
      * @return {Promise}
      */
-    var requestAssistance = function(courseid, reason) {
+    var requestAssistance = function(courseid, reason, fromurl) {
         return Ajax.call([{
             methodname: 'local_remotesupport_request_assistance',
-            args: {courseid: courseid, reason: reason || ''}
+            args: {courseid: courseid, reason: reason || '', fromurl: fromurl || ''}
         }])[0];
     };
 

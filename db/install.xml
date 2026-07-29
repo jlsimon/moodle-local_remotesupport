@@ -18,6 +18,8 @@
             COMMENT="SHA-256 hash of the teacher's current entry token, never the token itself"/>
         <FIELD NAME="reason" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
             COMMENT="Optional free-text reason the student gave when requesting assistance"/>
+        <FIELD NAME="returnurl" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false"
+            COMMENT="Local (site-relative) url of the page the student was on when they requested assistance, used to send them back there once the session starts instead of the course page"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timerequestexpires" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"/>

@@ -145,5 +145,21 @@ function xmldb_local_remotesupport_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026072906, 'local', 'remotesupport');
     }
 
+    if ($oldversion < 2026072926) {
+        // Lets the student land back on the exact page they requested
+        // assistance from once the session starts, instead of always the
+        // course's front page — see session_manager::create_request() and
+        // session.php. Existing rows predate this and are left null,
+        // falling back to the course page exactly as before.
+        $table = new xmldb_table('local_remotesupport_session');
+        $field = new xmldb_field('returnurl', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'reason');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2026072926, 'local', 'remotesupport');
+    }
+
     return true;
 }

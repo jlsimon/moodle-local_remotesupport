@@ -535,3 +535,31 @@ decisión y qué código se retiró.
   fondo, y si el respaldo estructural resulta fiable en la práctica en
   páginas reales de Moodle, quedan pendientes de la verificación
   manual del usuario.
+
+## Nuevas tras completar el MVP — vuelta a la página de origen al entrar en la sesión
+
+- **Solo se captura la página de origen si el alumno llega a
+  `request.php` a través de los propios enlaces del plugin** (menú del
+  curso, botón flotante). Si escribe la URL directamente, la abre
+  desde un marcador guardado, o llega por cualquier otra vía sin
+  `fromurl`, no hay ninguna página de origen que recordar — se usa la
+  portada del curso, el comportamiento de siempre.
+- **Una URL guardada puede quedar obsoleta para cuando el profesor
+  acepta.** Si la actividad concreta donde estaba el alumno se borra,
+  se oculta, o cambia de sitio entre la solicitud y la aceptación
+  (puede pasar minutos, incluso más si la expiración de la solicitud
+  es larga), la redirección llevará a esa URL igualmente — el
+  resultado depende de cómo la propia página de destino maneje ya no
+  encontrar lo que esperaba (típicamente un error de Moodle), no de
+  nada que este plugin controle o pueda prevenir.
+- **URLs muy largas (más de 255 caracteres) no se guardan, ni
+  siquiera truncadas** — se descartan por completo y se usa la
+  portada del curso. Poco frecuente en la práctica (una URL de Moodle
+  típica está muy por debajo de ese límite), pero una página con una
+  cadena de consulta especialmente larga no tendrá vuelta a su URL
+  exacta.
+- **No probado en un navegador real** (mismo motivo que el resto de
+  este documento): en particular, la redirección inmediata sin ninguna
+  página de confirmación propia, y su comportamiento al entrar desde
+  el botón flotante en distintas páginas del sitio, quedan pendientes
+  de la verificación manual del usuario.

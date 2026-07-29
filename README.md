@@ -161,6 +161,13 @@ solicitud.** El formulario "Solicitar asistencia" explica ahora en dos
 frases qué implica: qué puede ver el profesor, que solo observa, que
 hay chat, y que el alumno puede finalizar cuando quiera.
 
+**Ampliación posterior — vuelta a la página de origen al entrar en la
+sesión.** Al aceptar, el alumno ya no tiene que confirmar dos veces:
+`session.php` le redirige directamente a la página concreta donde
+pidió asistencia (guardada en el momento de la solicitud), en vez de
+mostrar una confirmación aparte que además llevaba siempre a la
+portada del curso.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.

@@ -411,6 +411,31 @@ limpieza best-effort del cliente (`event_capture.js::BLOCKED_TAGS`) —
 `javascript:`, y los valores de `<input>`/`<textarea>`, que nunca se
 capturan.
 
+## Redirección a la página de origen sin riesgo de open redirect (añadido tras el MVP)
+
+Al entrar en una sesión, el alumno es redirigido a la página desde la
+que pidió asistencia (`local_remotesupport_session.returnurl`, ver
+`docs/architecture.md`/`docs/decisions.md`) en vez de a la portada del
+curso. Como el destino de una redirección lo determina, en última
+instancia, un valor que llegó desde el navegador del alumno, se trata
+como una superficie de open redirect y se cierra en dos puntos, no
+uno:
+
+1. **Nunca se guarda una URL completa, solo una ruta local.** El
+   propio valor que se persiste en base de datos se obtiene con
+   `moodle_url::out_as_local_url()` al construir el enlace a
+   `request.php` — no hay forma de que llegue a guardarse un dominio
+   externo, porque nunca se le pasa la oportunidad de estar ahí.
+2. **`PARAM_LOCALURL` en cada punto de entrada** (`request.php`,
+   `classes/external/request_assistance.php`) — revalida igualmente el
+   valor recibido, por si acaso llegara manipulado directamente sin
+   pasar por los enlaces que el propio plugin construye (mismo
+   principio que el resto del plugin: no confiar en que el cliente ya
+   validó nada). `session.php` reconstruye el destino con
+   `new moodle_url($session->returnurl)`, envuelto en un `try`/`catch`
+   que cae de vuelta a la portada del curso ante cualquier valor que no
+   parezca ya una ruta local válida.
+
 ## Riesgos conocidos
 
 - **El token viaja en la URL** (`session.php?id=...&token=...`), por lo

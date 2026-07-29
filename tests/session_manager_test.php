@@ -89,6 +89,38 @@ class session_manager_test extends \advanced_testcase {
         $this->assertSame(session_manager::MAX_REASON_LENGTH, strlen($session->reason));
     }
 
+    public function test_create_request_stores_returnurl(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $session = session_manager::create_request($course->id, $student->id, '', '/mod/forum/discuss.php?d=5');
+
+        $this->assertSame('/mod/forum/discuss.php?d=5', $session->returnurl);
+    }
+
+    public function test_create_request_without_returnurl_argument_defaults_to_null(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $session = session_manager::create_request($course->id, $student->id);
+
+        $this->assertNull($session->returnurl);
+    }
+
+    public function test_create_request_drops_oversized_returnurl_instead_of_truncating(): void {
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $session = session_manager::create_request(
+            $course->id,
+            $student->id,
+            '',
+            '/mod/forum/discuss.php?d=' . str_repeat('1', session_manager::MAX_RETURNURL_LENGTH)
+        );
+
+        $this->assertNull($session->returnurl);
+    }
+
     public function test_duplicate_open_request_is_rejected(): void {
         $this->resetAfterTest();
         [$course, $student] = $this->setup_course_with_users();

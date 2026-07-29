@@ -25,6 +25,38 @@
 defined('MOODLE_INTERNAL') || die();
 
 /**
+ * Local (site-relative) url of the page currently being rendered, for the
+ * "return here once the session starts" links built below — see
+ * session_manager::create_request()'s $returnurl and session.php.
+ *
+ * has_set_url() is checked first, not just wrapped in a try/catch: reading
+ * $PAGE->url before the page has called $PAGE->set_url() does not throw,
+ * it triggers a debugging() notice and falls back to guessing a url from
+ * the request — noisy (fails PHPUnit's "no unexpected debugging calls"
+ * check) for what is only ever a best-effort convenience link, not
+ * something worth surfacing as a warning. $PAGE->url is always set to a
+ * local path by Moodle convention throughout core and this plugin once it
+ * *is* set, so out_as_local_url() itself should never actually throw, but
+ * this hook runs on essentially every page's navigation build; an
+ * uncaught exception here would break course navigation site-wide for the
+ * rare page that violates that convention, an outsized cost for a link
+ * that is itself only a minor convenience — caught defensively regardless.
+ *
+ * @return string Local url, or '' if it could not be determined safely.
+ */
+function local_remotesupport_current_page_local_url(): string {
+    global $PAGE;
+    if (!$PAGE->has_set_url()) {
+        return '';
+    }
+    try {
+        return $PAGE->url->out_as_local_url(false);
+    } catch (moodle_exception $e) {
+        return '';
+    }
+}
+
+/**
  * Add navigation links into the course menu so the plugin's pages are reachable.
  *
  * @param navigation_node $parentnode
@@ -39,7 +71,10 @@ function local_remotesupport_extend_navigation_course(
     if (has_capability('local/remotesupport:requestassistance', $context)) {
         $parentnode->add(
             get_string('pagetitle_request', 'local_remotesupport'),
-            new moodle_url('/local/remotesupport/request.php', ['id' => $course->id]),
+            new moodle_url('/local/remotesupport/request.php', [
+                'id' => $course->id,
+                'fromurl' => local_remotesupport_current_page_local_url(),
+            ]),
             navigation_node::TYPE_SETTING,
             null,
             'local_remotesupport_request'
@@ -144,11 +179,19 @@ function local_remotesupport_render_floating_request_button(int $studentid): str
         return '';
     }
 
+    // Only the two branches that actually lead to *creating* a request
+    // carry 'fromurl' — the "open request already exists" branch above
+    // just views it, no new session_manager::create_request() call
+    // involved, so there is nothing for that value to be stored against.
+    $fromurl = local_remotesupport_current_page_local_url();
+
     if (count($courses) === 1) {
         $course = reset($courses);
         return $OUTPUT->render_from_template('local_remotesupport/floating_request_button', [
             'label' => get_string('button_requestassistance', 'local_remotesupport'),
-            'url' => (new moodle_url('/local/remotesupport/request.php', ['id' => $course->id]))->out(false),
+            'url' => (new moodle_url('/local/remotesupport/request.php', [
+                'id' => $course->id, 'fromurl' => $fromurl,
+            ]))->out(false),
             'hascourses' => false,
         ]);
     }
@@ -158,7 +201,9 @@ function local_remotesupport_render_floating_request_button(int $studentid): str
         'label' => get_string('button_requestassistance', 'local_remotesupport'),
         'hascourses' => true,
         'courses' => array_map(fn($c) => [
-            'url' => (new moodle_url('/local/remotesupport/request.php', ['id' => $c->id]))->out(false),
+            'url' => (new moodle_url('/local/remotesupport/request.php', [
+                'id' => $c->id, 'fromurl' => $fromurl,
+            ]))->out(false),
             'fullname' => format_string($c->fullname, true, ['context' => context_course::instance($c->id)]),
         ], array_values($courses)),
     ]);

@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.20.0 (nuevo: el alumno vuelve a la página exacta donde pidió asistencia, sin doble confirmación) — 2026-07-29
+
+- **Pedido por el usuario**: al aceptar, el alumno tenía que confirmar
+  dos veces ("Entrar en la sesión" y luego "Ir al curso" en una página
+  aparte), y el segundo clic llevaba siempre a la portada del curso,
+  nunca a la página concreta donde estaba.
+- Nueva columna `returnurl` en `local_remotesupport_session`, guardada
+  como ruta local (nunca una URL completa, sin posibilidad de
+  redirigir a un dominio externo) en el instante en que el alumno pide
+  asistencia — captada en los enlaces del menú del curso y del botón
+  flotante, hilada a través del formulario de solicitud (clásico y
+  AJAX) hasta `session_manager::create_request()`.
+- `session.php` ya no muestra ninguna página de confirmación al
+  alumno: redirige directamente a esa página guardada, o a la portada
+  del curso si no hay ninguna. Se elimina `session_active.mustache` y
+  las dos cadenas de idioma que solo ella usaba — el botón "Finalizar"
+  que ofrecía sigue disponible en la barra de estado persistente de la
+  página de destino.
+- Nuevas pruebas PHPUnit (guardado, valor por defecto, descarte de
+  URLs demasiado largas, hilado a través del endpoint AJAX). 175 tests
+  pasando.
+
 ## 0.19.1 (mejora: mensaje explicativo de qué es la asistencia remota en el formulario de solicitud) — 2026-07-29
 
 - **Pedido por el usuario**: el formulario "Solicitar asistencia" no
