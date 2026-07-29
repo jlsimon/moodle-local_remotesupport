@@ -138,6 +138,19 @@ cambia esa visualización concreta, sin guardarse. En la reproducción,
 la marca/el sonido solo aparecen reproduciendo hacia delante de forma
 natural, nunca al saltar con la barra de progreso.
 
+**Ampliación posterior — precisión del cursor y resaltado del
+elemento bajo el ratón.** Varias mejoras de precisión de la
+reconstrucción encadenadas: elementos `position: fixed` (como la
+barra de navegación) ya no pierden su comportamiento fijo al hacer
+scroll, captura de CSS inline, ancho de la reconstrucción sin incluir
+la barra de scroll, resincronización tras cada clic, y — la mejora
+más notable — la reconstrucción resalta con un contorno el elemento
+clicable concreto que el alumno tiene bajo el ratón (identificado por
+coincidencia de elemento, no de coordenadas), con el punto del cursor
+centrándose en él cuando hay resaltado. Ver `docs/decisions.md` para
+el porqué de cada paso y por qué la precisión total no es un objetivo
+alcanzable con esta arquitectura.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.
