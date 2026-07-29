@@ -99,6 +99,34 @@ class event_manager_test extends \advanced_testcase {
         event_manager::record_event(1, 2, 'cursor', ['x' => 1]);
     }
 
+    public function test_cursor_hover_selector_is_kept(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'cursor', ['x' => 1, 'y' => 1, 'hover' => '#id-link']);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertSame('#id-link', $payload['hover']);
+    }
+
+    public function test_cursor_hover_selector_is_truncated(): void {
+        $this->resetAfterTest();
+
+        $long = str_repeat('a', event_manager::MAX_HOVER_SELECTOR_LENGTH + 50);
+        $event = event_manager::record_event(1, 2, 'cursor', ['x' => 1, 'y' => 1, 'hover' => $long]);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertSame(event_manager::MAX_HOVER_SELECTOR_LENGTH, strlen($payload['hover']));
+    }
+
+    public function test_cursor_hover_non_string_is_dropped(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'cursor', ['x' => 1, 'y' => 1, 'hover' => ['not' => 'a string']]);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertNull($payload['hover']);
+    }
+
     public function test_cursor_events_are_rate_limited(): void {
         $this->resetAfterTest();
 

@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072918;
+$plugin->version = 2026072919;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.17.4 (fix: el punto del cursor ya no desaparece cuando el alumno deja de mover el ratón)';
+$plugin->release = '0.18.0 (nuevo: la reconstrucción resalta el elemento clicable que el alumno está señalando)';

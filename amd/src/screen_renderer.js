@@ -68,6 +68,14 @@
  * own cursor vanish from the teacher's view each time the next periodic
  * snapshot arrived.
  *
+ * applyCursorPosition() also accepts an optional selector (a 'cursor'
+ * event's `hover` field, see event_capture.js) identifying the clickable
+ * element, if any, the student's mouse is over — applyHoverHighlight()
+ * outlines that same element inside the reconstructed document, found by
+ * re-querying it there rather than trusting the dot's own coordinates.
+ * This stays exact even when the reconstruction's layout does not match
+ * the real page's pixel-for-pixel, which the dot's position alone cannot.
+ *
  * @module     local_remotesupport/screen_renderer
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -125,6 +133,7 @@ define([], function() {
         var lastCursor = null;
         var cursorEl = null;
         var lastUrl = null;
+        var lastHighlightedEl = null;
 
         // Forces the iframe to actually be the alumno's own reported
         // viewport size (not just visually similar), then shrinks it back
@@ -171,15 +180,55 @@ define([], function() {
         };
 
         /**
+         * Highlights the element $selector resolves to inside the
+         * reconstructed document, if any — a second, coordinate-independent
+         * way of showing what the student is pointing at (see
+         * event_capture.js's buildRobustSelector()), unaffected by any
+         * mismatch between the dot's position and the real page's layout.
+         * Clears any previously highlighted element first, regardless of
+         * whether $selector matches anything now, so hovering away from a
+         * clickable element (selector goes null) removes the old highlight.
+         *
+         * @param {String|null|undefined} selector
+         */
+        var applyHoverHighlight = function(selector) {
+            if (lastHighlightedEl) {
+                lastHighlightedEl.classList.remove('local-remotesupport-hover-highlight');
+                lastHighlightedEl = null;
+            }
+            if (!selector) {
+                return;
+            }
+            var doc = iframe.contentDocument;
+            if (!doc) {
+                return;
+            }
+            var el;
+            try {
+                el = doc.querySelector(selector);
+            } catch (e) {
+                // Malformed selector (e.g. the structural fallback missed
+                // due to a stale snapshot) — no highlight, not an error.
+                return;
+            }
+            if (el) {
+                el.classList.add('local-remotesupport-hover-highlight');
+                lastHighlightedEl = el;
+            }
+        };
+
+        /**
          * @param {Number} x Viewport-relative pixels.
          * @param {Number} y Viewport-relative pixels.
+         * @param {String|null} [hoverSelector] See applyHoverHighlight().
          */
-        var applyCursorPosition = function(x, y) {
+        var applyCursorPosition = function(x, y, hoverSelector) {
             if (typeof x !== 'number' || typeof y !== 'number') {
                 return;
             }
             lastCursor = {x: x, y: y};
             positionCursorEl(x, y);
+            applyHoverHighlight(hoverSelector);
         };
 
         var hideCursor = function() {
@@ -187,6 +236,7 @@ define([], function() {
             if (cursorEl) {
                 cursorEl.style.display = 'none';
             }
+            applyHoverHighlight(null);
         };
 
         /**
@@ -301,7 +351,10 @@ define([], function() {
             // for fixed-position descendants).
             iframe.srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
                 '<base href="' + M.cfg.wwwroot + '/">' + links + inlineCssTag +
-                '<style>html,body{margin:0;overflow:hidden;height:100%;}</style>' +
+                '<style>html,body{margin:0;overflow:hidden;height:100%;}' +
+                '.local-remotesupport-hover-highlight{' +
+                'outline:3px solid rgba(220,53,69,.85) !important;' +
+                'outline-offset:2px !important;}</style>' +
                 '</head><body>' +
                 '<div id="' + VIEWPORT_CONTENT_ID + '">' + payload.html + '</div>' +
                 modalHtml + fixedHtml + '</body></html>';

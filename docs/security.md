@@ -185,7 +185,16 @@ si lo hay, y las URLs de CSS) se sanea/filtra antes de guardar (ver
 "Saneamiento de HTML" más abajo). `cursor` y `student_click` reciben la
 misma comprobación ligera que `scroll` (campos `x`/`y` presentes y
 numéricos) — ninguno es HTML, así que no pasan por el saneador.
-`chat_message`
+`cursor` acepta además un campo opcional `hover` (el selector del
+elemento clicable bajo el ratón del alumno, añadido tras el MVP —
+ver `docs/decisions.md`): si es una cadena, se acota a
+`MAX_HOVER_SELECTOR_LENGTH` (300 caracteres); si no lo es, se
+descarta. Un `hover` inválido o desproporcionado nunca rechaza el
+evento completo, a diferencia de `x`/`y` — es auxiliar a la posición,
+no la razón de ser del evento. No se sanea como HTML porque no lo es:
+nunca se inserta como marcado, solo se usa como argumento de
+`querySelector()` en el `iframe` ya aislado del profesor, envuelto en
+su propio `try`/`catch`. `chat_message`
 requiere un campo `message` de texto no vacío (tras recortar espacios),
 truncado a `MAX_CHAT_MESSAGE_LENGTH` (1000 caracteres) — siempre texto
 plano, nunca pasa por el saneador de HTML porque nunca se interpreta
@@ -307,13 +316,18 @@ comillas en las URLs de `<link>`.
 
 Recogido: URL relativa, título, contenido de `#region-main` (o
 `main`/`body` si no existe), el modal de Moodle abierto en ese momento
-(si lo hay), URLs de hojas de estilo del propio sitio, estructura del
-DOM, dimensiones de viewport, posición de scroll, posición del cursor
-del ratón mientras se mueve, posición de cada clic (ambos añadidos tras
-el MVP — coordenadas `x`/`y` de viewport únicamente, nunca asociadas a
-qué elemento concreto había bajo el cursor o bajo el clic: no se
-registra un selector, un `id`, ni el texto de lo que se pulsó, solo el
-punto).
+(si lo hay), URLs de hojas de estilo del propio sitio y CSS inline
+(añadido tras el MVP), estructura del DOM, dimensiones de viewport,
+posición de scroll, posición del cursor del ratón mientras se mueve,
+posición de cada clic (ambos añadidos tras el MVP — coordenadas `x`/`y`
+de viewport, nunca el texto de lo que se pulsó). La posición de cada
+clic no lleva asociado ningún selector ni `id` del elemento pulsado,
+solo el punto. La posición del cursor sí, desde la mejora de resaltado
+(añadida tras el MVP, ver `docs/decisions.md`): un selector CSS
+(`id`, o una ruta estructural corta) del elemento clicable bajo el
+ratón, si hay alguno — nunca su texto ni ningún otro contenido, solo
+lo necesario para poder volver a localizar ese mismo elemento dentro
+del propio DOM ya capturado.
 
 Nunca recogido, ni siquiera antes de sanear: valores de campos de
 formulario (se elimina el atributo `value` de todo `<input>` y se vacía

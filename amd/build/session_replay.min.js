@@ -247,7 +247,7 @@ define(
                         if (initialCursorIdx >= 0) {
                             var initialCursor = decodePayload(events[initialCursorIdx]);
                             if (initialCursor) {
-                                renderer.applyCursorPosition(initialCursor.x, initialCursor.y);
+                                renderer.applyCursorPosition(initialCursor.x, initialCursor.y, initialCursor.hover);
                                 appliedCursorIdx = initialCursorIdx;
                             }
                         }
@@ -268,7 +268,7 @@ define(
                     appliedCursorIdx = laterCursorIdx;
                     var cp = decodePayload(events[laterCursorIdx]);
                     if (cp) {
-                        renderer.applyCursorPosition(cp.x, cp.y);
+                        renderer.applyCursorPosition(cp.x, cp.y, cp.hover);
                     }
                 }
             }

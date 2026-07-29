@@ -36,6 +36,14 @@
  * That rate (local_remotesupport/cursorsamplems, passed in as
  * cursorsamplems) only throttles how often a *moving* mouse is sampled.
  *
+ * Each 'cursor' event also carries an optional `hover` selector
+ * identifying the nearest clickable ancestor of whatever the mouse is
+ * over, if any (buildRobustSelector()) — the teacher's side highlights
+ * that same element (found by re-querying its own reconstructed DOM), a
+ * deliberate second, coordinate-independent way of showing what the
+ * student is pointing at that stays exact even when the dot's own
+ * position is only approximate.
+ *
  * Also sends 'student_click' events (same x/y shape as 'cursor') on every
  * click that isn't on the plugin's own injected UI, so the teacher's
  * reconstruction can show a brief visual mark (and, optionally, play a
@@ -91,6 +99,10 @@ define(
     var MODAL_SELECTOR = '.modal.show, .modal.in, [aria-modal="true"]';
     var BLOCKED_TAGS = ['script', 'iframe', 'object', 'embed', 'applet', 'noscript', 'link', 'meta'];
     var OWN_CLASS_PREFIX = 'local-remotesupport-';
+    var CLICKABLE_SELECTOR = 'a[href], button, input[type="submit"], input[type="button"], ' +
+        'input[type="checkbox"], input[type="radio"], select, summary, label, ' +
+        '[role="button"], [role="link"], [role="tab"], [role="menuitem"]';
+    var HOVER_SELECTOR_MAX_DEPTH = 5;
     var PAGE_HEARTBEAT_MS = 5000;
     var PAGE_DEBOUNCE_MS = 1500;
     var SCROLL_THROTTLE_MS = 300;
@@ -114,6 +126,71 @@ define(
      */
     var isOwnElement = function(node) {
         return node.nodeType === 1 && !!(node.closest && node.closest('[class*="' + OWN_CLASS_PREFIX + '"]'));
+    };
+
+    /**
+     * Nearest interactive ancestor of $node (including itself), or null.
+     * Used to decide what to highlight in the teacher's reconstruction
+     * while the alumno's mouse hovers a clickable element — see
+     * buildRobustSelector() below.
+     *
+     * @param {Node} node
+     * @return {Element|null}
+     */
+    var findClickableAncestor = function(node) {
+        if (!node || node.nodeType !== 1 || !node.closest) {
+            return null;
+        }
+        return node.closest(CLICKABLE_SELECTOR);
+    };
+
+    /**
+     * Builds a selector that (best-effort) identifies the same element
+     * again inside the teacher's reconstructed, sandboxed DOM — a
+     * different document, captured slightly earlier, not the live one
+     * this runs against. Preference order mirrors the "selectores
+     * robustos" guidance from the original spec for the (since removed)
+     * teacher-driven highlight feature: a stable `id` first (survives
+     * reordering/insertions elsewhere on the page, so the most reliable
+     * choice by far), falling back to a short structural path (tag +
+     * position among same-tag siblings) up to HOVER_SELECTOR_MAX_DEPTH
+     * ancestors, stopping early if an ancestor with an `id` is reached.
+     * The structural fallback is genuinely best-effort: if the captured
+     * snapshot is even slightly stale, sibling order could have shifted
+     * and the selector might miss or match the wrong element — accepted,
+     * see docs/limitations.md, since a miss just means no highlight
+     * shows, not a wrong action.
+     *
+     * @param {Element} el
+     * @return {String|null}
+     */
+    var buildRobustSelector = function(el) {
+        if (el.id) {
+            return '#' + CSS.escape(el.id);
+        }
+
+        var parts = [];
+        var node = el;
+        var depth = 0;
+        while (node && node.nodeType === 1 && depth < HOVER_SELECTOR_MAX_DEPTH) {
+            if (node.id) {
+                parts.unshift('#' + CSS.escape(node.id));
+                break;
+            }
+            var parent = node.parentElement;
+            if (!parent) {
+                parts.unshift(node.tagName.toLowerCase());
+                break;
+            }
+            var sameTagSiblings = Array.prototype.filter.call(parent.children, function(sibling) {
+                return sibling.tagName === node.tagName;
+            });
+            var position = sameTagSiblings.indexOf(node) + 1;
+            parts.unshift(node.tagName.toLowerCase() + ':nth-of-type(' + position + ')');
+            node = parent;
+            depth++;
+        }
+        return parts.join(' > ');
     };
 
     /**
@@ -476,8 +553,19 @@ define(
         // arguments of its own.
         var lastCursorX = 0;
         var lastCursorY = 0;
+        // Which clickable element (if any) the mouse is over right now, as
+        // a selector the teacher's side can look up in its own copy of the
+        // DOM to highlight it — see buildRobustSelector()'s doc comment.
+        // Compensates for the cursor dot's own positional imprecision: an
+        // exact element match does not depend on the reconstruction's
+        // geometry matching the real page's at all.
+        var lastHoverSelector = null;
         var sendCursor = function() {
-            Transport.pushEvent(sessionid, 'cursor', {x: lastCursorX, y: lastCursorY}).catch(function() {
+            Transport.pushEvent(sessionid, 'cursor', {
+                x: lastCursorX,
+                y: lastCursorY,
+                hover: lastHoverSelector
+            }).catch(function() {
                 // Ignored, see above.
             });
         };
@@ -608,6 +696,8 @@ define(
         window.addEventListener('mousemove', function(e) {
             lastCursorX = e.clientX;
             lastCursorY = e.clientY;
+            var hoverEl = findClickableAncestor(e.target);
+            lastHoverSelector = (hoverEl && !isOwnElement(hoverEl)) ? buildRobustSelector(hoverEl) : null;
             throttledSendCursor();
         }, {passive: true});
 

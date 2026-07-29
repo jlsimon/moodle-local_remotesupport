@@ -506,3 +506,32 @@ decisión y qué código se retiró.
   este documento): en particular, si la mejora percibida es
   suficiente para el uso real de la funcionalidad queda pendiente de
   que el usuario retome las pruebas de precisión que había aplazado.
+
+## Nuevas tras completar el MVP — resaltado del elemento bajo el cursor
+
+- **El respaldo estructural del selector puede señalar el elemento
+  equivocado, no solo fallar en encontrar ninguno.** Cuando el
+  elemento bajo el ratón no tiene `id`, `buildRobustSelector()`
+  construye una ruta basada en la posición entre hermanos del mismo
+  tag (`tag:nth-of-type(n)`) — si el orden de esos hermanos cambió
+  entre la foto de página capturada y el momento del resaltado (poco
+  probable dada la ventana de desincronización ya acortada, pero
+  posible), el selector podría coincidir con un elemento distinto al
+  que el alumno señala realmente. Visualmente confuso, pero nunca una
+  acción: el plugin solo marca, no actúa sobre lo resaltado. Ver
+  `docs/decisions.md` para por qué se aceptó este riesgo residual en
+  vez de un tercer nivel de robustez (`data-*`) que lo mitigaría solo
+  parcialmente.
+- **Solo se resaltan elementos "clicables" según una lista fija de
+  selectores** (`a[href]`, `button`, ciertos `input`, `select`,
+  `role="button"`/`"link"`/`"tab"`/`"menuitem"`, `summary`, `label`) —
+  un elemento interactivo por otras vías (por ejemplo, con un
+  manejador de clic añadido por JavaScript sin ninguno de esos
+  atributos/roles) no se detecta como "clicable" y no genera
+  resaltado, aunque el alumno pueda pulsarlo igualmente.
+- **El resaltado no se ha probado en un navegador real** (mismo motivo
+  que el resto de este documento): en particular, si el `outline`
+  elegido es suficientemente visible sobre distintos temas/colores de
+  fondo, y si el respaldo estructural resulta fiable en la práctica en
+  páginas reales de Moodle, quedan pendientes de la verificación
+  manual del usuario.

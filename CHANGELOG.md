@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.18.0 (nuevo: la reconstrucción resalta el elemento clicable que el alumno está señalando) — 2026-07-29
+
+- **Propuesto por el usuario** para compensar la imprecisión geométrica
+  del cursor que persistía tras las mejoras anteriores: en vez de
+  depender solo de que el punto caiga en el sitio exacto, identificar
+  qué elemento clicable tiene el alumno bajo el ratón y resaltar ese
+  mismo elemento en la reconstrucción — una coincidencia por identidad
+  de elemento, no por coordenadas, que no hereda ninguna de las fuentes
+  de imprecisión ya conocidas.
+- `event_capture.js` detecta, en cada muestra de cursor, el ancestro
+  clicable más cercano al ratón (enlaces, botones, campos, `role`
+  interactivos...) y construye un selector robusto para él —
+  preferentemente su `id`, o si no tiene, una ruta estructural corta —
+  mismo orden de robustez que ya proponía el documento base para el
+  cursor remoto retirado. Viaja como campo `hover` del mismo evento
+  `cursor` ya existente, sin pipeline nuevo: mismo throttling, mismo
+  límite de frecuencia, misma grabación permanente (disponible también
+  en la reproducción).
+- El servidor acota `hover` a 300 caracteres si es una cadena, o lo
+  descarta si no lo es — nunca rechaza el evento `cursor` completo por
+  esto, es auxiliar a la posición. `screen_renderer.js` busca ese
+  selector en su propio DOM ya reconstruido (`querySelector()` dentro
+  del `iframe` aislado, con su propio `try`/`catch`) y añade un
+  contorno visual al elemento encontrado, quitándolo del anterior.
+- Riesgo residual aceptado: sin `id`, el respaldo estructural podría
+  señalar un elemento distinto si el orden de sus hermanos cambió desde
+  la última foto de página — nunca una acción, solo una marca visual
+  potencialmente equivocada. Ver `docs/limitations.md`.
+- Nuevas pruebas PHPUnit (selector aceptado, truncado, y descartado si
+  no es una cadena). 171 tests pasando.
+
 ## 0.17.4 (fix: el punto del cursor ya no desaparece cuando el alumno deja de mover el ratón) — 2026-07-29
 
 - **Corregido, reportado por el usuario**: regresión introducida por la

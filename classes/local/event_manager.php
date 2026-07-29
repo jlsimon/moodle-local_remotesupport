@@ -59,6 +59,9 @@ class event_manager {
     /** @var int Maximum length, in characters, of a 'page' payload's 'inlineCss' field. */
     const MAX_INLINE_CSS_LENGTH = 40000;
 
+    /** @var int Maximum length, in characters, of a 'cursor' payload's 'hover' selector. */
+    const MAX_HOVER_SELECTOR_LENGTH = 300;
+
     /**
      * Validate and store a new event.
      *
@@ -71,7 +74,10 @@ class event_manager {
      * 'scroll', 'cursor' and 'student_click' events get a light shape check
      * of their own (numeric coordinates) — cheap to enforce and closes the
      * gap where a malformed payload would otherwise sail through as long as
-     * it stayed under the overall size cap. 'chat_message' is always plain text,
+     * it stayed under the overall size cap. 'cursor' additionally accepts an
+     * optional 'hover' selector (bounded to MAX_HOVER_SELECTOR_LENGTH, never
+     * rejects the event outright since it's auxiliary to the position).
+     * 'chat_message' is always plain text,
      * rendered with textContent client-side, never interpreted as HTML —
      * no sanitizer involved, just a non-empty check and a length cap.
      *
@@ -118,6 +124,21 @@ class event_manager {
         if ($eventtype === 'scroll' || $eventtype === 'cursor' || $eventtype === 'student_click') {
             if (!isset($payload['x'], $payload['y']) || !is_numeric($payload['x']) || !is_numeric($payload['y'])) {
                 throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
+            }
+        }
+
+        if ($eventtype === 'cursor' && array_key_exists('hover', $payload)) {
+            // Optional and auxiliary to the position itself, so a bad value
+            // here is truncated/dropped rather than rejecting an otherwise
+            // valid x/y update. Never interpreted as HTML or executed —
+            // only ever used client-side as a CSS selector argument to
+            // querySelector() inside the sandboxed iframe (wrapped in its
+            // own try/catch there), so no further sanitization is needed
+            // beyond bounding its size.
+            if (is_string($payload['hover']) && $payload['hover'] !== '') {
+                $payload['hover'] = core_text::substr($payload['hover'], 0, self::MAX_HOVER_SELECTOR_LENGTH);
+            } else {
+                $payload['hover'] = null;
             }
         }
 
