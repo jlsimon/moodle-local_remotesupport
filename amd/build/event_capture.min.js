@@ -22,6 +22,12 @@
  * student's page in any way. Loaded on every Moodle page while the student
  * has an active session (see lib.php::local_remotesupport_before_footer()).
  *
+ * When the session ends from the other side (the teacher, or a manager, or
+ * expiry — see showSessionEndedNotice()'s doc comment), the status bar
+ * turns into an explicit farewell notice with a dismiss button instead of
+ * just vanishing, since the student could be on any page at that moment,
+ * not a dedicated session view.
+ *
  * Only structure is ever captured, never form field values: input/textarea
  * values are stripped client-side before sending, and stripped again
  * authoritatively on the server regardless of what this code does.
@@ -656,10 +662,54 @@ define(
             }
         });
 
-        var cleanup = function() {
-            if (statusbar && statusbar.parentNode) {
-                statusbar.parentNode.removeChild(statusbar);
+        // Explicit farewell instead of the status bar just vanishing: the
+        // alumno can be on any Moodle page when the session ends (not a
+        // dedicated "session" view like the profesor has), so this reuses
+        // the bar's own space rather than a new blocking overlay, and it
+        // stays up until the alumno dismisses it rather than fading on its
+        // own — the whole point of "aviso explícito" is making sure it's
+        // actually seen, not just technically shown for a moment. Same
+        // caveat as the profesor-facing equivalent (event_player.js's
+        // showSessionEndedOverlay): errorsessionnotactive only means the
+        // session is no longer active, not specifically that the teacher
+        // ended it (could be a manager, or expiry) — the message assumes
+        // the teacher regardless, an accepted imprecision.
+        var showSessionEndedNotice = function() {
+            if (!statusbar || !statusbar.parentNode) {
+                return;
             }
+            var bar = statusbar;
+            Str.get_strings([
+                {key: 'sessionendedbyteacher', component: 'local_remotesupport'},
+                {key: 'button_close', component: 'local_remotesupport'}
+            ]).then(function(strings) {
+                bar.innerHTML = '';
+
+                var text = document.createElement('span');
+                text.textContent = strings[0];
+                bar.appendChild(text);
+
+                var close = document.createElement('button');
+                close.type = 'button';
+                close.className = 'btn btn-secondary btn-sm';
+                close.textContent = strings[1];
+                close.addEventListener('click', function() {
+                    if (bar.parentNode) {
+                        bar.parentNode.removeChild(bar);
+                    }
+                });
+                bar.appendChild(close);
+                return null;
+            }).catch(function() {
+                // Non-fatal: if the strings fail to load, remove the bar
+                // outright rather than leave it showing stale content.
+                if (bar.parentNode) {
+                    bar.parentNode.removeChild(bar);
+                }
+            });
+        };
+
+        var cleanup = function() {
             stickyFooterObserver.disconnect();
             chat.destroy();
             window.clearInterval(heartbeatHandle);
@@ -668,6 +718,7 @@ define(
             if (bodyObserver) {
                 bodyObserver.disconnect();
             }
+            showSessionEndedNotice();
         };
 
         var sinceid = 0;

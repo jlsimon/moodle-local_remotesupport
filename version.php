@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072923;
+$plugin->version = 2026072924;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.18.4 (mejora: el punto del cursor se centra en el elemento resaltado, más fiable que la coordenada bruta)';
+$plugin->release = '0.19.0 (nuevo: aviso explícito de despedida al alumno cuando el profesor finaliza la sesión)';

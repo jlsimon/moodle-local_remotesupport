@@ -151,6 +151,11 @@ centrándose en él cuando hay resaltado. Ver `docs/decisions.md` para
 el porqué de cada paso y por qué la precisión total no es un objetivo
 alcanzable con esta arquitectura.
 
+**Ampliación posterior — aviso de despedida al alumno.** Cuando la
+sesión termina desde el otro lado (normalmente el profesor), la barra
+"Asistencia activa" del alumno se convierte en un aviso explícito de
+despedida con un botón "Cerrar", en vez de desaparecer sin más.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.

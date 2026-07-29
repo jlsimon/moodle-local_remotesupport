@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.19.0 (nuevo: aviso explícito de despedida al alumno cuando el profesor finaliza la sesión) — 2026-07-29
+
+- **Pedido por el usuario**: cuando el profesor finaliza la sesión, la
+  barra "Asistencia activa" del alumno desaparecía sin más aviso —
+  asimetría respecto al aviso que ya recibía el profesor cuando era el
+  alumno quien la finalizaba.
+- Al detectar que la sesión ya no está activa, `event_capture.js`
+  reutiliza la propia barra de estado (en vez de un overlay grande,
+  ya que el alumno puede estar en cualquier página de Moodle, no en
+  una vista dedicada): sustituye su contenido por un mensaje de
+  despedida y un botón "Cerrar", que se queda visible hasta que el
+  alumno lo descarta — deliberadamente sin autoocultarse, para
+  garantizar que se vea.
+- Nuevas cadenas de idioma (`sessionendedbyteacher`, `button_close`).
+  Mismo matiz de imprecisión ya aceptado para el aviso equivalente del
+  profesor: no se puede saber con certeza quién cerró la sesión.
+
 ## 0.18.4 (mejora: el punto del cursor se centra en el elemento resaltado, más fiable que la coordenada bruta) — 2026-07-29
 
 - **Propuesto por el usuario**: puesto que un elemento resaltado
