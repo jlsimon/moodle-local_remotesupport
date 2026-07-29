@@ -26,6 +26,47 @@
  * values are stripped client-side before sending, and stripped again
  * authoritatively on the server regardless of what this code does.
  *
+ * Also sends the student's mouse position ('cursor' events, x/y in viewport
+ * pixels) so the teacher's reconstruction can show where the student is
+ * pointing, live and in later playback — a deliberate exception to the base
+ * spec's "don't permanently store every mouse movement" guidance (see
+ * docs/decisions.md). Bound to the 'mousemove' event itself, not a timer:
+ * an idle mouse fires no events at all, so nothing is sent or stored while
+ * the student isn't moving it, regardless of the configured sample rate.
+ * That rate (local_remotesupport/cursorsamplems, passed in as
+ * cursorsamplems) only throttles how often a *moving* mouse is sampled.
+ *
+ * Also sends 'student_click' events (same x/y shape as 'cursor') on every
+ * click that isn't on the plugin's own injected UI, so the teacher's
+ * reconstruction can show a brief visual mark (and, optionally, play a
+ * sound) at the moment and place the student actually clicked. Unlike
+ * 'cursor', not throttled client-side — a click is already a discrete,
+ * naturally infrequent event, nothing to sample down.
+ *
+ * Every 'page' snapshot also separates out any `position: fixed`
+ * descendant of the captured root (typically the theme's navbar, only
+ * relevant in 'fullpage' mode) into its own `fixed` field — necessary for
+ * both cursor/click position accuracy and general reconstruction fidelity
+ * once the page is scrolled; see markFixedElements()'s doc comment and
+ * screen_renderer.js for why.
+ *
+ * Three further accuracy improvements, all aimed at the reconstruction
+ * matching the real page closely enough that a click reported at a given
+ * point actually corresponds to the same clickable element in both —
+ * "close enough", not pixel-perfect, since the two are rendered by
+ * independent browser engines; see docs/decisions.md for the full
+ * reasoning and its limits: (1) inline `<style>` blocks are now captured
+ * too (collectInlineStyleText()), not just `<link>`-loaded sheets, so
+ * layout rules that only exist inline are no longer silently missing from
+ * the reconstruction; (2) the viewport size used to lay out the
+ * reconstruction is `document.documentElement.clientWidth/clientHeight`,
+ * not `window.innerWidth/innerHeight` — the former excludes the
+ * scrollbar's own width, matching the iframe's own scrollbar-less
+ * rendering; (3) a page snapshot is now sent immediately after every
+ * click (bypassing the usual debounce), and the idle heartbeat runs twice
+ * as often, both narrowing the window in which the reconstruction can be
+ * stale relative to the student's real, live page.
+ *
  * The status bar is `position: fixed` at the bottom of the viewport, same
  * as Moodle core's own sticky footer (theme_boost, `.stickyfooter` /
  * `body.hasstickyfooter`, used for e.g. the Save/Cancel row on long forms
@@ -50,13 +91,30 @@ define(
     var MODAL_SELECTOR = '.modal.show, .modal.in, [aria-modal="true"]';
     var BLOCKED_TAGS = ['script', 'iframe', 'object', 'embed', 'applet', 'noscript', 'link', 'meta'];
     var OWN_CLASS_PREFIX = 'local-remotesupport-';
-    var PAGE_HEARTBEAT_MS = 10000;
+    var PAGE_HEARTBEAT_MS = 5000;
     var PAGE_DEBOUNCE_MS = 1500;
     var SCROLL_THROTTLE_MS = 300;
     var MAX_HTML_LENGTH = 150000;
     var MAX_FULLPAGE_HTML_LENGTH = 400000;
     var MAX_MODAL_HTML_LENGTH = 30000;
+    var MAX_FIXED_HTML_LENGTH = 50000;
+    var MAX_INLINE_CSS_LENGTH = 20000;
+    var FIXED_MARKER_ATTR = 'data-lrs-fixed-marker';
     var INCOMING_POLL_INTERVAL_MS = 500;
+
+    /**
+     * Module-level (not per-session) since it only depends on the fixed
+     * OWN_CLASS_PREFIX constant: used both by the mutation observers below
+     * (ignore the plugin's own DOM changes) and by markFixedElements()
+     * (never treat the plugin's own status bar/chat widget — themselves
+     * `position: fixed` — as page content to extract).
+     *
+     * @param {Node} node
+     * @return {Boolean}
+     */
+    var isOwnElement = function(node) {
+        return node.nodeType === 1 && !!(node.closest && node.closest('[class*="' + OWN_CLASS_PREFIX + '"]'));
+    };
 
     /**
      * @return {Element}
@@ -116,18 +174,100 @@ define(
     };
 
     /**
-     * @param {Element} source
-     * @param {Number} maxlength
+     * Temporarily tags every `position: fixed` descendant of $root (the
+     * plugin's own UI excluded) so the same elements can be found again in
+     * a detached clone of $root — cloneNode() copies attributes, but a
+     * detached node has no computed style of its own to re-check `position`
+     * against, so this has to happen on the live, attached element. Must be
+     * paired with unmarkFixedElements() right after cloning, to avoid
+     * leaving the temporary attribute on the real page.
+     *
+     * Deliberately `fixed` only, not `sticky`: a `fixed` element's
+     * position is viewport-relative regardless of where it sits in the
+     * DOM, so relocating it in extractFixedHtml() below is safe. A
+     * `sticky` element's position is usually relative to its original
+     * normal-flow context (offset, width) — relocating it could look
+     * *more* broken than leaving it, so it is left as a known limitation
+     * instead (see docs/limitations.md).
+     *
+     * @param {Element} root
+     * @return {Element[]} The same elements that got tagged, for unmarking.
+     */
+    var markFixedElements = function(root) {
+        var marked = [];
+        root.querySelectorAll('*').forEach(function(el) {
+            if (isOwnElement(el)) {
+                return;
+            }
+            if (window.getComputedStyle(el).position === 'fixed') {
+                el.setAttribute(FIXED_MARKER_ATTR, '1');
+                marked.push(el);
+            }
+        });
+        return marked;
+    };
+
+    /**
+     * @param {Element[]} marked
+     */
+    var unmarkFixedElements = function(marked) {
+        marked.forEach(function(el) {
+            el.removeAttribute(FIXED_MARKER_ATTR);
+        });
+    };
+
+    /**
+     * Pulls every marked element out of $clone (already cleaned by
+     * cleanClone()) and returns their combined HTML, so the caller can
+     * render them as siblings of the scroll-simulation wrapper instead of
+     * descendants of it — see screen_renderer.js's module doc comment for
+     * why a `position: fixed` element nested inside a `transform`-ed
+     * ancestor stops behaving as fixed. Skips elements whose closest
+     * marked ancestor is also marked: that ancestor's own extraction
+     * already carries them along in its outerHTML, so pulling them out a
+     * second time would just duplicate them.
+     *
+     * @param {Element} clone
      * @return {String}
      */
+    var extractFixedHtml = function(clone) {
+        var candidates = Array.prototype.slice.call(clone.querySelectorAll('[' + FIXED_MARKER_ATTR + ']'));
+        var outermost = candidates.filter(function(el) {
+            return !el.parentElement || !el.parentElement.closest('[' + FIXED_MARKER_ATTR + ']');
+        });
+
+        var html = '';
+        outermost.forEach(function(el) {
+            el.removeAttribute(FIXED_MARKER_ATTR);
+            html += el.outerHTML;
+            if (el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
+        });
+        return html;
+    };
+
+    /**
+     * @param {Element} source
+     * @param {Number} maxlength
+     * @return {{html: String, fixed: String}}
+     */
     var buildSanitizedHtml = function(source, maxlength) {
+        var markedLive = markFixedElements(source);
         var clone = source.cloneNode(true);
+        unmarkFixedElements(markedLive);
+
         cleanClone(clone);
+        var fixed = extractFixedHtml(clone);
+        if (fixed.length > MAX_FIXED_HTML_LENGTH) {
+            fixed = fixed.substring(0, MAX_FIXED_HTML_LENGTH) + '<!-- truncated -->';
+        }
+
         var html = clone.innerHTML || '';
         if (html.length > maxlength) {
             html = html.substring(0, maxlength) + '<!-- truncated -->';
         }
-        return html;
+        return {html: html, fixed: fixed};
     };
 
     /**
@@ -182,21 +322,73 @@ define(
     };
 
     /**
+     * Text of every inline `<style>` block currently in the page —
+     * `document.styleSheets` entries with no `href` — so layout rules that
+     * only exist inline (course-format CSS, a teacher's "additional HTML",
+     * some embedded content) also apply in the reconstruction instead of
+     * silently being missing, which was a real source of layout drift
+     * between the two. `<link>`-loaded sheets are already covered by
+     * collectSameOriginStylesheets() above and are skipped here.
+     *
+     * @return {String}
+     */
+    var collectInlineStyleText = function() {
+        var css = Array.prototype.slice.call(document.styleSheets)
+            .filter(function(sheet) {
+                return !sheet.href;
+            })
+            .map(function(sheet) {
+                try {
+                    return Array.prototype.slice.call(sheet.cssRules || [])
+                        .map(function(rule) {
+                            return rule.cssText;
+                        })
+                        .join('\n');
+                } catch (e) {
+                    // Some inline stylesheets (e.g. injected by a browser
+                    // extension) can throw on .cssRules access; skip them.
+                    return '';
+                }
+            })
+            .join('\n');
+
+        if (css.length > MAX_INLINE_CSS_LENGTH) {
+            css = css.substring(0, MAX_INLINE_CSS_LENGTH);
+        }
+        return css;
+    };
+
+    /**
      * @param {String} mode 'main' or 'fullpage'
      * @return {Object}
      */
     var buildPageSnapshot = function(mode) {
         var isFullPage = mode === 'fullpage';
+        var captured = buildSanitizedHtml(findCaptureRoot(mode), isFullPage ? MAX_FULLPAGE_HTML_LENGTH : MAX_HTML_LENGTH);
         return {
             url: location.pathname + location.search,
             title: document.title,
-            html: buildSanitizedHtml(findCaptureRoot(mode), isFullPage ? MAX_FULLPAGE_HTML_LENGTH : MAX_HTML_LENGTH),
+            html: captured.html,
+            // Elements that were `position: fixed` in the live page (most
+            // commonly the theme's navbar in 'fullpage' mode) — rendered by
+            // screen_renderer.js outside the scroll-simulation wrapper, so
+            // they keep behaving as fixed instead of scrolling away with
+            // the rest of the content. See markFixedElements() above.
+            fixed: captured.fixed,
             // In 'fullpage' mode the modal, like the rest of <body>, is
             // already part of the captured html above; capturing it a
             // second time here would just duplicate it in the payload.
             modal: isFullPage ? null : captureOpenModal(),
             css: collectSameOriginStylesheets(),
-            viewport: {width: window.innerWidth, height: window.innerHeight},
+            inlineCss: collectInlineStyleText(),
+            // documentElement.clientWidth/Height (not window.innerWidth/
+            // innerHeight) deliberately: innerWidth/innerHeight include the
+            // scrollbar's own width, but the iframe never has a native
+            // scrollbar of its own (overflow:hidden, see screen_renderer.js)
+            // — sizing it to the full innerWidth would lay out the captured
+            // content a scrollbar's-width wider than the student actually
+            // sees it, enough to shift where responsive content wraps.
+            viewport: {width: document.documentElement.clientWidth, height: document.documentElement.clientHeight},
             scroll: {x: window.scrollX, y: window.scrollY}
         };
     };
@@ -235,8 +427,10 @@ define(
      * @param {String} teachername
      * @param {String} capturemode 'main' (default) or 'fullpage'
      * @param {Number} ownuserid Current user's id, passed to the chat widget.
+     * @param {Number} cursorsamplems Minimum ms between sent cursor positions
+     *                                while the mouse is moving (local_remotesupport/cursorsamplems).
      */
-    var init = function(sessionid, teachername, capturemode, ownuserid) {
+    var init = function(sessionid, teachername, capturemode, ownuserid, cursorsamplems) {
         var mode = capturemode === 'fullpage' ? 'fullpage' : 'main';
         var statusbar = null;
         var chat = ChatWidget.init(sessionid, ownuserid, teachername);
@@ -272,23 +466,44 @@ define(
                 // Ignored, see above.
             });
         };
+        // Viewport-relative (clientX/clientY), not document-relative: the
+        // teacher's reconstruction places the dot directly over its iframe,
+        // which is already sized/scaled to the student's real viewport (see
+        // screen_renderer.js) — viewport coordinates map onto it directly,
+        // with no separate scroll-position math needed. Position is tracked
+        // on every raw 'mousemove' (cheap) but only sent through the
+        // throttled wrapper below, since throttle()'s callback takes no
+        // arguments of its own.
+        var lastCursorX = 0;
+        var lastCursorY = 0;
+        var sendCursor = function() {
+            Transport.pushEvent(sessionid, 'cursor', {x: lastCursorX, y: lastCursorY}).catch(function() {
+                // Ignored, see above.
+            });
+        };
+        // Same viewport-relative coordinates as 'cursor'. Every real click
+        // is sent (no throttling here, unlike 'cursor' — a click is already
+        // an inherently infrequent, discrete event, not a continuous stream
+        // to sample); the server's rate_limiter still applies a small floor
+        // as a defense against a modified client.
+        var sendClick = function(x, y) {
+            Transport.pushEvent(sessionid, 'student_click', {x: x, y: y}).catch(function() {
+                // Ignored, see above.
+            });
+        };
         var debouncedSnapshot = debounce(sendPageSnapshot, PAGE_DEBOUNCE_MS);
 
         // The status bar lives directly under <body> too; the observers
         // below must not mistake its own insertions/removals for
         // alumno-driven changes worth re-syncing over — that would just be a
         // spurious resend, not an infinite loop, but it is exactly the
-        // local/remote conflation the spec asks to avoid. Checked via
-        // closest(), not just the node's own class list, so it still catches
-        // e.g. a button added deep inside the status bar while watching the
-        // whole <body> in 'fullpage' mode — a case the original
-        // direct-children-only check never had to handle, since in 'main'
-        // mode the status bar never lives inside the observed main-content
-        // root at all.
-        var isOwnElement = function(node) {
-            return node.nodeType === 1 && !!(node.closest && node.closest('[class*="' + OWN_CLASS_PREFIX + '"]'));
-        };
-
+        // local/remote conflation the spec asks to avoid. isOwnElement()
+        // (module-level, see above) is checked via closest(), not just the
+        // node's own class list, so it still catches e.g. a button added
+        // deep inside the status bar while watching the whole <body> in
+        // 'fullpage' mode — a case the original direct-children-only check
+        // never had to handle, since in 'main' mode the status bar never
+        // lives inside the observed main-content root at all.
         var hasRelevantMutation = function(mutations) {
             return mutations.some(function(mutation) {
                 var nodes = Array.prototype.slice.call(mutation.addedNodes)
@@ -388,6 +603,35 @@ define(
         }
 
         window.addEventListener('scroll', throttle(sendScroll, SCROLL_THROTTLE_MS), {passive: true});
+
+        var throttledSendCursor = throttle(sendCursor, cursorsamplems > 0 ? cursorsamplems : 500);
+        window.addEventListener('mousemove', function(e) {
+            lastCursorX = e.clientX;
+            lastCursorY = e.clientY;
+            throttledSendCursor();
+        }, {passive: true});
+
+        // Bubbling phase 'click' on document catches every click on the
+        // page, including on links/buttons before their default action
+        // runs. Clicks on the plugin's own injected UI (status bar, chat
+        // widget) are never part of the alumno's captured page, so showing
+        // a mark for them on the teacher's side would be meaningless noise.
+        document.addEventListener('click', function(e) {
+            if (!isOwnElement(e.target)) {
+                sendClick(e.clientX, e.clientY);
+                // Also resyncs the reconstruction right away, bypassing
+                // debouncedSnapshot()'s 1.5s delay: a click is exactly the
+                // moment Moodle is most likely to change the DOM right
+                // after (open a menu, disable a button, navigate), and a
+                // real click is inherently rate-limited by human input
+                // speed, so sending an extra, non-debounced snapshot here
+                // does not risk the flood a rapid burst of mutations could
+                // cause. Narrows the window in which the reconstruction
+                // the teacher sees can be stale relative to what the
+                // student is actually looking at.
+                sendPageSnapshot();
+            }
+        }, {passive: true});
 
         var incomingPollHandle = window.setInterval(pollIncoming, INCOMING_POLL_INTERVAL_MS);
     };

@@ -115,6 +115,29 @@ sesión, sola, sin cargar ni reproducir la pantalla — una alternativa
 más ligera cuando solo interesa repasar lo que se habló. Misma
 capacidad y autorización que la reproducción completa.
 
+**Ampliación posterior — posición del cursor del alumno.** La
+reconstrucción del profesor marca ahora con un punto dónde tiene el
+ratón el alumno, tanto en directo como en la reproducción de sesiones
+grabadas — puramente informativo, no un cursor que el profesor mueve.
+Solo se envía mientras el alumno mueve realmente el ratón (no hay datos
+mientras está quieto); la frecuencia de muestreo es un ajuste de
+administración (**Administración del sitio → Extensiones locales →
+Asistencia remota**, 200/500/1000/2000 ms). Se almacena permanentemente
+junto al resto de la grabación de sesión, una excepción deliberada y
+pedida explícitamente por el usuario a la política general de no
+guardar movimientos del ratón — ver `docs/decisions.md`.
+
+**Ampliación posterior — marca visual y sonido en los clics del
+alumno.** La reconstrucción del profesor marca ahora con un "ripple"
+breve dónde hace clic el alumno, con un sonido opcional (sintetizado,
+sin fichero de audio empaquetado), tanto en directo como en la
+reproducción de sesiones grabadas. Sonido controlable en dos niveles:
+un ajuste general en Ajustes del sitio (activado por defecto) y un
+botón de silenciar/activar en la propia barra del visor que solo
+cambia esa visualización concreta, sin guardarse. En la reproducción,
+la marca/el sonido solo aparecen reproduciendo hacia delante de forma
+natural, nunca al saltar con la barra de progreso.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.

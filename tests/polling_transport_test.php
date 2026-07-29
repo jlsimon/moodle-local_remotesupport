@@ -21,8 +21,8 @@ use local_remotesupport\realtime\polling_transport;
 
 /**
  * Tests for polling_transport: role-based push authorization (the student
- * pushes page/scroll, the teacher only pushes resync_request; both push
- * chat_message) and the "pull events sourced by the other participant" rule
+ * pushes page/scroll/cursor, the teacher only pushes resync_request; both
+ * push chat_message) and the "pull events sourced by the other participant" rule
  * — except chat_message, which both roles must see in full — all
  * independent of the AJAX layer.
  *
@@ -59,9 +59,29 @@ class polling_transport_test extends \advanced_testcase {
         $transport = new polling_transport();
         $page = $transport->push_event($session->id, $student->id, 'page', ['url' => '/a', 'title' => 't', 'html' => '<p>a</p>']);
         $scroll = $transport->push_event($session->id, $student->id, 'scroll', ['x' => 1, 'y' => 1]);
+        $cursor = $transport->push_event($session->id, $student->id, 'cursor', ['x' => 1, 'y' => 1]);
+        $click = $transport->push_event($session->id, $student->id, 'student_click', ['x' => 1, 'y' => 1]);
 
         $this->assertSame('page', $page->eventtype);
         $this->assertSame('scroll', $scroll->eventtype);
+        $this->assertSame('cursor', $cursor->eventtype);
+        $this->assertSame('student_click', $click->eventtype);
+    }
+
+    public function test_teacher_cannot_push_cursor(): void {
+        $this->resetAfterTest();
+        [$session, , $teacher] = $this->setup_active_session();
+
+        $this->expectException(\moodle_exception::class);
+        (new polling_transport())->push_event($session->id, $teacher->id, 'cursor', ['x' => 1, 'y' => 1]);
+    }
+
+    public function test_teacher_cannot_push_student_click(): void {
+        $this->resetAfterTest();
+        [$session, , $teacher] = $this->setup_active_session();
+
+        $this->expectException(\moodle_exception::class);
+        (new polling_transport())->push_event($session->id, $teacher->id, 'student_click', ['x' => 1, 'y' => 1]);
     }
 
     public function test_teacher_can_push_resync_request_and_student_receives_it(): void {
@@ -201,11 +221,13 @@ class polling_transport_test extends \advanced_testcase {
 
         $transport->push_event($session->id, $student->id, 'page', ['url' => '/a', 'title' => 't', 'html' => '<p>a</p>']);
         $transport->push_event($session->id, $student->id, 'scroll', ['x' => 1, 'y' => 1]);
+        $transport->push_event($session->id, $student->id, 'cursor', ['x' => 1, 'y' => 1]);
+        $transport->push_event($session->id, $student->id, 'student_click', ['x' => 1, 'y' => 1]);
 
         $recorded = $DB->get_records('local_remotesupport_track', ['sessionid' => $session->id], 'id ASC');
-        $this->assertCount(2, $recorded);
+        $this->assertCount(4, $recorded);
         $types = array_map(static fn ($row) => $row->eventtype, array_values($recorded));
-        $this->assertSame(['page', 'scroll'], $types);
+        $this->assertSame(['page', 'scroll', 'cursor', 'student_click'], $types);
     }
 
     public function test_resync_request_is_not_recorded(): void {

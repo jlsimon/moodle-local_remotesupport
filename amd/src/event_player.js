@@ -16,8 +16,11 @@
 /**
  * Teacher-side player: polls for capture events and renders the latest
  * page snapshot inside a script-disabled sandboxed iframe, following the
- * student's own scroll position. Purely passive viewing: the teacher cannot
- * act on the student's page, click anything in it, or scroll it manually.
+ * student's own scroll position and mouse cursor, and marking where the
+ * student clicks (visually, and optionally with a sound — see the mute
+ * button and local_remotesupport/clicksound). Purely passive viewing: the
+ * teacher cannot act on the student's page, click anything in it, or
+ * scroll it manually.
  * A button lets the teacher toggle the whole player into the browser's
  * native fullscreen mode for a larger view; the reconstruction rescales to
  * fit on entering/leaving it, same logic as a window resize.
@@ -78,8 +81,11 @@ define(
      * @param {Number} sessionid
      * @param {Number} ownuserid Current user's (teacher's) id, passed to the chat widget.
      * @param {String} studentname Display name of the alumno, for the chat panel heading.
+     * @param {Boolean} clicksounddefault Initial state of the click-sound mute
+     *                                    toggle, from local_remotesupport/clicksound —
+     *                                    the teacher can still change it for this viewing only.
      */
-    var init = function(sessionid, ownuserid, studentname) {
+    var init = function(sessionid, ownuserid, studentname, clicksounddefault) {
         var container = document.getElementById('local-remotesupport-player');
         if (!container) {
             return;
@@ -106,6 +112,15 @@ define(
         }
         container.appendChild(fullscreenButton);
 
+        // Starts from the site-wide default (local_remotesupport/clicksound)
+        // but only changes it for this one viewing — never written back to
+        // the server, see the module doc comment.
+        var soundEnabled = !!clicksounddefault;
+        var soundButton = document.createElement('button');
+        soundButton.type = 'button';
+        soundButton.className = 'btn btn-outline-secondary btn-sm local-remotesupport-soundtoggle-btn';
+        container.appendChild(soundButton);
+
         var viewportWrapper = document.createElement('div');
         viewportWrapper.className = 'local-remotesupport-player-viewport';
         container.appendChild(viewportWrapper);
@@ -129,12 +144,23 @@ define(
             {key: 'sessionendedbystudent', component: 'local_remotesupport'},
             {key: 'link_backtorequests', component: 'local_remotesupport'},
             {key: 'button_fullscreen', component: 'local_remotesupport'},
-            {key: 'button_exitfullscreen', component: 'local_remotesupport'}
+            {key: 'button_exitfullscreen', component: 'local_remotesupport'},
+            {key: 'button_mutesound', component: 'local_remotesupport'},
+            {key: 'button_unmutesound', component: 'local_remotesupport'}
         ]).then(function(strings) {
             var setState = function(state, label) {
                 indicator.textContent = label;
                 indicator.className = 'local-remotesupport-connection-indicator local-remotesupport-connection-' + state;
             };
+
+            var updateSoundButton = function() {
+                soundButton.textContent = soundEnabled ? strings[8] : strings[9];
+            };
+            updateSoundButton();
+            soundButton.addEventListener('click', function() {
+                soundEnabled = !soundEnabled;
+                updateSoundButton();
+            });
 
             fullscreenButton.textContent = strings[6];
             fullscreenButton.addEventListener('click', function() {
@@ -171,6 +197,21 @@ define(
                     renderer.renderPage(payload, pageInfo);
                 } else if (event.eventtype === 'scroll') {
                     renderer.applyScrollPosition(payload.x, payload.y);
+                } else if (event.eventtype === 'cursor') {
+                    renderer.applyCursorPosition(payload.x, payload.y);
+                } else if (event.eventtype === 'student_click') {
+                    // Suppressed on the very first poll (isReplay): those are
+                    // events that queued up before this viewer started
+                    // polling, not clicks happening right now — showing/
+                    // playing a burst of them at once would be confusing
+                    // noise, not a useful signal. Same reasoning chat_widget.js
+                    // already applies to its own unread notification.
+                    if (!isReplay) {
+                        renderer.showClickMark(payload.x, payload.y);
+                        if (soundEnabled) {
+                            renderer.playClickSound();
+                        }
+                    }
                 }
             };
 

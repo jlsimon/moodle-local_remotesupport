@@ -1,5 +1,144 @@
 # Changelog
 
+## 0.17.4 (fix: el punto del cursor ya no desaparece cuando el alumno deja de mover el ratón) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: regresión introducida por la
+  mejora de precisión anterior (0.17.3). `renderPage()` ocultaba el
+  punto del cursor en cada evento `page`, no solo en una navegación
+  real; al bajar el latido a 5 s y reenviar una foto tras cada clic, el
+  punto pasó a esconderse cada vez que el alumno dejaba el ratón quieto
+  ese intervalo, cada vez más corto.
+- `screen_renderer.js` ahora compara la URL de la página entrante con
+  la última renderizada y solo oculta el punto si de verdad cambia —
+  arregla la vista en directo y la reproducción a la vez, ambas
+  comparten la misma función.
+
+## 0.17.3 (mejora: precisión de la reconstrucción — CSS inline, ancho sin scrollbar, resincronización tras cada clic) — 2026-07-29
+
+- **Pedido por el usuario tras confirmar que la precisión seguía sin
+  ser buena** pese al fix de los elementos fijos, y aceptar
+  explícitamente apuntar a "lo bastante cerca" en vez de precisión
+  total (ver `docs/decisions.md` para por qué la precisión total no es
+  un objetivo alcanzable con esta arquitectura).
+- **CSS inline capturado.** `collectInlineStyleText()` recoge ahora el
+  texto de las hojas `<style>` sin `href` (antes solo se capturaban
+  las cargadas por `<link>`), enviado como `payload.inlineCss` y
+  saneado en el servidor con una limpieza basada en texto (elimina
+  `@import` y cualquier `url(...)`, PHP no tiene un parser de CSS
+  real) — `screen_renderer.js` lo inyecta como `<style>` adicional en
+  el `iframe`, con el mismo cuidado de escapado que ya se aplicaba a
+  otras URLs para evitar que un `</style` en el payload rompiera la
+  etiqueta.
+- **Ancho del `iframe` corregido para excluir la barra de scroll.**
+  `viewport.width`/`height` pasan de `window.innerWidth`/`innerHeight`
+  (incluye la barra de scroll) a
+  `document.documentElement.clientWidth`/`clientHeight` (la excluye,
+  igual que el `iframe`, que nunca tiene barra propia) — hasta ahora
+  el contenido se maquetaba unos 15-17px más ancho de lo que el alumno
+  ve realmente.
+- **Resincronización más frecuente.** `PAGE_HEARTBEAT_MS` baja de
+  10 000 a 5 000 ms, y cada clic del alumno dispara ahora una foto de
+  página inmediata (sin pasar por el debounce habitual de 1,5 s),
+  acortando la ventana en la que la reconstrucción puede estar
+  desactualizada respecto a la página real.
+- Nueva prueba PHPUnit (limpieza de `inlineCss`). 168 tests pasando.
+
+## 0.17.2 (el punto del cursor se desplaza de forma continua en vez de a saltos) — 2026-07-29
+
+- **Pedido por el usuario**: que el punto que marca la posición del
+  cursor del alumno se deslice entre posiciones en vez de saltar
+  instantáneamente de una a otra.
+- Cambio puramente CSS: una `transition` en
+  `.local-remotesupport-student-cursor` (`styles.css`). Sin cambios en
+  `screen_renderer.js` ni en los datos transmitidos — sigue siendo una
+  aproximación en línea recta entre las posiciones realmente
+  muestreadas, no una reconstrucción del trayecto real. No introduce
+  ningún deslizamiento espurio al cambiar de página (las transiciones
+  CSS no se ejecutan sobre cambios ocurridos mientras el elemento está
+  oculto).
+
+## 0.17.1 (fix: precisión del cursor/clic — los elementos fijos ya no se desplazan con el scroll) — 2026-07-29
+
+- **Corregido, reportado por el usuario**: la posición del cursor/clic
+  en la reconstrucción tenía "error excesivo". Causa confirmada contra
+  el tema Boost real: la barra de navegación es `position: fixed` por
+  diseño, pero en modo de captura `fullpage` perdía ese comportamiento
+  dentro de la reconstrucción en cuanto el alumno hacía scroll (un
+  `transform` usado para simular el scroll convierte en su contenedor
+  de referencia a cualquier descendiente `fixed`) — el contenido
+  quedaba desplazado respecto al real por, aproximadamente, la altura
+  de la barra, y la marca del cursor/clic (correctamente calculada)
+  quedaba entonces sobre contenido mal alineado.
+- `event_capture.js` ahora detecta los elementos `position: fixed` del
+  contenido capturado (excluyendo la propia interfaz del plugin) y los
+  extrae a un campo de payload nuevo (`fixed`), generalizando la misma
+  técnica que ya usaba el modal (Fase 4) para lo mismo. El servidor los
+  sanea igual que el resto del HTML capturado; `screen_renderer.js` los
+  renderiza fuera del contenedor con scroll simulado, así que vuelven a
+  comportarse como fijos de verdad dentro del `iframe`.
+- Deliberadamente solo `position: fixed`, no `sticky` — ver
+  `docs/decisions.md` para el porqué. `docs/limitations.md` documenta
+  el caso `sticky` restante.
+- Nueva prueba PHPUnit (saneamiento del campo `fixed`). 167 tests
+  pasando.
+
+## 0.17.0 (nuevo: marca visual y sonido cuando el alumno hace clic) — 2026-07-29
+
+- **Pedido por el usuario**, como ampliación directa de la posición del
+  cursor: que la reconstrucción marque de algún modo visible cuándo y
+  dónde hace clic el alumno, con sonido opcional, también en la
+  reproducción de sesiones grabadas.
+- `event_capture.js` envía la posición de cada clic (`clientX`/`clientY`)
+  como nuevo tipo de evento `student_click` — sin throttling propio (un
+  clic ya es un evento discreto e infrecuente), excluyendo los clics
+  sobre la propia interfaz inyectada del plugin (barra de estado, chat).
+  Se almacena permanentemente junto al resto de la grabación, igual que
+  `cursor`.
+- `screen_renderer.js` gana `showClickMark()` (un "ripple" que se
+  desvanece en 0,6 s) y `playClickSound()` (un "tick" sintetizado con
+  la Web Audio API — sin fichero de audio empaquetado), compartidas por
+  la vista en vivo y la reproducción.
+- Sonido controlable en dos niveles, tal como se pidió: ajuste general
+  en Ajustes del sitio (`local_remotesupport/clicksound`, activado por
+  defecto) más un botón de silenciar/activar en la barra del visor —
+  tanto en directo como en la reproducción — que solo cambia esa
+  visualización concreta, sin persistirse.
+- En la reproducción, la marca/el sonido solo se disparan avanzando de
+  forma natural, nunca al saltar con la barra de progreso (un clic es
+  un efecto momentáneo, no un estado que "recuperar" al saltar). En
+  directo, se suprimen en el primerísimo sondeo de una vista recién
+  abierta, igual que ya hace `chat_widget.js` con su notificación de
+  "no leído".
+- Nuevas pruebas PHPUnit (tipo aceptado, coordenadas obligatorias,
+  límite de frecuencia, autorización por rol, grabación permanente).
+  166 tests pasando.
+
+## 0.16.0 (nuevo: el profesor ve la posición del cursor del alumno) — 2026-07-29
+
+- **Pedido por el usuario**: que la reconstrucción marque dónde tiene el
+  ratón el alumno, tanto en directo como en la reproducción de sesiones
+  grabadas — un punto puramente informativo, no un cursor que el
+  profesor mueve (esa capacidad se retiró en `aa58c26`).
+- `event_capture.js` envía la posición del ratón (`clientX`/`clientY`)
+  como nuevo tipo de evento `cursor`, atado al propio evento del
+  navegador `mousemove` (no a un temporizador): un alumno inactivo no
+  genera ningún dato, con throttling adicional según la nueva tasa de
+  muestreo configurable en Ajustes del sitio
+  (`local_remotesupport/cursorsamplems`: 200/500/1000/2000 ms).
+- Se almacena permanentemente en `local_remotesupport_track`, junto a
+  `page`/`scroll`/`chat_message` — una excepción deliberada y
+  explícitamente pedida por el usuario a la guía del documento base de
+  no grabar cada movimiento del ratón; ver `docs/decisions.md`. Reutiliza
+  la retención y el borrado por privacidad ya existentes, sin mecanismo
+  nuevo.
+- `screen_renderer.js` gana `applyCursorPosition()`/`hideCursor()`,
+  compartido por la vista en vivo (`event_player.js`) y la reproducción
+  (`session_replay.js`); el punto se oculta al cambiar de página en vez
+  de arrastrar una posición obsoleta.
+- Nuevas pruebas PHPUnit (tipo aceptado, coordenadas obligatorias, límite
+  de frecuencia, autorización por rol, grabación permanente). 162 tests
+  pasando.
+
 ## 0.15.6 (fix: la barra inferior del alumno ya no oculta el pie fijo de Moodle) — 2026-07-29
 
 - **Corregido, reportado por el usuario**: la barra persistente

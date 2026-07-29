@@ -63,5 +63,6 @@ $PAGE->requires->js_call_amd('local_remotesupport/session_replay', 'init', [
     $session->id,
     (int) $USER->id,
     fullname($student),
+    (bool) get_config('local_remotesupport', 'clicksound'),
 ]);
 echo $OUTPUT->footer();

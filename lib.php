@@ -74,9 +74,10 @@ function local_remotesupport_extend_navigation_course(
  * which is why this returns HTML instead of echoing it.
  *
  * Also passes the site's configured capture mode ('main', the default, or
- * 'fullpage') to event_capture.js — a single admin setting
- * (local_remotesupport/capturemode) applied to every session on the site,
- * not a per-session/per-teacher choice; see docs/decisions.md.
+ * 'fullpage') and cursor position sampling rate to event_capture.js — both
+ * single admin settings (local_remotesupport/capturemode,
+ * local_remotesupport/cursorsamplems) applied to every session on the
+ * site, not a per-session/per-teacher choice; see docs/decisions.md.
  *
  * @return string HTML to append to the footer, or '' if nothing to show.
  */
@@ -94,11 +95,13 @@ function local_remotesupport_before_footer(): string {
     if ($session) {
         $teacher = core_user::get_user($session->teacherid);
         $capturemode = get_config('local_remotesupport', 'capturemode');
+        $cursorsamplems = (int) get_config('local_remotesupport', 'cursorsamplems');
         $PAGE->requires->js_call_amd('local_remotesupport/event_capture', 'init', [
             $session->id,
             fullname($teacher),
             $capturemode !== 'fullpage' ? 'main' : 'fullpage',
             (int) $USER->id,
+            $cursorsamplems > 0 ? $cursorsamplems : 500,
         ]);
         return '';
     }

@@ -32,9 +32,17 @@ defined('MOODLE_INTERNAL') || die();
  */
 class rate_limiter {
 
-    /** @var array<string,float> Minimum seconds between accepted events, per event type. */
+    /**
+     * @var array<string,float> Minimum seconds between accepted events, per event type.
+     * 'cursor' is a fixed security floor independent of the admin-configurable
+     * client sample rate (local_remotesupport/cursorsamplems) — that setting's
+     * lowest option (200ms) stays comfortably above this, so a well-behaved
+     * client is never throttled here; this only guards against a modified one.
+     */
     const MIN_INTERVAL_SECONDS = [
         'scroll' => 0.15,
+        'cursor' => 0.15,
+        'student_click' => 0.1,
         'chat_message' => 0.3,
     ];
 

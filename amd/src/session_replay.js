@@ -24,11 +24,21 @@
  * incrementally appended, so seeking backwards is simply "render whatever
  * is at-or-before this position" with no separate rewind bookkeeping.
  *
- * A 'page' event fully replaces the reconstruction, and a 'scroll' event is
- * an absolute position — both are idempotent "current state" snapshots, so
- * jumping to any point in time only ever needs the *last* page (and the
- * last scroll after it) at-or-before that time, not a full replay from the
- * start.
+ * A 'page' event fully replaces the reconstruction, and 'scroll'/'cursor'
+ * events are absolute positions — all idempotent "current state" snapshots,
+ * so jumping to any point in time only ever needs the *last* page (and the
+ * last scroll/cursor after it) at-or-before that time, not a full replay
+ * from the start. Both scroll and cursor are scoped to their page: after a
+ * 'page' event, only scroll/cursor events recorded after it apply — a
+ * stale position from the page just replaced is never shown.
+ *
+ * 'student_click' is different: it's a momentary effect (a fading mark,
+ * optionally a sound — see the mute button and local_remotesupport/
+ * clicksound), not a state to restore. It only fires while naturally
+ * playing forward (advancing one TICK_MS step at a time) for clicks that
+ * fall within the step just taken; seeking (dragging the progress bar, or
+ * the initial jump to the start) always stops playback first, so it never
+ * triggers a burst of marks/sounds for everything skipped over.
  *
  * @module     local_remotesupport/session_replay
  * @copyright  2026 Juan Luis Simón
@@ -57,8 +67,11 @@ define(
      * @param {Number} sessionid
      * @param {Number} ownuserid Current user's (teacher's) id, to tell own chat messages from the student's.
      * @param {String} studentname Display name of the alumno, for the page heading.
+     * @param {Boolean} clicksounddefault Initial state of the click-sound mute
+     *                                    toggle, from local_remotesupport/clicksound —
+     *                                    the teacher can still change it for this viewing only.
      */
-    var init = function(sessionid, ownuserid, studentname) {
+    var init = function(sessionid, ownuserid, studentname, clicksounddefault) {
         var container = document.getElementById('local-remotesupport-replayer');
         if (!container) {
             return;
@@ -115,6 +128,15 @@ define(
         });
         controls.appendChild(speedSelect);
 
+        // Starts from the site-wide default (local_remotesupport/clicksound)
+        // but only changes it for this one viewing — never written back to
+        // the server, see the module doc comment.
+        var soundEnabled = !!clicksounddefault;
+        var soundButton = document.createElement('button');
+        soundButton.type = 'button';
+        soundButton.className = 'btn btn-outline-secondary btn-sm local-remotesupport-soundtoggle-btn';
+        controls.appendChild(soundButton);
+
         var chatPanel = document.createElement('div');
         chatPanel.className = 'local-remotesupport-replay-chat';
         var chatHeading = document.createElement('div');
@@ -135,7 +157,9 @@ define(
         var tickHandle = null;
         var renderedPageIdx = -1;
         var appliedScrollIdx = -1;
+        var appliedCursorIdx = -1;
         var playButtonLabels = {play: 'Play', pause: 'Pause'};
+        var soundButtonLabels = {mute: 'Mute click sound', unmute: 'Unmute click sound'};
 
         var formatTime = function(seconds) {
             var m = Math.floor(seconds / 60);
@@ -156,13 +180,17 @@ define(
             return idx;
         };
 
-        var lastScrollIndexAtOrBefore = function(time, afterIndex) {
+        // Shared by scroll and cursor: both are "absolute current state"
+        // events scoped to the page rendered at afterIndex, same as
+        // lastPageIndexAtOrBefore() above but restricted to that page's
+        // own event range.
+        var lastIndexOfTypeAtOrBefore = function(time, afterIndex, type) {
             var idx = -1;
             for (var i = afterIndex + 1; i < events.length; i++) {
                 if (relTime[i] > time) {
                     break;
                 }
-                if (events[i].eventtype === 'scroll') {
+                if (events[i].eventtype === type) {
                     idx = i;
                 }
             }
@@ -198,10 +226,11 @@ define(
             if (pageIdx !== renderedPageIdx) {
                 renderedPageIdx = pageIdx;
                 appliedScrollIdx = -1;
+                appliedCursorIdx = -1;
                 if (pageIdx >= 0) {
                     var payload = decodePayload(events[pageIdx]);
                     if (payload) {
-                        var scrollIdx = lastScrollIndexAtOrBefore(time, pageIdx);
+                        var scrollIdx = lastIndexOfTypeAtOrBefore(time, pageIdx, 'scroll');
                         var withScroll = Object.assign({}, payload);
                         if (scrollIdx >= 0) {
                             var scrollPayload = decodePayload(events[scrollIdx]);
@@ -210,11 +239,22 @@ define(
                                 appliedScrollIdx = scrollIdx;
                             }
                         }
+                        // renderPage() itself hides the cursor (a fresh
+                        // page has no cursor position yet); apply the
+                        // current one, if any, right after.
                         renderer.renderPage(withScroll, pageInfo);
+                        var initialCursorIdx = lastIndexOfTypeAtOrBefore(time, pageIdx, 'cursor');
+                        if (initialCursorIdx >= 0) {
+                            var initialCursor = decodePayload(events[initialCursorIdx]);
+                            if (initialCursor) {
+                                renderer.applyCursorPosition(initialCursor.x, initialCursor.y);
+                                appliedCursorIdx = initialCursorIdx;
+                            }
+                        }
                     }
                 }
             } else if (pageIdx >= 0) {
-                var laterScrollIdx = lastScrollIndexAtOrBefore(time, pageIdx);
+                var laterScrollIdx = lastIndexOfTypeAtOrBefore(time, pageIdx, 'scroll');
                 if (laterScrollIdx >= 0 && laterScrollIdx !== appliedScrollIdx) {
                     appliedScrollIdx = laterScrollIdx;
                     var sp = decodePayload(events[laterScrollIdx]);
@@ -222,9 +262,50 @@ define(
                         renderer.applyScrollPosition(sp.x, sp.y);
                     }
                 }
+
+                var laterCursorIdx = lastIndexOfTypeAtOrBefore(time, pageIdx, 'cursor');
+                if (laterCursorIdx >= 0 && laterCursorIdx !== appliedCursorIdx) {
+                    appliedCursorIdx = laterCursorIdx;
+                    var cp = decodePayload(events[laterCursorIdx]);
+                    if (cp) {
+                        renderer.applyCursorPosition(cp.x, cp.y);
+                    }
+                }
             }
 
             renderChatUpTo(time);
+        };
+
+        // Only called from setTime() while `playing` is still true — i.e.
+        // driven by tick()'s natural forward step, not by a manual seek or
+        // the initial jump to the start (both stop playback, or happen
+        // before it ever starts, so `playing` is false at that point). See
+        // the module doc comment for why a seek must never trigger this.
+        var checkClickEffect = function(previousTime, newTime) {
+            if (!playing || newTime <= previousTime) {
+                return;
+            }
+            var idx = -1;
+            for (var i = 0; i < events.length; i++) {
+                if (relTime[i] <= previousTime) {
+                    continue;
+                }
+                if (relTime[i] > newTime) {
+                    break;
+                }
+                if (events[i].eventtype === 'student_click') {
+                    idx = i;
+                }
+            }
+            if (idx >= 0) {
+                var payload = decodePayload(events[idx]);
+                if (payload) {
+                    renderer.showClickMark(payload.x, payload.y);
+                    if (soundEnabled) {
+                        renderer.playClickSound();
+                    }
+                }
+            }
         };
 
         var stop = function() {
@@ -238,10 +319,12 @@ define(
         };
 
         var setTime = function(time) {
+            var previousTime = currentTime;
             currentTime = Math.max(0, Math.min(time, totalDuration));
             seek.value = String(Math.round(currentTime));
             timeLabel.textContent = formatTime(currentTime) + ' / ' + formatTime(totalDuration);
             applyState(currentTime);
+            checkClickEffect(previousTime, currentTime);
         };
 
         var tick = function() {
@@ -285,12 +368,25 @@ define(
             {key: 'button_play', component: 'local_remotesupport'},
             {key: 'button_pause', component: 'local_remotesupport'},
             {key: 'replay_chat_heading', component: 'local_remotesupport'},
-            {key: 'info_noreplaytrack', component: 'local_remotesupport'}
+            {key: 'info_noreplaytrack', component: 'local_remotesupport'},
+            {key: 'button_mutesound', component: 'local_remotesupport'},
+            {key: 'button_unmutesound', component: 'local_remotesupport'}
         ]).then(function(strings) {
             playButtonLabels.play = strings[0];
             playButtonLabels.pause = strings[1];
             playButton.setAttribute('aria-label', playButtonLabels.play);
             chatHeading.textContent = strings[2];
+
+            soundButtonLabels.mute = strings[4];
+            soundButtonLabels.unmute = strings[5];
+            var updateSoundButton = function() {
+                soundButton.textContent = soundEnabled ? soundButtonLabels.mute : soundButtonLabels.unmute;
+            };
+            updateSoundButton();
+            soundButton.addEventListener('click', function() {
+                soundEnabled = !soundEnabled;
+                updateSoundButton();
+            });
 
             return Transport.getSessionTrack(sessionid).then(function(track) {
                 events = track;
@@ -299,6 +395,7 @@ define(
                     playButton.disabled = true;
                     seek.disabled = true;
                     speedSelect.disabled = true;
+                    soundButton.disabled = true;
                     return;
                 }
 

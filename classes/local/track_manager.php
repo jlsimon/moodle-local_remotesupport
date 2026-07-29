@@ -27,14 +27,20 @@ defined('MOODLE_INTERNAL') || die();
  * exception to that ephemeral-by-default policy, made consciously alongside
  * the retention window and erasure behaviour below (see docs/decisions.md).
  *
- * 'page', 'scroll' and 'chat_message' are recorded — not 'resync_request',
- * which carries no content of its own. Chat messages were originally
- * excluded (matching the scope first asked for, "grabación completa de
- * pantalla") but were added so that session playback can show the
- * conversation synchronized with the screen; see docs/decisions.md's
- * playback entry for why that revised the earlier chat-persistence
- * decision. Sessions closed before that change have no chat to replay,
- * only screen activity.
+ * 'page', 'scroll', 'cursor', 'student_click' and 'chat_message' are
+ * recorded — not 'resync_request', which carries no content of its own.
+ * Chat messages were originally excluded (matching the scope first asked
+ * for, "grabación completa de pantalla") but were added so that session
+ * playback can show the conversation synchronized with the screen; see
+ * docs/decisions.md's playback entry for why that revised the earlier
+ * chat-persistence decision. Sessions closed before that change have no
+ * chat to replay, only screen activity. 'cursor' (the student's mouse
+ * position) and 'student_click' (where the student clicked) are later,
+ * deliberate exceptions to the base spec's "don't store every mouse
+ * movement" guidance — 'cursor' is only sent while the mouse is actually
+ * moving (an event listener, not a timer), so an idle mouse generates
+ * nothing, and 'student_click' only fires on an actual click, an
+ * inherently infrequent event; see docs/decisions.md.
  *
  * Callers are responsible for authorization and for only ever passing
  * already-validated, already-sanitized payloads (this class does not
@@ -48,7 +54,7 @@ defined('MOODLE_INTERNAL') || die();
 class track_manager {
 
     /** @var string[] Event types recorded permanently for later playback. */
-    const TRACKED_EVENT_TYPES = ['page', 'scroll', 'chat_message'];
+    const TRACKED_EVENT_TYPES = ['page', 'scroll', 'cursor', 'student_click', 'chat_message'];
 
     /**
      * Append one recorded event. Assumes $encodedpayload is already the
@@ -57,8 +63,8 @@ class track_manager {
      *
      * @param int $sessionid
      * @param int $sourceuserid The user whose browser generated the event — only
-     *                          meaningful for 'chat_message' (page/scroll are always
-     *                          the student's), but recorded uniformly for simplicity.
+     *                          meaningful for 'chat_message' (page/scroll/cursor/student_click
+     *                          are always the student's), but recorded uniformly for simplicity.
      * @param string $eventtype One of self::TRACKED_EVENT_TYPES.
      * @param string $encodedpayload Already JSON-encoded and sanitized.
      */

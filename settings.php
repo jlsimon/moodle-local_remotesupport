@@ -48,6 +48,26 @@ if ($hassiteconfig) {
     ));
 
     $settings->add(new admin_setting_configselect(
+        'local_remotesupport/cursorsamplems',
+        get_string('setting_cursorsamplems', 'local_remotesupport'),
+        get_string('setting_cursorsamplems_desc', 'local_remotesupport'),
+        500,
+        [
+            200 => get_string('cursorsamplems_200', 'local_remotesupport'),
+            500 => get_string('cursorsamplems_500', 'local_remotesupport'),
+            1000 => get_string('cursorsamplems_1000', 'local_remotesupport'),
+            2000 => get_string('cursorsamplems_2000', 'local_remotesupport'),
+        ]
+    ));
+
+    $settings->add(new admin_setting_configcheckbox(
+        'local_remotesupport/clicksound',
+        get_string('setting_clicksound', 'local_remotesupport'),
+        get_string('setting_clicksound_desc', 'local_remotesupport'),
+        1
+    ));
+
+    $settings->add(new admin_setting_configselect(
         'local_remotesupport/trackretentiondays',
         get_string('setting_trackretentiondays', 'local_remotesupport'),
         get_string('setting_trackretentiondays_desc', 'local_remotesupport'),

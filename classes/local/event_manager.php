@@ -37,7 +37,7 @@ defined('MOODLE_INTERNAL') || die();
 class event_manager {
 
     /** @var string[] The only event types accepted so far. */
-    const EVENT_TYPES = ['page', 'scroll', 'resync_request', 'chat_message'];
+    const EVENT_TYPES = ['page', 'scroll', 'cursor', 'student_click', 'resync_request', 'chat_message'];
 
     /** @var int Maximum length, in characters, of a chat_message payload's 'message'. */
     const MAX_CHAT_MESSAGE_LENGTH = 1000;
@@ -56,18 +56,24 @@ class event_manager {
     /** @var int Default number of events returned per pull. */
     const DEFAULT_PULL_LIMIT = 20;
 
+    /** @var int Maximum length, in characters, of a 'page' payload's 'inlineCss' field. */
+    const MAX_INLINE_CSS_LENGTH = 40000;
+
     /**
      * Validate and store a new event.
      *
-     * For 'page' events, the payload's 'html' field is run through
-     * html_sanitizer before storage: this is the single point where
-     * untrusted captured HTML becomes safe to relay to another user.
-     * 'scroll' events get a light shape check of their own (numeric
-     * coordinates) — cheap to enforce and closes the gap where a malformed
-     * payload would otherwise sail through as long as it stayed under the
-     * overall size cap. 'chat_message' is always plain text, rendered with
-     * textContent client-side, never interpreted as HTML — no sanitizer
-     * involved, just a non-empty check and a length cap.
+     * For 'page' events, the payload's 'html', 'modal' and 'fixed' fields
+     * are each run through html_sanitizer before storage: this is the
+     * single point where untrusted captured HTML becomes safe to relay to
+     * another user. 'inlineCss' gets its own, more limited, text-based
+     * cleanup (see sanitize_inline_css() below) — it is CSS, not HTML, so
+     * html_sanitizer's DOM-based approach does not apply to it.
+     * 'scroll', 'cursor' and 'student_click' events get a light shape check
+     * of their own (numeric coordinates) — cheap to enforce and closes the
+     * gap where a malformed payload would otherwise sail through as long as
+     * it stayed under the overall size cap. 'chat_message' is always plain text,
+     * rendered with textContent client-side, never interpreted as HTML —
+     * no sanitizer involved, just a non-empty check and a length cap.
      *
      * @param int $sessionid
      * @param int $sourceuserid
@@ -95,6 +101,12 @@ class event_manager {
             if (isset($payload['modal']) && is_string($payload['modal'])) {
                 $payload['modal'] = html_sanitizer::sanitize($payload['modal']);
             }
+            if (isset($payload['fixed']) && is_string($payload['fixed'])) {
+                $payload['fixed'] = html_sanitizer::sanitize($payload['fixed']);
+            }
+            if (isset($payload['inlineCss']) && is_string($payload['inlineCss'])) {
+                $payload['inlineCss'] = self::sanitize_inline_css($payload['inlineCss']);
+            }
             if (isset($payload['css']) && is_array($payload['css'])) {
                 $wwwroot = $GLOBALS['CFG']->wwwroot;
                 $payload['css'] = array_values(array_filter($payload['css'], static function ($url) use ($wwwroot) {
@@ -103,7 +115,7 @@ class event_manager {
             }
         }
 
-        if ($eventtype === 'scroll') {
+        if ($eventtype === 'scroll' || $eventtype === 'cursor' || $eventtype === 'student_click') {
             if (!isset($payload['x'], $payload['y']) || !is_numeric($payload['x']) || !is_numeric($payload['y'])) {
                 throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
             }
@@ -138,6 +150,35 @@ class event_manager {
         $record->id = $DB->insert_record('local_remotesupport_event', $record);
 
         return $record;
+    }
+
+    /**
+     * Best-effort text-based cleanup of captured inline `<style>` CSS,
+     * relayed verbatim into a `<style>` tag inside the teacher's sandboxed
+     * iframe (see screen_renderer.js). Unlike HTML, PHP has no built-in CSS
+     * parser to validate this properly (the way DOMDocument does for
+     * html_sanitizer::sanitize()), so rather than attempt a real parse this
+     * strips the two constructs that could otherwise make the teacher's
+     * browser reach out to an arbitrary URL when it renders the
+     * reconstruction: `@import` (would fetch a whole external stylesheet)
+     * and any `url(...)` reference (background images, @font-face, etc. —
+     * legitimate uses are lost along with it, an accepted trade-off given
+     * script execution is already blocked at the iframe sandbox level
+     * regardless; this is defense in depth, not the only layer). See
+     * docs/decisions.md.
+     *
+     * @param string $css
+     * @return string
+     */
+    private static function sanitize_inline_css(string $css): string {
+        $css = (string) preg_replace('/@import[^;]*;/i', '', $css);
+        $css = (string) preg_replace('/url\([^)]*\)/i', 'none', $css);
+
+        if (core_text::strlen($css) > self::MAX_INLINE_CSS_LENGTH) {
+            $css = core_text::substr($css, 0, self::MAX_INLINE_CSS_LENGTH);
+        }
+
+        return $css;
     }
 
     /**

@@ -176,12 +176,16 @@ solicitud (no en cualquier curso), y que quien cierra o entra sea el
 ## Eventos permitidos
 
 Lista blanca cerrada en `event_manager::EVENT_TYPES`: `page`, `scroll`,
-`resync_request`, `chat_message`. Cualquier otro valor (`eval`, `script`,
-`html`, etc.) es rechazado con `errorinvalideventtype` antes de llegar a
-almacenarse. También se valida el tamaño (`MAX_PAYLOAD_BYTES`, 600 000
-bytes de JSON) y, para `page`, el propio contenido HTML (y, desde la
-Fase 4, el HTML del modal si lo hay, y las URLs de CSS) se sanea/filtra
-antes de guardar (ver "Saneamiento de HTML" más abajo). `chat_message`
+`cursor`, `student_click`, `resync_request`, `chat_message`. Cualquier
+otro valor (`eval`, `script`, `html`, etc.) es rechazado con
+`errorinvalideventtype` antes de llegar a almacenarse. También se
+valida el tamaño (`MAX_PAYLOAD_BYTES`, 600 000 bytes de JSON) y, para
+`page`, el propio contenido HTML (y, desde la Fase 4, el HTML del modal
+si lo hay, y las URLs de CSS) se sanea/filtra antes de guardar (ver
+"Saneamiento de HTML" más abajo). `cursor` y `student_click` reciben la
+misma comprobación ligera que `scroll` (campos `x`/`y` presentes y
+numéricos) — ninguno es HTML, así que no pasan por el saneador.
+`chat_message`
 requiere un campo `message` de texto no vacío (tras recortar espacios),
 truncado a `MAX_CHAT_MESSAGE_LENGTH` (1000 caracteres) — siempre texto
 plano, nunca pasa por el saneador de HTML porque nunca se interpreta
@@ -192,7 +196,8 @@ reconocida.
 
 Cada tipo de evento tiene, además, un **rol autorizado a emitirlo**
 (`polling_transport::ROLE_EVENT_TYPES`): el alumno empuja `page`/
-`scroll`/`chat_message`; el profesor `resync_request`/`chat_message`.
+`scroll`/`cursor`/`student_click`/`chat_message`; el profesor
+`resync_request`/`chat_message`.
 Que el usuario sea participante de la sesión no basta — si un alumno
 intenta empujar un `resync_request`, se rechaza igual que si no
 perteneciera a la sesión en absoluto, y se registra como `access_denied`
@@ -210,17 +215,34 @@ quién puede pedir qué sesión.
 ## Límite de frecuencia
 
 `rate_limiter::is_allowed()` exige al menos 150 ms entre eventos
-`scroll` y 300 ms entre eventos `chat_message` de la misma sesión,
-respaldado por una caché de aplicación (no por la tabla de eventos,
-cuyo `timecreated` solo tiene resolución de un segundo). Un evento que
-llega demasiado pronto **no se guarda ni se lanza un error**:
-`record_event()` devuelve `null` y el llamador AJAX responde con éxito
-de todos modos (`id: 0`), porque llegar un poco rápido no es un intento
-de abuso, es tráfico normal de un scroll continuo (o de un doble envío
-accidental de chat). `page` y `resync_request` no tienen límite de
-frecuencia propio (el cliente ya limita `page` razonablemente, y
-`resync_request` solo se dispara por una recuperación de conexión, no
-continuamente).
+`scroll`, 150 ms entre eventos `cursor`, 100 ms entre eventos
+`student_click` y 300 ms entre eventos `chat_message` de la misma
+sesión, respaldado por una caché de aplicación (no por la tabla de
+eventos, cuyo `timecreated` solo tiene resolución de un segundo). Un
+evento que llega demasiado pronto **no se guarda ni se lanza un
+error**: `record_event()` devuelve `null` y el llamador AJAX responde
+con éxito de todos modos (`id: 0`), porque llegar un poco rápido no es
+un intento de abuso, es tráfico normal de un scroll continuo (o de un
+doble envío accidental de chat). `page` y `resync_request` no tienen
+límite de frecuencia propio (el cliente ya limita `page`
+razonablemente, y `resync_request` solo se dispara por una recuperación
+de conexión, no continuamente).
+
+El suelo de `student_click` es más bajo que el de `scroll`/`cursor`
+(100 ms frente a 150 ms) simplemente porque un clic real, a diferencia
+de un movimiento de ratón, nunca necesita muestrearse — el suelo aquí
+existe solo como defensa frente a un cliente modificado que dispare
+clics falsos en bucle, no como un límite pensado para suavizar tráfico
+legítimo (`event_capture.js` no aplica ningún throttling propio a los
+clics, cada clic real se envía).
+
+El suelo de 150 ms para `cursor` es independiente del ajuste de admin
+`local_remotesupport/cursorsamplems` (200/500/1000/2000 ms, ver
+`docs/architecture.md`): es una defensa en profundidad frente a un
+cliente modificado que ignore su propio throttling, no el mecanismo que
+gobierna la tasa normal — el valor mínimo permitido en el ajuste ya
+queda por encima de este suelo, así que un cliente sin modificar nunca
+lo alcanza.
 
 La clave de la caché de límite de frecuencia incluye el **remitente**
 (`sessionid_eventtype_userid`), no solo sesión y tipo — necesario desde
@@ -253,19 +275,45 @@ el contenido:
    `javascript:`), así que aunque el saneamiento del servidor tuviera un
    fallo, el contenido seguiría sin poder ejecutarse.
 
-El modal capturado (Fase 4) pasa por el mismo `html_sanitizer::sanitize()`
-que el contenido principal — no hay una ruta de saneamiento separada ni
-más permisiva para él. Las URLs de CSS (Fase 4) no se sanean como HTML;
+El modal capturado (Fase 4) y los elementos `position: fixed` extraídos
+del contenido (`payload.fixed`, añadido tras el MVP como fix de
+precisión del cursor — ver `docs/architecture.md`/`docs/decisions.md`)
+pasan por el mismo `html_sanitizer::sanitize()` que el contenido
+principal — no hay una ruta de saneamiento separada ni más permisiva
+para ninguno de los dos. Las URLs de CSS (Fase 4) no se sanean como HTML;
 se filtran con una comprobación de prefijo: solo se conservan las que
 empiezan literalmente por `$CFG->wwwroot`, cualquier otra se descarta en
 silencio antes de guardar el evento.
+
+**`payload.inlineCss` (añadido tras el MVP, mejora de precisión — ver
+`docs/decisions.md`) es CSS, no HTML, y se sanea de otra forma.** PHP no
+trae un parser de CSS equivalente a `DOMDocument`, así que
+`event_manager::sanitize_inline_css()` usa expresiones regulares para
+eliminar `@import` (traería una hoja de estilos externa entera al
+navegador del profesor) y cualquier `url(...)` (podría hacer que el
+navegador del profesor solicitara una URL arbitraria al renderizar la
+reconstrucción — imágenes de fondo, `@font-face`, cualquier otro uso
+legítimo se pierde con ello). No es un parser real, es una limpieza
+basada en texto — defensa en profundidad, no la única barrera: el
+`iframe` sandbox sigue bloqueando toda ejecución de scripts
+independientemente de lo que contenga el CSS. En el cliente,
+`screen_renderer.js` además rompe cualquier secuencia `</style` literal
+antes de insertar el texto dentro de una etiqueta `<style>` del
+`srcdoc`, para que no pueda cerrarla antes de tiempo e inyectar marcado
+arbitrario — el mismo tipo de precaución que ya se aplicaba al escapar
+comillas en las URLs de `<link>`.
 
 ## Captura: qué se recoge y qué nunca se recoge
 
 Recogido: URL relativa, título, contenido de `#region-main` (o
 `main`/`body` si no existe), el modal de Moodle abierto en ese momento
 (si lo hay), URLs de hojas de estilo del propio sitio, estructura del
-DOM, dimensiones de viewport, posición de scroll.
+DOM, dimensiones de viewport, posición de scroll, posición del cursor
+del ratón mientras se mueve, posición de cada clic (ambos añadidos tras
+el MVP — coordenadas `x`/`y` de viewport únicamente, nunca asociadas a
+qué elemento concreto había bajo el cursor o bajo el clic: no se
+registra un selector, un `id`, ni el texto de lo que se pulsó, solo el
+punto).
 
 Nunca recogido, ni siquiera antes de sanear: valores de campos de
 formulario (se elimina el atributo `value` de todo `<input>` y se vacía
@@ -277,16 +325,30 @@ desciende dentro de un `iframe` ajeno), contraseñas, cookies, tokens.
 ## Grabación permanente de la sesión (añadido tras el MVP)
 
 `local_remotesupport_track` guarda de forma permanente (dentro de la
-ventana de retención) los mismos eventos `page`/`scroll`/`chat_message`
-ya validados y saneados que se transportan en vivo — nada nuevo pasa por
-saneado aquí, `track_manager` reutiliza el payload ya limpio de
-`event_manager`. Esto significa que el contenido capturado (HTML
-principal saneado, nunca valores de campos de formulario, contraseñas,
-cookies ni tokens — ver "Captura" y "Saneamiento de HTML" arriba, más el
-texto de la conversación de chat desde que se añadió la reproducción)
-queda retenido en base de datos durante semanas o meses, no minutos,
+ventana de retención) los mismos eventos `page`/`scroll`/`cursor`/
+`student_click`/`chat_message` ya validados y saneados que se
+transportan en vivo — nada nuevo pasa por saneado aquí, `track_manager`
+reutiliza el payload ya limpio de `event_manager`. Esto significa que
+el contenido capturado (HTML principal saneado, nunca valores de campos
+de formulario, contraseñas, cookies ni tokens — ver "Captura" y
+"Saneamiento de HTML" arriba, más el texto de la conversación de chat
+desde que se añadió la reproducción, más la posición del cursor del
+ratón y de cada clic desde que se añadieron esas funcionalidades) queda
+retenido en base de datos durante semanas o meses, no minutos,
 invirtiendo deliberadamente la política de purga rápida que rige el
 resto del plugin.
+
+- **`cursor` y `student_click` son excepciones conscientes a "no grabar
+  cada movimiento del ratón"** (guía general del documento base del
+  proyecto). Se acotó el coste de `cursor` con dos decisiones: solo se
+  envía mientras el ratón se está moviendo de verdad (atado al evento
+  `mousemove` del navegador, no a un temporizador — un alumno inactivo
+  no genera filas), y la tasa de muestreo de un ratón en movimiento es
+  un ajuste de administración (`local_remotesupport/cursorsamplems`),
+  no un valor fijo agresivo. `student_click` no necesita ninguna de
+  esas dos mitigaciones: un clic ya es, por su propia naturaleza, un
+  evento discreto e infrecuente — no hay nada que muestrear ni
+  atenuar. Ver `docs/decisions.md`.
 
 - **Endpoint de lectura gateado por `:replaysession`, no por
   `:viewsessionhistory`.** `get_session_track` (AJAX), `sessionreplay.php`
@@ -357,14 +419,14 @@ capturan.
   participantes en una sesión), aunque sea una única consulta indexada
   por `studentid+status`. Aceptable para el objetivo de 1–20 sesiones
   simultáneas; revisar si el sitio crece mucho más.
-- **Límite de frecuencia solo para `scroll`**: `page` y `resync_request`
-  no tienen límite de frecuencia propio en el servidor — solo el
-  `debounce`/`throttle` del cliente (o, para `resync_request`, el hecho
-  de que solo se dispara por una recuperación de conexión). Un usuario
-  podría saltarse el límite del cliente manipulando la petición
-  directamente; el límite de tamaño por evento y el hecho de que solo se
-  pueda escribir en sesiones propias (con el rol correcto) acotan el
-  daño a esa única sesión.
+- **Límite de frecuencia solo para `scroll`/`cursor`/`student_click`/`chat_message`**:
+  `page` y `resync_request` no tienen límite de frecuencia propio en el
+  servidor — solo el `debounce`/`throttle` del cliente (o, para
+  `resync_request`, el hecho de que solo se dispara por una recuperación
+  de conexión). Un usuario podría saltarse el límite del cliente
+  manipulando la petición directamente; el límite de tamaño por evento y
+  el hecho de que solo se pueda escribir en sesiones propias (con el rol
+  correcto) acotan el daño a esa única sesión.
 - **Ancho de banda por foto completa**: cada evento `page` reenvía el
   contenido principal completo (hasta 150 000 caracteres saneados en
   modo `main`, 400 000 en `fullpage`), no un diff. Es una decisión

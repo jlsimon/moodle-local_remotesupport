@@ -28,17 +28,17 @@ defined('MOODLE_INTERNAL') || die();
  * Simple AJAX-polling implementation of transport_interface.
  *
  * Which event types a participant may push is role-based: the student
- * pushes page/scroll (the teacher watches), the teacher pushes only
- * resync_request (asking the student for a fresh full snapshot). Both
- * roles may push chat_message — it is the one bidirectional type, see
- * event_manager::get_events_since(). Each side only ever pulls events
- * sourced by the *other* participant, except chat_message, which both
- * need to see in full (including their own messages).
+ * pushes page/scroll/cursor/student_click (the teacher watches), the
+ * teacher pushes only resync_request (asking the student for a fresh full
+ * snapshot). Both roles may push chat_message — it is the one bidirectional
+ * type, see event_manager::get_events_since(). Each side only ever pulls
+ * events sourced by the *other* participant, except chat_message, which
+ * both need to see in full (including their own messages).
  *
- * Also feeds track_manager: every successfully stored page/scroll/
- * chat_message event is additionally, permanently recorded for later
- * playback (see track_manager's own doc comment for why this is a
- * deliberate exception to the plugin's usual ephemeral-by-default policy).
+ * Also feeds track_manager: every successfully stored page/scroll/cursor/
+ * student_click/chat_message event is additionally, permanently recorded
+ * for later playback (see track_manager's own doc comment for why this is
+ * a deliberate exception to the plugin's usual ephemeral-by-default policy).
  *
  * @package    local_remotesupport
  * @copyright  2026 Juan Luis Simón
@@ -48,7 +48,7 @@ class polling_transport implements transport_interface {
 
     /** @var array<string,string[]> Event types each role may push. */
     const ROLE_EVENT_TYPES = [
-        'student' => ['page', 'scroll', 'chat_message'],
+        'student' => ['page', 'scroll', 'cursor', 'student_click', 'chat_message'],
         'teacher' => ['resync_request', 'chat_message'],
     ];
 

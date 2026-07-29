@@ -84,6 +84,56 @@ class event_manager_test extends \advanced_testcase {
         event_manager::record_event(1, 2, 'scroll', ['x' => 1]);
     }
 
+    public function test_cursor_event_type_accepted(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'cursor', ['x' => 100, 'y' => 200]);
+
+        $this->assertSame('cursor', $event->eventtype);
+    }
+
+    public function test_rejects_cursor_missing_coordinate(): void {
+        $this->resetAfterTest();
+
+        $this->expectException(\moodle_exception::class);
+        event_manager::record_event(1, 2, 'cursor', ['x' => 1]);
+    }
+
+    public function test_cursor_events_are_rate_limited(): void {
+        $this->resetAfterTest();
+
+        $first = event_manager::record_event(1, 2, 'cursor', ['x' => 1, 'y' => 1]);
+        $second = event_manager::record_event(1, 2, 'cursor', ['x' => 2, 'y' => 2]);
+
+        $this->assertNotNull($first);
+        $this->assertNull($second);
+    }
+
+    public function test_student_click_event_type_accepted(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'student_click', ['x' => 100, 'y' => 200]);
+
+        $this->assertSame('student_click', $event->eventtype);
+    }
+
+    public function test_rejects_student_click_missing_coordinate(): void {
+        $this->resetAfterTest();
+
+        $this->expectException(\moodle_exception::class);
+        event_manager::record_event(1, 2, 'student_click', ['x' => 1]);
+    }
+
+    public function test_student_click_events_are_rate_limited(): void {
+        $this->resetAfterTest();
+
+        $first = event_manager::record_event(1, 2, 'student_click', ['x' => 1, 'y' => 1]);
+        $second = event_manager::record_event(1, 2, 'student_click', ['x' => 2, 'y' => 2]);
+
+        $this->assertNotNull($first);
+        $this->assertNull($second);
+    }
+
     public function test_rejects_oversized_payload(): void {
         $this->resetAfterTest();
 
@@ -186,6 +236,34 @@ class event_manager_test extends \advanced_testcase {
         $this->assertStringNotContainsString('<script', $event->payload);
         $this->assertStringNotContainsString('alert(1)', $event->payload);
         $this->assertStringContainsString('modal', $event->payload);
+    }
+
+    public function test_page_event_fixed_html_is_sanitized_on_storage(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'page', [
+            'url' => '/a',
+            'fixed' => '<nav class="navbar fixed-top">ok</nav><script>alert(1)</script>',
+        ]);
+
+        $this->assertStringNotContainsString('<script', $event->payload);
+        $this->assertStringNotContainsString('alert(1)', $event->payload);
+        $this->assertStringContainsString('navbar', $event->payload);
+    }
+
+    public function test_page_event_inline_css_strips_import_and_url(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'page', [
+            'url' => '/a',
+            'inlineCss' => '@import url("https://evil.example/steal.css");' .
+                '.x{background:url(https://evil.example/track.png);color:red;}',
+        ]);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertStringNotContainsString('@import', $payload['inlineCss']);
+        $this->assertStringNotContainsString('evil.example', $payload['inlineCss']);
+        $this->assertStringContainsString('color:red', $payload['inlineCss']);
     }
 
     public function test_purge_stale_events_removes_only_old_rows(): void {

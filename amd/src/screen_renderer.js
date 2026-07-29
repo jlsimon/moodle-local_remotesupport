@@ -24,7 +24,26 @@
  * simulated by CSS-translating an inner wrapper div, driven only by synced
  * 'page'/'scroll' events. See event_player.js's original module doc comment
  * for the full history of why (native iframe scrolling proved unreliable
- * to fully lock down).
+ * to fully lock down). A `transform` on that wrapper turns it into the
+ * containing block for any `position: fixed` descendant, breaking its fixed
+ * behavior — event_capture.js works around this by extracting fixed
+ * elements (the theme's navbar, typically) into their own `payload.fixed`,
+ * rendered here as a sibling of the wrapper instead of inside it. This
+ * matters for more than visual fidelity: the cursor/click marks below are
+ * positioned by scaling raw viewport coordinates, which is only accurate
+ * once the reconstructed layout actually matches the real page's — a fixed
+ * navbar scrolling away when it shouldn't shifts everything below it out of
+ * alignment as soon as the student scrolls. See docs/decisions.md.
+ *
+ * Also renders `payload.inlineCss` (captured `<style>` blocks that had no
+ * `href` — course-format CSS, a teacher's "additional HTML", etc. — see
+ * event_capture.js's collectInlineStyleText()) as an extra `<style>` tag,
+ * so layout rules that only ever existed inline are not silently missing
+ * from the reconstruction. It is raw CSS text, not HTML that already went
+ * through the server's sanitizer, so a literal `</style` in it is escaped
+ * before concatenating it into the srcdoc string — otherwise it would
+ * close the tag early and let arbitrary markup from the payload leak into
+ * the page instead of staying inert CSS.
  *
  * The iframe uses sandbox="allow-same-origin" with no allow-scripts token:
  * this is what lets this module reach into contentDocument (an opaque/
@@ -33,6 +52,22 @@
  * The server-side sanitizer (html_sanitizer.php) is still the authoritative
  * content cleaner; this is a second, independent layer.
  *
+ * Also draws a small dot marking the student's own mouse position
+ * ('cursor' events) and a brief fading "ripple" mark at each click
+ * ('student_click' events), both positioned as siblings of the iframe
+ * rather than something injected into its (sandboxed, cross-document)
+ * content — both reuse the same scale factor applyViewportSize() already
+ * computes, so they line up with the iframe's visual (post-`transform:
+ * scale()`) size with no separate math. The click mark can also play a
+ * short synthesized "tick" sound (Web Audio API, no audio asset shipped)
+ * — callers decide whether to invoke playClickSound() at all, so it stays
+ * a pure function with no notion of a mute setting of its own. The cursor
+ * dot only hides on a real navigation (the 'page' event's URL actually
+ * changing), not on every re-sent snapshot of the same page — otherwise a
+ * student who simply stops moving the mouse for a moment would see their
+ * own cursor vanish from the teacher's view each time the next periodic
+ * snapshot arrived.
+ *
  * @module     local_remotesupport/screen_renderer
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -40,14 +75,56 @@
 define([], function() {
 
     var VIEWPORT_CONTENT_ID = 'local-remotesupport-viewport-content';
+    var CLICK_MARK_DURATION_MS = 600;
+
+    var audioCtx = null;
+
+    /**
+     * A short synthesized "tick", not an audio file — keeps the plugin
+     * free of any bundled/licensed asset. Errors (no Web Audio support, or
+     * blocked by the browser's autoplay policy before any user gesture on
+     * this page) are swallowed: sound is a non-essential convenience, never
+     * something the rest of the feature depends on.
+     */
+    var playClickSound = function() {
+        try {
+            var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) {
+                return;
+            }
+            if (!audioCtx) {
+                audioCtx = new AudioContextClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            var oscillator = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            oscillator.type = 'square';
+            oscillator.frequency.value = 1000;
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+            oscillator.connect(gain);
+            gain.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.05);
+        } catch (e) {
+            // Ignored, see above.
+        }
+    };
 
     /**
      * @param {HTMLIFrameElement} iframe
      * @param {HTMLElement} viewportWrapper
-     * @return {Object} {applyViewportSize, applyScrollPosition, renderPage}
+     * @return {Object} {applyViewportSize, applyScrollPosition, renderPage,
+     *                    applyCursorPosition, hideCursor, showClickMark, playClickSound}
      */
     var create = function(iframe, viewportWrapper) {
         var lastViewport = null;
+        var lastScale = 1;
+        var lastCursor = null;
+        var cursorEl = null;
+        var lastUrl = null;
 
         // Forces the iframe to actually be the alumno's own reported
         // viewport size (not just visually similar), then shrinks it back
@@ -66,11 +143,74 @@ define([], function() {
 
             var availableWidth = viewportWrapper.clientWidth || width;
             var scale = Math.min(1, availableWidth / width);
+            lastScale = scale;
 
             iframe.style.width = width + 'px';
             iframe.style.height = height + 'px';
             iframe.style.transform = 'scale(' + scale + ')';
             viewportWrapper.style.height = (height * scale) + 'px';
+
+            if (lastCursor) {
+                positionCursorEl(lastCursor.x, lastCursor.y);
+            }
+        };
+
+        /**
+         * @param {Number} x Viewport-relative pixels, as sent by event_capture.js.
+         * @param {Number} y Viewport-relative pixels, as sent by event_capture.js.
+         */
+        var positionCursorEl = function(x, y) {
+            if (!cursorEl) {
+                cursorEl = document.createElement('div');
+                cursorEl.className = 'local-remotesupport-student-cursor';
+                viewportWrapper.appendChild(cursorEl);
+            }
+            cursorEl.style.left = (x * lastScale) + 'px';
+            cursorEl.style.top = (y * lastScale) + 'px';
+            cursorEl.style.display = '';
+        };
+
+        /**
+         * @param {Number} x Viewport-relative pixels.
+         * @param {Number} y Viewport-relative pixels.
+         */
+        var applyCursorPosition = function(x, y) {
+            if (typeof x !== 'number' || typeof y !== 'number') {
+                return;
+            }
+            lastCursor = {x: x, y: y};
+            positionCursorEl(x, y);
+        };
+
+        var hideCursor = function() {
+            lastCursor = null;
+            if (cursorEl) {
+                cursorEl.style.display = 'none';
+            }
+        };
+
+        /**
+         * Transient mark, unlike the cursor dot: created fresh each time and
+         * removed once its CSS animation finishes, rather than a single
+         * element that gets repositioned.
+         *
+         * @param {Number} x Viewport-relative pixels.
+         * @param {Number} y Viewport-relative pixels.
+         */
+        var showClickMark = function(x, y) {
+            if (typeof x !== 'number' || typeof y !== 'number') {
+                return;
+            }
+            var mark = document.createElement('div');
+            mark.className = 'local-remotesupport-click-mark';
+            mark.style.left = (x * lastScale) + 'px';
+            mark.style.top = (y * lastScale) + 'px';
+            viewportWrapper.appendChild(mark);
+            window.setTimeout(function() {
+                if (mark.parentNode) {
+                    mark.parentNode.removeChild(mark);
+                }
+            }, CLICK_MARK_DURATION_MS);
         };
 
         window.addEventListener('resize', function() {
@@ -100,6 +240,21 @@ define([], function() {
                 pageInfo.textContent = (payload.title || '') + ' — ' + (payload.url || '');
             }
             applyViewportSize(payload.viewport);
+            // A cursor position captured on the page being replaced no
+            // longer corresponds to anything meaningful, so a genuine
+            // navigation (URL change) hides it and waits for a fresh
+            // 'cursor' event on the new page. A 'page' event does not
+            // always mean a real navigation, though — the same page is
+            // re-sent on every heartbeat (PAGE_HEARTBEAT_MS) and now also
+            // right after each click (see event_capture.js) — hiding the
+            // dot on every one of those, not just real navigations, meant
+            // it disappeared any time the student's mouse stayed still for
+            // longer than the interval between two such re-sends, which is
+            // not what "stopped moving" should look like.
+            if (payload.url !== lastUrl) {
+                hideCursor();
+            }
+            lastUrl = payload.url;
 
             var links = (Array.isArray(payload.css) ? payload.css : [])
                 .filter(function(href) {
@@ -110,7 +265,26 @@ define([], function() {
                 })
                 .join('');
 
+            // Raw CSS text, not HTML that already went through the server's
+            // DOM-based sanitizer — embedding it as a plain string inside
+            // '<style>...</style>' means a literal '</style' in the payload
+            // would otherwise close the tag early and inject arbitrary
+            // markup into the srcdoc. Breaking up that exact sequence is
+            // enough to defeat it; CSS has no legitimate reason to contain
+            // it. Same class of precaution as the '"' escaping just above
+            // for stylesheet hrefs.
+            var inlineCssTag = typeof payload.inlineCss === 'string' && payload.inlineCss
+                ? '<style>' + payload.inlineCss.replace(/<\/style/gi, '<\\/style') + '</style>'
+                : '';
+
             var modalHtml = typeof payload.modal === 'string' ? payload.modal : '';
+            // Elements that were `position: fixed` in the live page
+            // (typically the theme's navbar — see event_capture.js's
+            // markFixedElements()), same reasoning as the modal just below:
+            // kept outside the translated wrapper so they keep behaving as
+            // fixed relative to the iframe's own viewport instead of
+            // scrolling away with the rest of the content.
+            var fixedHtml = typeof payload.fixed === 'string' ? payload.fixed : '';
 
             var pendingScroll = payload.scroll || null;
             iframe.onload = function() {
@@ -119,17 +293,18 @@ define([], function() {
                 }
             };
             // html/body get no scrollable overflow of their own — see the
-            // module doc comment. The modal stays outside the translated
-            // wrapper so it keeps behaving like a normal position:fixed
-            // overlay instead of moving with the scroll simulation (a CSS
-            // transform on an ancestor would otherwise turn it into the
-            // containing block for fixed-position descendants).
+            // module doc comment. The modal and any extracted fixed
+            // elements stay outside the translated wrapper so they keep
+            // behaving like normal position:fixed overlays instead of
+            // moving with the scroll simulation (a CSS transform on an
+            // ancestor would otherwise turn it into the containing block
+            // for fixed-position descendants).
             iframe.srcdoc = '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-                '<base href="' + M.cfg.wwwroot + '/">' + links +
+                '<base href="' + M.cfg.wwwroot + '/">' + links + inlineCssTag +
                 '<style>html,body{margin:0;overflow:hidden;height:100%;}</style>' +
                 '</head><body>' +
                 '<div id="' + VIEWPORT_CONTENT_ID + '">' + payload.html + '</div>' +
-                modalHtml + '</body></html>';
+                modalHtml + fixedHtml + '</body></html>';
         };
 
         // Re-applies the last known viewport size, e.g. after a fullscreen
@@ -145,7 +320,11 @@ define([], function() {
             applyViewportSize: applyViewportSize,
             applyScrollPosition: applyScrollPosition,
             renderPage: renderPage,
-            reapplyViewportSize: reapplyViewportSize
+            reapplyViewportSize: reapplyViewportSize,
+            applyCursorPosition: applyCursorPosition,
+            hideCursor: hideCursor,
+            showClickMark: showClickMark,
+            playClickSound: playClickSound
         };
     };
 

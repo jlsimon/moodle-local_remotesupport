@@ -42,7 +42,7 @@ class push_event extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'sessionid' => new external_value(PARAM_INT, 'Session id'),
-            'eventtype' => new external_value(PARAM_ALPHAEXT, 'Event type, e.g. page, scroll, cursor, highlight, resync_request'),
+            'eventtype' => new external_value(PARAM_ALPHAEXT, 'Event type, e.g. page, scroll, cursor, student_click, resync_request, chat_message'),
             'payload' => new external_value(PARAM_RAW, 'JSON-encoded event payload'),
         ]);
     }

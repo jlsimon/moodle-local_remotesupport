@@ -27,16 +27,64 @@
     overflow: auto;
 }
 
-.local-remotesupport-fullscreen-btn {
+.local-remotesupport-fullscreen-btn,
+.local-remotesupport-soundtoggle-btn {
     margin-bottom: 0.5rem;
+    margin-right: 0.5rem;
 }
 
 .local-remotesupport-player-viewport {
+    position: relative;
     overflow: hidden;
     min-height: 480px;
     max-width: 100%;
     border: 1px solid #ccc;
     background: #fff;
+}
+
+.local-remotesupport-student-cursor {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: rgba(220, 53, 69, 0.85);
+    border: 2px solid #fff;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    z-index: 5;
+    /* Glides between successive sampled positions instead of jumping —
+       a straight-line approximation of the student's real movement, not
+       a replay of it (only the sampled points are known). Does not
+       animate the reveal after a page change: transitions do not run on
+       property changes made while display:none (see hideCursor() in
+       screen_renderer.js), so there is no stray glide across pages. */
+    transition: left 0.2s linear, top 0.2s linear;
+}
+
+.local-remotesupport-click-mark {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    margin-left: -12px;
+    margin-top: -12px;
+    border-radius: 50%;
+    border: 3px solid rgba(220, 53, 69, 0.9);
+    pointer-events: none;
+    z-index: 6;
+    animation: local-remotesupport-click-ripple 0.6s ease-out forwards;
+}
+
+@keyframes local-remotesupport-click-ripple {
+    from {
+        transform: scale(0.3);
+        opacity: 1;
+    }
+    to {
+        transform: scale(1.8);
+        opacity: 0;
+    }
 }
 
 .local-remotesupport-player-frame {

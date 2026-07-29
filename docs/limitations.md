@@ -196,21 +196,29 @@ decisión y qué código se retiró.
 
 ## Nuevas tras completar el MVP — la reconstrucción no es scrollable de forma nativa
 
-- **Elementos `position: fixed`/`sticky` dentro del contenido capturado
-  no se comportan como tales.** El documento del iframe ya no tiene
-  overflow scrollable propio: la posición de scroll se simula
-  aplicando `transform: translate()` a un `<div>` que envuelve todo el
-  contenido capturado, y un `transform` en un ancestro convierte a ese
-  `<div>` en el contenedor de referencia de cualquier descendiente
-  `fixed`/`sticky` (deja de posicionarse respecto al viewport). En la
-  práctica solo relevante en el modo de captura `fullpage` (por ejemplo,
-  una barra de navegación `sticky` del tema, que se desplazaría junto
-  con el resto en vez de quedarse fija); el modal (que sí sigue
-  comportándose como `position: fixed` normal) se mantiene
-  deliberadamente fuera de ese `<div>`, y el modo `main` rara vez tiene
-  este patrón. Aceptado conscientemente a cambio de que el profesor no
-  pueda desplazar la reconstrucción manualmente por ninguna vía. Ver
+- **Elementos `position: sticky` dentro del contenido capturado no se
+  comportan como tales** (a diferencia de `fixed`, que sí se corrigió —
+  ver más abajo). El documento del iframe ya no tiene overflow
+  scrollable propio: la posición de scroll se simula aplicando
+  `transform: translate()` a un `<div>` que envuelve todo el contenido
+  capturado, y un `transform` en un ancestro convierte a ese `<div>` en
+  el contenedor de referencia de cualquier descendiente `sticky` (deja
+  de posicionarse respecto al viewport). Deliberadamente no se aplica a
+  `sticky` la misma extracción que a `fixed`: un elemento `sticky`
+  suele depender de su posición de flujo original (offset, anchura)
+  para "pegarse" correctamente, y reubicarlo sin ese contexto podría
+  verse peor que dejarlo. En la práctica, esto solo importa en modo de
+  captura `fullpage`, para temas/actividades que usen cabeceras o
+  navegación secundaria `sticky` (no `fixed`) — la barra de navegación
+  de Boost en sí es `fixed`, no `sticky`, y ya está corregida. Ver
   `docs/decisions.md`.
+- **La detección de elementos `fixed` recorre todo el árbol capturado
+  con `getComputedStyle()` en cada foto de página.** Coste aceptado sin
+  optimizar a la escala declarada del MVP (1-20 sesiones simultáneas),
+  limitado en frecuencia por el mismo debounce/latido que ya rige el
+  resto de la captura — ver `docs/decisions.md`. Un tema con un DOM
+  excepcionalmente grande podría notar el coste en el hilo principal
+  del navegador del alumno.
 
 ## Nuevas tras completar el MVP — chat de texto
 
@@ -382,3 +390,119 @@ decisión y qué código se retiró.
   prueba PHPUnit de `track_manager::get_chat_for_session()` y una
   comprobación de humo por HTTP autenticado contra el sitio real, no con
   una prueba automatizada del HTML/Mustache en sí.
+
+## Nuevas tras completar el MVP — posición del cursor del alumno
+
+- **Se registra permanentemente, a diferencia de otros movimientos del
+  navegador.** Una excepción deliberada y explícitamente pedida por el
+  usuario a la guía general de no grabar cada movimiento del ratón — ver
+  `docs/decisions.md` para el razonamiento completo y las mitigaciones
+  de coste adoptadas (atado a `mousemove`, no a un temporizador; tasa de
+  muestreo configurable).
+- **Sin interpolación entre muestras, ni en directo ni en la
+  reproducción.** El punto salta directamente de una posición a la
+  siguiente en cuanto llega/se aplica un evento `cursor`, igual que
+  `scroll` — con una tasa de muestreo alta (2000 ms) el movimiento se ve
+  a saltos, no como un trazo continuo. Suavizarlo añadiría una capa de
+  animación que el MVP no necesita.
+- **No indica qué elemento hay bajo el cursor**, solo su posición en
+  coordenadas de viewport — a diferencia del cursor remoto retirado
+  (Fase 3, ver la nota al principio de `docs/architecture.md`), que sí
+  podía resaltar un elemento concreto. Esta funcionalidad es puramente
+  informativa, sin selector de elemento ni intención de señalar nada.
+- **No se distingue un alumno con varios monitores o que redimensiona la
+  ventana a mitad de movimiento** más allá de lo que ya cubre el
+  reescalado del `iframe` (`applyViewportSize`) — un cambio de tamaño
+  brusco puede producir un salto visual puntual del punto hasta el
+  siguiente evento `cursor`.
+- **Sin pruebas JavaScript** para la lógica de `screen_renderer.js`/
+  `session_replay.js`/`event_capture.js` añadida (mismo hueco de
+  siempre, ver "Vigentes desde la Fase 2"): verificado con `node --check`
+  y los pasos de verificación manual de `docs/testing.md`, no con un
+  entorno de pruebas de navegador real.
+- **No probado en un navegador real** (mismo motivo que el resto de este
+  documento): el seguimiento visual del punto, su comportamiento al
+  cambiar de página, y su sincronización durante la reproducción quedan
+  pendientes de la verificación manual del usuario.
+
+## Nuevas tras completar el MVP — marca visual y sonido en los clics del alumno
+
+- **Se registra permanentemente, igual que la posición del cursor.**
+  Misma excepción deliberada, explícitamente pedida por el usuario, a la
+  guía general de no grabar interacciones de ratón — ver
+  `docs/decisions.md`. A diferencia de `cursor`, no hay ajuste de "tasa
+  de muestreo" que atenuar: un clic es ya un evento discreto e
+  infrecuente por sí mismo.
+- **El sonido puede no reproducirse la primera vez**, si el navegador
+  del profesor bloquea el audio por su política de autoplay hasta que
+  ha habido algún gesto del usuario en la página (clic en el botón de
+  sonido, en pantalla completa, etc.). No hay ningún aviso al profesor
+  cuando esto ocurre — la marca visual sigue funcionando igual, el
+  sonido es simplemente un extra que puede fallar en silencio.
+- **El sonido puede ser audible por terceros cerca del profesor**
+  (una sala compartida, un altavoz sin auriculares) — no es un problema
+  de seguridad del plugin en sí, pero es un motivo real por el que
+  puede convenir desactivarlo; de ahí el botón de silenciar/activar por
+  sesión, además del ajuste general.
+- **En la reproducción, un salto brusco con la barra de progreso nunca
+  "recupera" las marcas/sonidos de los clics saltados.** Es
+  deliberado (ver `docs/decisions.md`), no un fallo: solo se disparan
+  avanzando de forma natural (reproduciendo hacia delante), nunca al
+  saltar. Si el profesor quiere ver exactamente cuándo hizo clic el
+  alumno en un tramo concreto, tiene que reproducirlo, no solo
+  saltar hasta ahí.
+- **La detección de "propia interfaz del plugin" es la misma que ya
+  usan los observadores de mutaciones** (`isOwnElement`, basada en
+  buscar una clase `local-remotesupport-*` en el propio elemento o
+  alguno de sus ancestros) — no un mecanismo nuevo, pero comparte
+  cualquier limitación que ya tuviera: si algún elemento inyectado por
+  el plugin no llevara esa clase por error, sus clics sí se
+  capturarían. No se ha detectado ningún caso así, pero no hay una
+  prueba automatizada que lo garantice para elementos futuros.
+- **Sin pruebas JavaScript** para la lógica añadida en
+  `event_capture.js`/`screen_renderer.js`/`event_player.js`/
+  `session_replay.js` (mismo hueco de siempre, ver "Vigentes desde la
+  Fase 2"): verificado con `node --check` y los pasos de verificación
+  manual de `docs/testing.md`, no con un entorno de pruebas de
+  navegador real — en particular, la distinción "avance natural vs.
+  salto manual" en la reproducción (basada en la bandera `playing`) no
+  se ha podido probar interactivamente en esta sesión.
+- **No probado en un navegador real** (mismo motivo que el resto de
+  este documento): la marca visual, el sonido (y su bloqueo por
+  autoplay), el botón de silenciar en sus dos ubicaciones, y el
+  comportamiento al saltar en la reproducción quedan pendientes de la
+  verificación manual del usuario.
+
+## Nuevas tras completar el MVP — precisión de la reconstrucción, límite estructural
+
+- **La precisión total (el cursor siempre sobre el mismo elemento
+  clicable en las dos pantallas) no es un objetivo alcanzable con esta
+  arquitectura, ni tras las mejoras de esta sección.** Es
+  reconstrucción por DOM en un motor de renderizado distinto, no
+  espejo de pantalla — decisión de diseño del documento base, no algo
+  que un ajuste adicional vaya a cerrar del todo. Ver
+  `docs/decisions.md` para el razonamiento completo; el criterio de
+  aceptación pasó a ser "lo bastante cerca", con el consentimiento
+  explícito del usuario.
+- **Sigue existiendo una ventana de desincronización temporal, solo
+  más estrecha que antes.** La foto de página se manda con un debounce
+  de 1,5 s tras una mutación, cada 5 s como mucho (antes 10 s), y
+  ahora también justo después de cada clic — pero un cambio de la
+  página real que ocurra *entre* esos momentos sigue sin reflejarse de
+  inmediato en la reconstrucción del profesor.
+- **La limpieza de CSS inline no es un parser real, es texto.**
+  `sanitize_inline_css()` elimina `@import` y cualquier `url(...)` con
+  expresiones regulares, no analizando la sintaxis CSS de verdad — se
+  pierde cualquier uso legítimo de `url()` (imágenes de fondo,
+  `@font-face`) en las hojas inline capturadas, y un caso límite de CSS
+  con sintaxis inusual podría, en teoría, no coincidir exactamente con
+  las expresiones regulares usadas. Aceptado porque PHP no tiene un
+  parser de CSS equivalente a `DOMDocument`, y porque el sandbox del
+  `iframe` sigue siendo la barrera real contra ejecución de scripts.
+- **Elementos `position: sticky` siguen sin corregirse** (a diferencia
+  de `fixed`, ya arreglado) — ver la entrada anterior de esta misma
+  sección de limitaciones para el porqué.
+- **No probado en un navegador real** (mismo motivo que el resto de
+  este documento): en particular, si la mejora percibida es
+  suficiente para el uso real de la funcionalidad queda pendiente de
+  que el usuario retome las pruebas de precisión que había aplazado.

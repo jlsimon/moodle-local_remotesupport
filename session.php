@@ -83,6 +83,7 @@ if ($isstudent) {
         $session->id,
         (int) $USER->id,
         fullname($student),
+        (bool) get_config('local_remotesupport', 'clicksound'),
     ]);
     echo $OUTPUT->footer();
 }

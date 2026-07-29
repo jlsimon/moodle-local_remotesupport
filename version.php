@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072912;
+$plugin->version = 2026072918;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.15.6 (fix: la barra inferior del alumno ya no oculta el pie fijo de Moodle)';
+$plugin->release = '0.17.4 (fix: el punto del cursor ya no desaparece cuando el alumno deja de mover el ratón)';
