@@ -80,8 +80,10 @@ class event_manager {
      * of their own (numeric coordinates) — cheap to enforce and closes the
      * gap where a malformed payload would otherwise sail through as long as
      * it stayed under the overall size cap. 'cursor' additionally accepts an
-     * optional 'hover' selector (bounded to MAX_HOVER_SELECTOR_LENGTH, never
-     * rejects the event outright since it's auxiliary to the position).
+     * optional 'hover' selector and an optional 'typing' selector (which
+     * text field, if any, currently has focus — never its value), both
+     * bounded to MAX_HOVER_SELECTOR_LENGTH, neither ever rejects the event
+     * outright since both are auxiliary to the position.
      * 'chat_message' is always plain text,
      * rendered with textContent client-side, never interpreted as HTML —
      * no sanitizer involved, just a non-empty check and a length cap.
@@ -144,6 +146,17 @@ class event_manager {
                 $payload['hover'] = core_text::substr($payload['hover'], 0, self::MAX_HOVER_SELECTOR_LENGTH);
             } else {
                 $payload['hover'] = null;
+            }
+        }
+
+        if ($eventtype === 'cursor' && array_key_exists('typing', $payload)) {
+            // Same treatment as 'hover' just above: auxiliary, never rejects
+            // the event, only ever a CSS selector (which field), never the
+            // field's value.
+            if (is_string($payload['typing']) && $payload['typing'] !== '') {
+                $payload['typing'] = core_text::substr($payload['typing'], 0, self::MAX_HOVER_SELECTOR_LENGTH);
+            } else {
+                $payload['typing'] = null;
             }
         }
 

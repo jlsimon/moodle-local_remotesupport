@@ -145,6 +145,8 @@ define([], function() {
         var lastUrl = null;
         var lastHighlightedEl = null;
         var lastHoverSelector = null;
+        var lastTypingEl = null;
+        var lastTypingSelector = null;
 
         // Forces the iframe to actually be the alumno's own reported
         // viewport size (not just visually similar), then shrinks it back
@@ -264,17 +266,56 @@ define([], function() {
         };
 
         /**
+         * Remarks the field the alumno is currently typing in, the same way
+         * applyHoverHighlight() remarks a hovered clickable element, but
+         * with its own CSS class (visually distinct — "pointing at" and
+         * "typing in" are different signals for the teacher to read) and
+         * without touching the cursor dot's position, since keyboard focus
+         * has no meaningful mouse coordinate to re-center on.
+         *
+         * @param {String|null|undefined} selector
+         */
+        var applyTypingHighlight = function(selector) {
+            lastTypingSelector = selector || null;
+            if (lastTypingEl) {
+                lastTypingEl.classList.remove('local-remotesupport-typing-highlight');
+                lastTypingEl = null;
+            }
+            if (!selector) {
+                return;
+            }
+            var typingDoc = iframe.contentDocument;
+            if (!typingDoc) {
+                return;
+            }
+            var typingField;
+            try {
+                typingField = typingDoc.querySelector(selector);
+            } catch (e) {
+                // Malformed/stale selector — no highlight, not an error, see
+                // applyHoverHighlight()'s doc comment.
+                return;
+            }
+            if (typingField) {
+                typingField.classList.add('local-remotesupport-typing-highlight');
+                lastTypingEl = typingField;
+            }
+        };
+
+        /**
          * @param {Number} x Viewport-relative pixels.
          * @param {Number} y Viewport-relative pixels.
          * @param {String|null} [hoverSelector] See applyHoverHighlight().
+         * @param {String|null} [typingSelector] See applyTypingHighlight().
          */
-        var applyCursorPosition = function(x, y, hoverSelector) {
+        var applyCursorPosition = function(x, y, hoverSelector, typingSelector) {
             if (typeof x !== 'number' || typeof y !== 'number') {
                 return;
             }
             lastCursor = {x: x, y: y};
             positionCursorEl(x, y);
             applyHoverHighlight(hoverSelector);
+            applyTypingHighlight(typingSelector);
         };
 
         var hideCursor = function() {
@@ -283,6 +324,7 @@ define([], function() {
                 cursorEl.style.display = 'none';
             }
             applyHoverHighlight(null);
+            applyTypingHighlight(null);
         };
 
         /**
@@ -396,6 +438,7 @@ define([], function() {
                     applyScrollPosition(pendingScroll.x, pendingScroll.y);
                 }
                 applyHoverHighlight(lastHoverSelector);
+                applyTypingHighlight(lastTypingSelector);
             };
             // html/body get no scrollable overflow of their own — see the
             // module doc comment. The modal and any extracted fixed
@@ -409,7 +452,11 @@ define([], function() {
                 '<style>html,body{margin:0;overflow:hidden;height:100%;}' +
                 '.local-remotesupport-hover-highlight{' +
                 'outline:3px solid rgba(220,53,69,.85) !important;' +
-                'outline-offset:2px !important;}</style>' +
+                'outline-offset:2px !important;}' +
+                '.local-remotesupport-typing-highlight{' +
+                'outline:3px solid rgba(40,167,69,.85) !important;' +
+                'outline-offset:2px !important;' +
+                'background-color:rgba(40,167,69,.12) !important;}</style>' +
                 '</head><body>' +
                 '<div id="' + VIEWPORT_CONTENT_ID + '">' + payload.html + '</div>' +
                 modalHtml + fixedHtml + '</body></html>';

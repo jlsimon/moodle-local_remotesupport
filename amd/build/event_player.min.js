@@ -198,7 +198,7 @@ define(
                 } else if (event.eventtype === 'scroll') {
                     renderer.applyScrollPosition(payload.x, payload.y);
                 } else if (event.eventtype === 'cursor') {
-                    renderer.applyCursorPosition(payload.x, payload.y, payload.hover);
+                    renderer.applyCursorPosition(payload.x, payload.y, payload.hover, payload.typing);
                 } else if (event.eventtype === 'student_click') {
                     // Suppressed on the very first poll (isReplay): those are
                     // events that queued up before this viewer started

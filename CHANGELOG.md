@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.21.0 (nuevo: el campo de texto en el que escribe el alumno se remarca en la reconstrucción del profesor) — 2026-07-30
+
+- **Pedido por el usuario**: cuando el alumno teclea en un campo de
+  texto, el profesor debe poder ver cuál es ese campo en su
+  reconstrucción, igual que ya podía ver qué elemento clicable estaba
+  señalando el ratón del alumno.
+- Reutiliza el mecanismo existente de `hover` (Fase 3): `event_capture.js`
+  añade listeners `focusin`/`focusout` sobre campos de texto
+  (`input`/`textarea`, excluidos `password` y `hidden`) y manda un
+  nuevo campo opcional `typing` (selector CSS del campo, nunca su
+  valor) en el evento `cursor` existente — no hace falta un tipo de
+  evento nuevo. `event_manager.php` valida/trunca `typing` igual que
+  ya hacía con `hover`. `screen_renderer.js` añade
+  `applyTypingHighlight()`, con su propia clase CSS (color distinto al
+  resaltado de `hover`, para que el profesor distinga "el alumno está
+  señalando esto" de "el alumno está escribiendo aquí"), sin mover el
+  punto del cursor — el foco de teclado no tiene una coordenada de
+  ratón asociada. Se propaga tanto en la vista en vivo
+  (`event_player.js`) como en la reproducción grabada
+  (`session_replay.js`), ya que ambas reutilizan el mismo renderer.
+- Coherente con la regla ya existente de "nunca se envía el valor de
+  un campo de formulario, solo su identidad" — no cambia nada del
+  saneamiento ni de la política de privacidad del plugin.
+- 3 nuevas pruebas PHPUnit (selector aceptado, truncado al límite,
+  valor no-string descartado — mismas pruebas que ya existían para
+  `hover`). 178 tests pasando (antes 175).
+
 ## 0.20.1 (mejora: el enlace "Ver chat" del historial aparece deshabilitado si la sesión no tiene chat) — 2026-07-29
 
 - **Propuesto por el usuario**: revisar la decisión original de

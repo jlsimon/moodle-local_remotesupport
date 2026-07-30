@@ -127,6 +127,34 @@ class event_manager_test extends \advanced_testcase {
         $this->assertNull($payload['hover']);
     }
 
+    public function test_cursor_typing_selector_is_kept(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'cursor', ['x' => 1, 'y' => 1, 'typing' => '#id-field']);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertSame('#id-field', $payload['typing']);
+    }
+
+    public function test_cursor_typing_selector_is_truncated(): void {
+        $this->resetAfterTest();
+
+        $long = str_repeat('a', event_manager::MAX_HOVER_SELECTOR_LENGTH + 50);
+        $event = event_manager::record_event(1, 2, 'cursor', ['x' => 1, 'y' => 1, 'typing' => $long]);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertSame(event_manager::MAX_HOVER_SELECTOR_LENGTH, strlen($payload['typing']));
+    }
+
+    public function test_cursor_typing_non_string_is_dropped(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'cursor', ['x' => 1, 'y' => 1, 'typing' => ['not' => 'a string']]);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertNull($payload['typing']);
+    }
+
     public function test_cursor_events_are_rate_limited(): void {
         $this->resetAfterTest();
 

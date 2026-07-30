@@ -53,6 +53,14 @@
  * student is pointing at that stays exact even when the dot's own
  * position is only approximate.
  *
+ * Each 'cursor' event also carries an optional `typing` selector, set
+ * whenever a text field (input/textarea, password and hidden excluded) is
+ * focused and cleared on blur (see the document-level 'focusin'/'focusout'
+ * listeners near init()) — the teacher's side remarks that same field the
+ * same way it remarks a hovered clickable element. Only the field's
+ * identity is ever sent, never what is typed into it: the module-wide
+ * "no form field values" rule above still applies in full.
+ *
  * Also sends 'student_click' events (same x/y shape as 'cursor') on every
  * click that isn't on the plugin's own injected UI, so the teacher's
  * reconstruction can show a brief visual mark (and, optionally, play a
@@ -111,6 +119,14 @@ define(
     var CLICKABLE_SELECTOR = 'a[href], button, input[type="submit"], input[type="button"], ' +
         'input[type="checkbox"], input[type="radio"], select, summary, label, ' +
         '[role="button"], [role="link"], [role="tab"], [role="menuitem"]';
+    // Text-like fields whose *focus* (never their value, see the module doc
+    // comment) is worth showing the teacher, so they can see which field
+    // the alumno is currently typing in. Password and hidden inputs are
+    // deliberately excluded even though only a selector is ever sent, no
+    // value — consistent with how Fase 6's field policy treats them as a
+    // stricter category than ordinary text fields.
+    var TEXT_FIELD_SELECTOR = 'textarea, input:not([type]), input[type="text"], input[type="search"], ' +
+        'input[type="url"], input[type="tel"], input[type="number"], input[type="email"]';
     // A safety net against a pathological/circular DOM, not a real limit:
     // real Moodle markup can easily nest 10-15+ levels deep (Bootstrap
     // wrappers, section/activity containers) before reaching either an
@@ -604,11 +620,18 @@ define(
         // exact element match does not depend on the reconstruction's
         // geometry matching the real page's at all.
         var lastHoverSelector = null;
+        // Selector of the text field currently focused, if any — set on
+        // 'focusin'/'focusout' below, sent piggybacked on the next 'cursor'
+        // event exactly like lastHoverSelector, so the teacher's side can
+        // remark it in the reconstruction while the alumno is typing.
+        // Never carries the field's value, only which field it is.
+        var lastTypingSelector = null;
         var sendCursor = function() {
             Transport.pushEvent(sessionid, 'cursor', {
                 x: lastCursorX,
                 y: lastCursorY,
-                hover: lastHoverSelector
+                hover: lastHoverSelector,
+                typing: lastTypingSelector
             }).catch(function() {
                 // Ignored, see above.
             });
@@ -809,6 +832,25 @@ define(
                 // the teacher sees can be stale relative to what the
                 // student is actually looking at.
                 sendPageSnapshot();
+            }
+        }, {passive: true});
+
+        // 'focusin'/'focusout' (not 'focus'/'blur', which don't bubble) on
+        // document catches every text field gaining/losing focus anywhere
+        // on the page. Sent immediately, bypassing throttledSendCursor():
+        // focus changes are already infrequent and the alumno may not move
+        // the mouse at all while typing, so waiting for the next throttled
+        // cursor tick could delay or altogether miss showing the highlight.
+        document.addEventListener('focusin', function(e) {
+            if (e.target.matches && e.target.matches(TEXT_FIELD_SELECTOR) && !isOwnElement(e.target)) {
+                lastTypingSelector = buildRobustSelector(e.target);
+                sendCursor();
+            }
+        }, {passive: true});
+        document.addEventListener('focusout', function(e) {
+            if (e.target.matches && e.target.matches(TEXT_FIELD_SELECTOR) && !isOwnElement(e.target)) {
+                lastTypingSelector = null;
+                sendCursor();
             }
         }, {passive: true});
 

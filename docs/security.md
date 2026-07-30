@@ -194,7 +194,13 @@ evento completo, a diferencia de `x`/`y` — es auxiliar a la posición,
 no la razón de ser del evento. No se sanea como HTML porque no lo es:
 nunca se inserta como marcado, solo se usa como argumento de
 `querySelector()` en el `iframe` ya aislado del profesor, envuelto en
-su propio `try`/`catch`. `chat_message`
+su propio `try`/`catch`. `cursor` acepta, con exactamente la misma
+validación, un segundo campo opcional `typing` (el selector del campo
+de texto que el alumno tiene enfocado, añadido tras el MVP — ver
+`docs/decisions.md`): nunca lleva el valor tecleado, solo qué campo
+es, y password/hidden quedan excluidos ya en el propio cliente
+(`event_capture.js`) antes de que llegue nada al servidor.
+`chat_message`
 requiere un campo `message` de texto no vacío (tras recortar espacios),
 truncado a `MAX_CHAT_MESSAGE_LENGTH` (1000 caracteres) — siempre texto
 plano, nunca pasa por el saneador de HTML porque nunca se interpreta

@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026072927;
+$plugin->version = 2026073000;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.20.1 (mejora: el enlace "Ver chat" del historial aparece deshabilitado si la sesión no tiene chat)';
+$plugin->release = '0.21.0 (nuevo: el campo de texto en el que escribe el alumno se remarca en la reconstrucción del profesor)';
