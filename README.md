@@ -1,246 +1,171 @@
-# local_remotesupport — Asistencia remota
+# Remote Assistance (`local_remotesupport`)
 
-Plugin de Moodle para que un profesor asista remotamente a un alumno dentro
-de Moodle, mediante navegación compartida (co-browsing), no escritorio
-remoto. Ver [docs/architecture.md](docs/architecture.md) para el diseño,
-[docs/security.md](docs/security.md) para el modelo de amenazas y
-[docs/limitations.md](docs/limitations.md) para lo que aún no hace.
+**Remote assistance for Moodle, without a remote-desktop tool, without giving up student privacy.**
 
-## Estado
+When a student gets stuck, the usual options are a screen-share call, or a
+remote-desktop tool like AnyDesk or TeamViewer — both mean installing
+software outside Moodle, and both hand the helper a live view (or full
+control) of the student's entire screen: other tabs, other applications,
+anything else open on that computer. Remote Assistance solves the same
+problem — a teacher seeing what a student sees, right when they're stuck —
+entirely inside Moodle, with none of that. The teacher only ever sees a
+reconstruction of the Moodle page the student is currently on: no other
+tab, no other application, no desktop, nothing outside Moodle. It is
+technically simpler than a remote-desktop tool (no external service, no
+video stream, no browser extension), and safer by construction, not just by
+policy.
 
-**Solo visualización.** El plugin implementa las Fases 1 y 2 del MVP
-definido en `AGENTS.md` (solicitud/sesión, y reconstrucción de pantalla
-con scroll/modales/CSS real), pero no las Fases 3, 5 y 6 ni la extensión
-de scroll bidireccional que llegaron a implementarse en una versión
-anterior: el profesor únicamente observa la navegación del alumno, sin
-cursor remoto, clic remoto, escritura remota ni capacidad de mover el
-scroll del alumno. Esta reducción de alcance fue una decisión explícita
-del usuario, documentada en `docs/decisions.md`; el código y las
-pruebas de esas capacidades se conservan accesibles en el tag de git
-`pre-viewonly-full-featured` por si se necesitan más adelante. Única
-excepción, añadida después y desactivada por defecto: el profesor puede
-señalar (no controlar) un elemento clicable en la pantalla del alumno —
-ver la entrada correspondiente más abajo.
+## What it does
 
-**Ampliación posterior — icono de solicitudes pendientes.** Un icono
-junto a mensajes/notificaciones en la barra de navegación avisa al
-profesorado de solicitudes de asistencia esperando, y lleva directamente
-a la pantalla de gestión al pulsarlo.
+- The student requests assistance from a course they're enrolled in,
+  optionally adding a short note about what's wrong.
+- A teacher with the right to provide assistance in that course sees the
+  request, accepts it, and enters a live session.
+- While the session is active, the teacher sees a reconstruction of the
+  page the student is on — including scrolling, opened modals, and the
+  student's mouse position — updated as the student navigates.
+- The teacher can point at a specific clickable element or form field on
+  the student's screen (a temporary, auto-expiring outline appears exactly
+  around it) to say "look here" — without touching anything themselves.
+- Either side can chat in a small floating panel, and either side can end
+  the session at any time. The student always sees a persistent status bar
+  confirming a session is active, who it's with, and a one-click way to end
+  it.
+- Teachers get a searchable history of their own past sessions, and can
+  replay a closed session's screen activity and chat, synchronized, at up
+  to 8x speed.
 
-**Ampliación posterior — botón flotante de solicitud.** Además del
-enlace en el menú del curso, un botón flotante visible en cualquier
-página de Moodle permite al alumno solicitar asistencia (o retomar una
-solicitud ya abierta) aunque no consiga llegar al menú del curso.
+## What it deliberately does not do
 
-**Ampliación posterior — motivo opcional.** Al solicitar asistencia, el
-alumno puede añadir un breve motivo en texto libre (opcional, máx. 255
-caracteres) que el profesor ve en su lista de solicitudes pendientes.
+This is the important part, and it's a design choice, not a missing
+feature:
 
-**Ampliación posterior — ajustes personales del profesor.** El icono del
-navbar ahora se muestra siempre (no solo con solicitudes pendientes) y
-da acceso a una pantalla de configuración personal donde el profesor
-puede activar o desactivar si acepta asistencia en este momento. Si
-ningún profesor de un curso la tiene activada, el alumno ve un aviso de
-"sin personal de soporte disponible" en vez del botón de solicitud.
+- **The teacher never controls the student's browser.** No remote clicks,
+  no remote typing, no remote scrolling. Pointing at an element is a
+  visual signal only — it never triggers a click or types anything.
+- **Nothing outside the current Moodle tab is ever visible.** No desktop
+  capture, no other browser tabs, no other applications, no content from
+  another domain, no content inside an embedded `<iframe>` (which rules
+  out most SCORM/H5P/LTI content — see [Known limitations](#known-limitations)).
+- **No real video or screen recording.** The "reconstruction" the teacher
+  sees is a sanitized copy of the page's structure (HTML/CSS), rendered
+  read-only inside a sandboxed frame with scripting disabled — not a video
+  stream, and it cannot be used to run anything.
+- **Passwords and hidden fields are never captured**, and no field's typed
+  *value* is ever transmitted — only, optionally, which field currently has
+  focus.
+- **No external service.** Everything happens inside your own Moodle
+  installation: no third-party server, no data leaving the site.
+- **No session runs unless a student explicitly asks for one**, and no
+  teacher can browse a student's screen without the student's own request
+  having been accepted first.
 
-**Ampliación posterior — ciclo de vida de solicitud/sesión sin recarga
-de página.** Solicitar, cancelar, aceptar y finalizar ya no dependen de
-recargar `request.php`/`view.php` para enterarse de un cambio de
-estado; el badge de solicitudes pendientes del navbar también se
-actualiza solo. Los formularios/enlaces de siempre siguen funcionando
-igual si JavaScript falla o está desactivado — ver
-`docs/decisions.md`/`docs/architecture.md` para el diseño.
+## Requirements
 
-**Ampliación posterior — modo de captura "página completa".** Ajuste de
-administración (`local_remotesupport/capturemode`) para que la
-reconstrucción del profesor incluya también la navegación, los bloques
-laterales y el pie de página, no solo el contenido principal. Aplica a
-todas las sesiones del sitio por igual; por defecto sigue capturando
-solo el contenido principal, como hasta ahora.
+- Moodle 4.1 or later.
+- PHP 8.0 or later.
 
-**Ampliación posterior — pantalla completa.** Un botón en la vista del
-profesor amplía la reconstrucción a pantalla completa (Fullscreen API
-nativa), reescalándose automáticamente para aprovechar el espacio
-disponible. La reconstrucción no reacciona a clics ni se puede
-desplazar manualmente por ninguna vía (rueda, teclado...) — su posición
-solo cambia por sincronización real con el alumno.
+## Installation
 
-**Ampliación posterior — chat de texto.** Caja flotante de chat entre
-profesor y alumno durante una sesión activa, en ambos lados. Los
-mensajes persisten mientras la sesión está activa (no solo unos
-minutos, como el resto de eventos efímeros) y desaparecen al cerrarla;
-no queda ningún transcript más allá de eso. Ver `docs/decisions.md`
-para el porqué de este diseño frente a la exclusión de "chat complejo"
-del documento base.
-
-**Ampliación posterior — grabación permanente de la sesión (solo
-almacenamiento por ahora).** La actividad de pantalla del alumno
-(`page`/`scroll`) se guarda de forma permanente durante un periodo de
-retención configurable (**Administración del sitio → Extensiones
-locales → Asistencia remota**: 15/30/90/180/365 días), para que más
-adelante alumno y profesor puedan reproducir sus sesiones pasadas. Esta
-fase implementa deliberadamente **solo el almacenamiento**, sin ninguna
-pantalla de listado o reproducción todavía. Se elimina de inmediato,
-sin esperar a la ventana de retención, si cualquiera de los dos
-participantes ejerce su derecho de supresión de datos personales.
-Colisiona conscientemente con dos requisitos del documento base
-(exclusión de "grabación de sesiones" y de conservar el contenido
-completo de las sesiones indefinidamente) — ver `docs/decisions.md`
-para el razonamiento completo y las políticas acordadas con el usuario.
-
-**Ampliación posterior — historial de sesiones del profesor.** Nueva
-página (`sessionhistory.php`, enlazada desde `view.php`) con un listado
-ordenable y paginado (fecha, curso, nombre y apellidos del alumno,
-duración) de las sesiones cerradas de un profesor, usando el
-`\table_sql` estándar de Moodle, con un selector de elementos por página
-(10/20/50/100, recordado como preferencia de usuario) igual al que usa
-el propio núcleo de Moodle. Incluye una columna "#" (el id de la
-sesión) que enlaza a su reproducción.
-
-**Ampliación posterior — reproducción de sesiones grabadas.** Pulsando
-la columna "#" del historial, el profesor puede reproducir una sesión
-cerrada (`sessionreplay.php`): ve todas las pantallas capturadas del
-alumno junto con la conversación de chat, sincronizadas en el tiempo,
-con controles de reproducir/pausar, velocidad (1x/2x/4x/8x) y una barra
-de progreso para saltar a cualquier punto. Requiere la capacidad
-`local/remotesupport:replaysession`, aparte de `viewsessionhistory` —
-ver un momento antes solo permite ver que la sesión existió; reproducirla
-expone su contenido completo. El chat solo se grabó de forma permanente
-a partir de esta ampliación: las sesiones cerradas antes no tienen
-conversación que reproducir, solo pantalla. Ver `docs/decisions.md` para
-el razonamiento completo.
-
-**Ampliación posterior — vista de solo chat en el historial.** Junto a
-la columna "#" de reproducción, `sessionhistory.php` tiene ahora una
-columna "Chat" con un enlace "Ver chat" por fila, que lleva a
-`sessionchat.php`: la transcripción completa de la conversación de una
-sesión, sola, sin cargar ni reproducir la pantalla — una alternativa
-más ligera cuando solo interesa repasar lo que se habló. Misma
-capacidad y autorización que la reproducción completa.
-
-**Ampliación posterior — posición del cursor del alumno.** La
-reconstrucción del profesor marca ahora con un punto dónde tiene el
-ratón el alumno, tanto en directo como en la reproducción de sesiones
-grabadas — puramente informativo, no un cursor que el profesor mueve.
-Solo se envía mientras el alumno mueve realmente el ratón (no hay datos
-mientras está quieto); la frecuencia de muestreo es un ajuste de
-administración (**Administración del sitio → Extensiones locales →
-Asistencia remota**, 200/500/1000/2000 ms). Se almacena permanentemente
-junto al resto de la grabación de sesión, una excepción deliberada y
-pedida explícitamente por el usuario a la política general de no
-guardar movimientos del ratón — ver `docs/decisions.md`.
-
-**Ampliación posterior — marca visual y sonido en los clics del
-alumno.** La reconstrucción del profesor marca ahora con un "ripple"
-breve dónde hace clic el alumno, con un sonido opcional (sintetizado,
-sin fichero de audio empaquetado), tanto en directo como en la
-reproducción de sesiones grabadas. Sonido controlable en dos niveles:
-un ajuste general en Ajustes del sitio (activado por defecto) y un
-botón de silenciar/activar en la propia barra del visor que solo
-cambia esa visualización concreta, sin guardarse. En la reproducción,
-la marca/el sonido solo aparecen reproduciendo hacia delante de forma
-natural, nunca al saltar con la barra de progreso.
-
-**Ampliación posterior — precisión del cursor y resaltado del
-elemento bajo el ratón.** Varias mejoras de precisión de la
-reconstrucción encadenadas: elementos `position: fixed` (como la
-barra de navegación) ya no pierden su comportamiento fijo al hacer
-scroll, captura de CSS inline, ancho de la reconstrucción sin incluir
-la barra de scroll, resincronización tras cada clic, y — la mejora
-más notable — la reconstrucción resalta con un contorno el elemento
-clicable concreto que el alumno tiene bajo el ratón (identificado por
-coincidencia de elemento, no de coordenadas), con el punto del cursor
-centrándose en él cuando hay resaltado. Ver `docs/decisions.md` para
-el porqué de cada paso y por qué la precisión total no es un objetivo
-alcanzable con esta arquitectura.
-
-**Ampliación posterior — aviso de despedida al alumno.** Cuando la
-sesión termina desde el otro lado (normalmente el profesor), la barra
-"Asistencia activa" del alumno se convierte en un aviso explícito de
-despedida con un botón "Cerrar", en vez de desaparecer sin más.
-
-**Ampliación posterior — mensaje explicativo en el formulario de
-solicitud.** El formulario "Solicitar asistencia" explica ahora en dos
-frases qué implica: qué puede ver el profesor, que solo observa, que
-hay chat, y que el alumno puede finalizar cuando quiera.
-
-**Ampliación posterior — vuelta a la página de origen al entrar en la
-sesión.** Al aceptar, el alumno ya no tiene que confirmar dos veces:
-`session.php` le redirige directamente a la página concreta donde
-pidió asistencia (guardada en el momento de la solicitud), en vez de
-mostrar una confirmación aparte que además llevaba siempre a la
-portada del curso.
-
-**Ampliación posterior — eliminar sesiones del historial.**
-`sessionhistory.php` gana una columna de casillas de selección y un
-botón "Eliminar seleccionadas", con la confirmación en dos pasos
-habitual de Moodle antes de borrar nada. Requiere la nueva capacidad
-`local/remotesupport:deletesessionhistory` (profesorado, por defecto),
-separada de `:replaysession` para poder revocar el borrado sin afectar
-a la reproducción; borrar elimina también la grabación de pantalla y
-el chat de esas sesiones, igual que ya hacía una baja de datos por
-privacidad.
-
-**Ampliación posterior — señalar un elemento clicable.** Con el nuevo
-ajuste `enableteacherpointer` activado (desactivado por defecto), el
-profesor puede elegir un elemento clicable dentro de su reconstrucción
-de la pantalla del alumno y dibujar un recuadro temporal alrededor de
-ese mismo elemento en la pantalla real del alumno, con una duración
-configurable en segundos tras la que desaparece solo. Es puramente
-visual — nunca ejecuta ningún clic ni concede ningún otro control — y
-reintroduce de forma selectiva y acotada una pieza concreta de la Fase
-3 original que se había retirado por completo; ver `docs/decisions.md`.
-
-## Requisitos
-
-- Moodle 4.1 o posterior.
-- PHP 8.0 o posterior.
-
-## Instalación
-
-1. Copiar (o enlazar) este directorio en `local/remotesupport` dentro del
-   `dirroot` de Moodle.
-2. Visitar `admin/index.php` como administrador para completar la
-   instalación (crea las tablas `local_remotesupport_session`,
-   `local_remotesupport_event` y `local_remotesupport_track`, las
-   capacidades, los once servicios AJAX, las tareas programadas y la
-   caché de límite de frecuencia).
-3. Asignar las capacidades si el instalador no las deja como se espera:
-   - `local/remotesupport:requestassistance` — alumnado (por defecto, vía
-     el arquetipo `student`).
+1. Copy (or symlink) this repository into `local/remotesupport` inside
+   your Moodle `dirroot`.
+2. Visit the site administration notifications page as an admin to
+   complete the installation.
+3. Review capability assignments if needed (defaults below are usually
+   correct out of the box):
+   - `local/remotesupport:requestassistance` — students, by default.
    - `local/remotesupport:provideassistance`,
      `local/remotesupport:viewactivesessions`,
      `local/remotesupport:viewsessionhistory`,
-     `local/remotesupport:replaysession` y
-     `local/remotesupport:deletesessionhistory` — profesorado (por
-     defecto, vía `teacher`/`editingteacher`).
-   - `local/remotesupport:managesessions` — administración (por defecto,
-     vía `manager`).
-4. Opcional: ajustar en **Administración del sitio → Extensiones locales →
-   Asistencia remota** el tiempo de caducidad de las solicitudes pendientes
-   (15 minutos por defecto).
+     `local/remotesupport:replaysession`,
+     `local/remotesupport:deletesessionhistory` — teachers, by default.
+   - `local/remotesupport:managesessions` — site managers/admins, by
+     default.
+4. Review the plugin's settings page (**Site administration → Plugins →
+   Local plugins → Remote assistance**) — see [Configuration](#configuration).
 
-## Uso básico
+## Configuration
 
-- El alumno accede a la página **Asistencia remota** desde el menú del
-  curso (`local/remotesupport/request.php?id=COURSEID`), o desde el botón
-  flotante visible en cualquier página, para solicitar asistencia, ver el
-  estado de su solicitud, cancelarla o entrar en la sesión una vez
-  aceptada.
-- El profesor accede a **Solicitudes de asistencia**
-  (`local/remotesupport/view.php`) para ver las solicitudes pendientes de
-  sus cursos, aceptarlas y entrar o finalizar sus sesiones abiertas.
-  Desde ahí (o desde el icono del navbar, siempre visible) llega a **Mis
-  ajustes** (`local/remotesupport/teachersettings.php`) para activar o
-  desactivar si acepta asistencia en este momento.
-- Cualquiera de los dos puede finalizar la sesión en cualquier momento
-  desde su propia página.
+All settings live under **Site administration → Plugins → Local plugins →
+Remote assistance**, and apply site-wide (there is no per-course
+configuration):
 
-## Pruebas
+| Setting | Purpose | Default |
+|---|---|---|
+| Pending request expiry | How long a request waits before it expires unanswered. | 15 minutes |
+| Screen capture mode | Main content only, or the full page (nav, blocks, footer included). | Main content only |
+| Cursor sampling rate | How often the student's mouse position is sampled while it's moving. | 500 ms |
+| Click sound | Play a short sound in the teacher's view on each student click. | On |
+| Recording retention | How long closed sessions' screen/chat recordings are kept, for replay. | 90 days |
+| Allow teacher to point at elements | Lets the teacher mark a clickable element or field on the student's screen — off by default, since it is an intentional, narrow exception to the "teacher only observes" rule below. | Off |
+| Pointer highlight duration | How long that outline stays visible before disappearing on its own. | 5 seconds |
 
-Ver [docs/testing.md](docs/testing.md) para el procedimiento de pruebas
-automáticas y manuales.
+## Privacy and security, in brief
 
-## Limitaciones conocidas
+- A [privacy provider](https://docs.moodle.org/dev/Privacy_API) is
+  implemented: users can see and export what personal data the plugin
+  holds about them, and request its deletion.
+- Session recordings (if retention is configured) are deleted immediately
+  on a data-deletion request, regardless of the retention window.
+- Every action is checked against Moodle capabilities and session
+  ownership; tokens are single-use, randomly generated, and stored only as
+  hashes.
+- Only a small, fixed set of event types is ever accepted from either
+  browser (page snapshot, scroll, cursor position, click position, chat
+  message, resync request, element pointer) — nothing else is interpreted,
+  and nothing received from a browser is ever executed as script.
+- The full threat model, capability list, and known residual risks are
+  documented in [`docs/security.md`](docs/security.md).
 
-Ver [docs/limitations.md](docs/limitations.md).
+## Known limitations
+
+This is an early-stage plugin; the most relevant limitations right now:
+
+- **View-only by design.** No remote click, remote typing, or remote
+  scroll — see above. The one exception (pointing at an element) is
+  opt-in and purely visual.
+- **No content inside `<iframe>` is captured**, which means SCORM, H5P,
+  LTI, and other activities that render inside their own frame will show
+  as an empty gap in the teacher's view, not an error.
+- **The reconstruction is a frozen snapshot, not a live, interactive
+  page** — links and buttons are visible but inert inside it.
+- **Heavily customized themes** that don't expose a standard main-content
+  region may fall back to reconstructing the whole page.
+- Full list, including edge cases and accepted trade-offs, in
+  [`docs/limitations.md`](docs/limitations.md).
+
+## Project status
+
+**Alpha.** All core flows (request/accept a session, live reconstruction,
+chat, history and replay, pointing at an element) work and are covered by
+an automated PHPUnit suite, but this plugin has not yet gone through a
+full Moodle Plugins directory submission and review. In particular:
+there is no automated JavaScript test suite yet, and no Behat coverage.
+See [`docs/decisions.md`](docs/decisions.md) for the history of design
+decisions, including an earlier, more feature-complete version (remote
+cursor, click, and typing) that was deliberately reduced to view-only for
+privacy and safety — that code remains available in this repository's git
+history if it's ever needed again.
+
+## Documentation
+
+- [`docs/architecture.md`](docs/architecture.md) — components, session and
+  event flow, transport, reconnection strategy.
+- [`docs/security.md`](docs/security.md) — threat model, capabilities,
+  allowed events, known risks.
+- [`docs/limitations.md`](docs/limitations.md) — everything this plugin
+  does not (yet) do.
+- [`docs/testing.md`](docs/testing.md) — automated and manual test
+  procedures.
+- [`docs/decisions.md`](docs/decisions.md) — why things are built the way
+  they are.
+- [`CHANGELOG.md`](CHANGELOG.md) — full release history.
+
+## License
+
+GNU GPL v3 or later — see the license header in each source file.
+
+## Support
+
+Please report bugs and feature requests via this repository's issue
+tracker.
