@@ -37,7 +37,9 @@ defined('MOODLE_INTERNAL') || die();
 class event_manager {
 
     /** @var string[] The only event types accepted so far. */
-    const EVENT_TYPES = ['page', 'scroll', 'cursor', 'student_click', 'resync_request', 'chat_message'];
+    const EVENT_TYPES = [
+        'page', 'scroll', 'cursor', 'student_click', 'resync_request', 'chat_message', 'teacher_highlight',
+    ];
 
     /** @var int Maximum length, in characters, of a chat_message payload's 'message'. */
     const MAX_CHAT_MESSAGE_LENGTH = 1000;
@@ -87,6 +89,13 @@ class event_manager {
      * 'chat_message' is always plain text,
      * rendered with textContent client-side, never interpreted as HTML —
      * no sanitizer involved, just a non-empty check and a length cap.
+     * 'teacher_highlight' carries a required 'selector' (same kind of CSS
+     * selector string as 'cursor''s 'hover'/'typing', bounded the same way,
+     * never interpreted as HTML or executed, only ever a querySelector()
+     * argument on the student's real page) and always gets its 'ttlms'
+     * overwritten here from the current local_remotesupport/teacherpointerttlseconds
+     * setting — the teacher's client never gets to choose how long its own
+     * highlight lingers on the student's screen.
      *
      * @param int $sessionid
      * @param int $sourceuserid
@@ -158,6 +167,19 @@ class event_manager {
             } else {
                 $payload['typing'] = null;
             }
+        }
+
+        if ($eventtype === 'teacher_highlight') {
+            if (!isset($payload['selector']) || !is_string($payload['selector']) || $payload['selector'] === '') {
+                throw new moodle_exception('errorinvalideventtype', 'local_remotesupport');
+            }
+            $payload['selector'] = core_text::substr($payload['selector'], 0, self::MAX_HOVER_SELECTOR_LENGTH);
+            // The ttl the alumno's browser will honour is always stamped here
+            // from the current site-wide setting, never taken from the
+            // teacher's own request — a modified client cannot make its own
+            // highlight linger longer than the admin allows.
+            $ttlseconds = (int) get_config('local_remotesupport', 'teacherpointerttlseconds');
+            $payload['ttlms'] = ($ttlseconds > 0 ? $ttlseconds : 5) * 1000;
         }
 
         if ($eventtype === 'chat_message') {

@@ -18,9 +18,15 @@
  * page snapshot inside a script-disabled sandboxed iframe, following the
  * student's own scroll position and mouse cursor, and marking where the
  * student clicks (visually, and optionally with a sound — see the mute
- * button and local_remotesupport/clicksound). Purely passive viewing: the
- * teacher cannot act on the student's page, click anything in it, or
- * scroll it manually.
+ * button and local_remotesupport/clicksound). Purely passive viewing
+ * otherwise: the teacher cannot act on the student's page, click anything
+ * in it, or scroll it manually — the one exception, only while
+ * local_remotesupport/enableteacherpointer is enabled, is a "Señalar
+ * elemento" button that lets the teacher pick a clickable element inside
+ * the reconstruction (screen_renderer.js's startPicking()) to draw a
+ * temporary, auto-expiring outline around that same element on the
+ * alumno's real page ('teacher_highlight' events) — still never executes
+ * anything on the alumno's behalf, purely a visual signal.
  * A button lets the teacher toggle the whole player into the browser's
  * native fullscreen mode for a larger view; the reconstruction rescales to
  * fit on entering/leaving it, same logic as a window resize.
@@ -84,8 +90,12 @@ define(
      * @param {Boolean} clicksounddefault Initial state of the click-sound mute
      *                                    toggle, from local_remotesupport/clicksound —
      *                                    the teacher can still change it for this viewing only.
+     * @param {Boolean} enableteacherpointer Whether local_remotesupport/enableteacherpointer
+     *                                       is on — if not, the "Señalar elemento" button is
+     *                                       never even created (server-side push is gated too,
+     *                                       see polling_transport.php; this is just the UI half).
      */
-    var init = function(sessionid, ownuserid, studentname, clicksounddefault) {
+    var init = function(sessionid, ownuserid, studentname, clicksounddefault, enableteacherpointer) {
         var container = document.getElementById('local-remotesupport-player');
         if (!container) {
             return;
@@ -121,6 +131,18 @@ define(
         soundButton.className = 'btn btn-outline-secondary btn-sm local-remotesupport-soundtoggle-btn';
         container.appendChild(soundButton);
 
+        // Only created at all when the site enables this — see the
+        // module doc comment. Absence of the button is the whole UI-side
+        // gate; polling_transport.php independently re-checks the same
+        // setting server-side regardless of what this client sends.
+        var pointerButton = null;
+        if (enableteacherpointer) {
+            pointerButton = document.createElement('button');
+            pointerButton.type = 'button';
+            pointerButton.className = 'btn btn-outline-secondary btn-sm local-remotesupport-pointer-btn';
+            container.appendChild(pointerButton);
+        }
+
         var viewportWrapper = document.createElement('div');
         viewportWrapper.className = 'local-remotesupport-player-viewport';
         container.appendChild(viewportWrapper);
@@ -146,7 +168,9 @@ define(
             {key: 'button_fullscreen', component: 'local_remotesupport'},
             {key: 'button_exitfullscreen', component: 'local_remotesupport'},
             {key: 'button_mutesound', component: 'local_remotesupport'},
-            {key: 'button_unmutesound', component: 'local_remotesupport'}
+            {key: 'button_unmutesound', component: 'local_remotesupport'},
+            {key: 'button_startpointer', component: 'local_remotesupport'},
+            {key: 'button_stoppointer', component: 'local_remotesupport'}
         ]).then(function(strings) {
             var setState = function(state, label) {
                 indicator.textContent = label;
@@ -161,6 +185,39 @@ define(
                 soundEnabled = !soundEnabled;
                 updateSoundButton();
             });
+
+            // Toggles screen_renderer's picking mode on/off; each pick just
+            // pushes a 'teacher_highlight' event and stays in picking mode,
+            // so the teacher can point at several elements in a row without
+            // having to re-enable it each time. Server-side ttl (stamped by
+            // event_manager.php from local_remotesupport/teacherpointerttlseconds)
+            // decides how long each one actually shows on the alumno's page.
+            var pickingActive = false;
+            var updatePointerButton = function() {
+                if (!pointerButton) {
+                    return;
+                }
+                pointerButton.textContent = pickingActive ? strings[11] : strings[10];
+                pointerButton.classList.toggle('active', pickingActive);
+            };
+            if (pointerButton) {
+                updatePointerButton();
+                pointerButton.addEventListener('click', function() {
+                    pickingActive = !pickingActive;
+                    if (pickingActive) {
+                        renderer.startPicking(function(selector) {
+                            Transport.pushEvent(sessionid, 'teacher_highlight', {selector: selector}).catch(function() {
+                                // Transient network/server errors: the alumno
+                                // simply doesn't see this one mark, nothing else
+                                // to recover here.
+                            });
+                        });
+                    } else {
+                        renderer.stopPicking();
+                    }
+                    updatePointerButton();
+                });
+            }
 
             fullscreenButton.textContent = strings[6];
             fullscreenButton.addEventListener('click', function() {
@@ -222,6 +279,7 @@ define(
                 }
                 setState('ended', label);
                 chat.destroy();
+                renderer.stopPicking();
             };
 
             // The connection indicator badge is easy to miss while looking

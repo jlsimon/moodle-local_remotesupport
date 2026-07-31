@@ -260,6 +260,51 @@ class polling_transport_test extends \advanced_testcase {
         $this->assertSame((int) $teacher->id, (int) $recorded[1]->sourceuserid);
     }
 
+    public function test_teacher_cannot_push_teacher_highlight_when_setting_disabled(): void {
+        // Off by default (see settings.php) — this selectively re-introduces
+        // one narrow piece of the teacher-driven interaction the plugin
+        // deliberately removed, so it must stay opt-in. Not just a UI gate:
+        // the server independently refuses the push regardless of what the
+        // teacher's client attempts.
+        $this->resetAfterTest();
+        [$session, , $teacher] = $this->setup_active_session();
+
+        $this->expectException(\moodle_exception::class);
+        (new polling_transport())->push_event($session->id, $teacher->id, 'teacher_highlight', ['selector' => '#x']);
+    }
+
+    public function test_teacher_can_push_teacher_highlight_when_setting_enabled(): void {
+        $this->resetAfterTest();
+        set_config('enableteacherpointer', 1, 'local_remotesupport');
+        [$session, , $teacher] = $this->setup_active_session();
+
+        $event = (new polling_transport())->push_event($session->id, $teacher->id, 'teacher_highlight', ['selector' => '#x']);
+
+        $this->assertSame('teacher_highlight', $event->eventtype);
+    }
+
+    public function test_student_cannot_push_teacher_highlight_even_when_enabled(): void {
+        $this->resetAfterTest();
+        set_config('enableteacherpointer', 1, 'local_remotesupport');
+        [$session, $student] = $this->setup_active_session();
+
+        $this->expectException(\moodle_exception::class);
+        (new polling_transport())->push_event($session->id, $student->id, 'teacher_highlight', ['selector' => '#x']);
+    }
+
+    public function test_teacher_highlight_is_not_permanently_recorded(): void {
+        // Real-time only, unlike page/scroll/cursor/student_click/chat_message
+        // — a deliberate scope decision, see track_manager::TRACKED_EVENT_TYPES.
+        global $DB;
+        $this->resetAfterTest();
+        set_config('enableteacherpointer', 1, 'local_remotesupport');
+        [$session, , $teacher] = $this->setup_active_session();
+
+        (new polling_transport())->push_event($session->id, $teacher->id, 'teacher_highlight', ['selector' => '#x']);
+
+        $this->assertCount(0, $DB->get_records('local_remotesupport_track', ['sessionid' => $session->id]));
+    }
+
     public function test_closing_session_does_not_purge_the_recording(): void {
         // The whole point of the recording is to survive the session
         // closing — only an erasure request or the retention-window task

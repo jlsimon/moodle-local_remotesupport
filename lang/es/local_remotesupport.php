@@ -197,6 +197,13 @@ $string['setting_clicksound'] = 'Reproducir un sonido cuando el alumno hace clic
 $string['setting_clicksound_desc'] = 'Si el navegador del profesor reproduce un sonido breve cada vez que el alumno hace clic en algo, además de la marca visual. Es el valor por defecto de cada nueva sesión; el profesor puede silenciarlo o activarlo igualmente para la sesión que esté viendo en ese momento.';
 $string['button_mutesound'] = 'Silenciar sonido de clic';
 $string['button_unmutesound'] = 'Activar sonido de clic';
+$string['setting_enableteacherpointer'] = 'Permitir que el profesor señale elementos';
+$string['setting_enableteacherpointer_desc'] = 'Si el profesor puede elegir un elemento clicable dentro de su reconstrucción de la pantalla del alumno y dibujar un recuadro temporal alrededor de ese mismo elemento en la pantalla real del alumno, para señalarlo sin actuar sobre él de ninguna forma. Desactivado por defecto. Se aplica a todas las sesiones del sitio.';
+$string['setting_teacherpointerttlseconds'] = 'Duración del señalado';
+$string['setting_teacherpointerttlseconds_desc'] = 'Cuánto tiempo permanece visible en la pantalla del alumno el recuadro que dibuja el profesor alrededor de un elemento, antes de desaparecer por sí solo.';
+$string['button_startpointer'] = 'Señalar elemento';
+$string['button_stoppointer'] = 'Dejar de señalar';
+$string['teacherpointer_label'] = 'El profesor está señalando esto';
 
 // Privacidad.
 $string['privacy:path'] = 'Sesiones de asistencia remota';

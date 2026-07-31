@@ -17,10 +17,14 @@
  * Student-side screen capture: builds sanitized page snapshots and pushes
  * them for the teacher to see, and shows the persistent "assistance active"
  * status bar with a finish button and a floating text chat
- * (local_remotesupport/chat_widget). View-only otherwise: the teacher can
- * watch the student's navigation and scroll position but cannot act on the
- * student's page in any way. Loaded on every Moodle page while the student
- * has an active session (see lib.php::local_remotesupport_before_footer()).
+ * (local_remotesupport/chat_widget). Otherwise view-only: the teacher can
+ * watch the student's navigation and scroll position, and — only if the
+ * site enables local_remotesupport/enableteacherpointer — point at a
+ * clickable element to draw a temporary, auto-expiring outline around it on
+ * the alumno's real page (applyTeacherPointer(), 'teacher_highlight'
+ * events); the teacher still cannot act on the student's page in any other
+ * way. Loaded on every Moodle page while the student has an active session
+ * (see lib.php::local_remotesupport_before_footer()).
  *
  * When the session ends from the other side (the teacher, or a manager, or
  * expiry — see showSessionEndedNotice()'s doc comment), the status bar
@@ -109,16 +113,13 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 define(
-    ['jquery', 'core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_widget'],
-    function($, Str, Transport, ChatWidget) {
+    ['jquery', 'core/str', 'local_remotesupport/transport', 'local_remotesupport/chat_widget', 'local_remotesupport/dom_selector'],
+    function($, Str, Transport, ChatWidget, DomSelector) {
 
     var MAIN_CONTENT_SELECTORS = ['#region-main', 'main[role="main"]', 'main', 'body'];
     var MODAL_SELECTOR = '.modal.show, .modal.in, [aria-modal="true"]';
     var BLOCKED_TAGS = ['script', 'iframe', 'object', 'embed', 'applet', 'noscript', 'link', 'meta'];
     var OWN_CLASS_PREFIX = 'local-remotesupport-';
-    var CLICKABLE_SELECTOR = 'a[href], button, input[type="submit"], input[type="button"], ' +
-        'input[type="checkbox"], input[type="radio"], select, summary, label, ' +
-        '[role="button"], [role="link"], [role="tab"], [role="menuitem"]';
     // Text-like fields whose *focus* (never their value, see the module doc
     // comment) is worth showing the teacher, so they can see which field
     // the alumno is currently typing in. Password and hidden inputs are
@@ -127,17 +128,6 @@ define(
     // stricter category than ordinary text fields.
     var TEXT_FIELD_SELECTOR = 'textarea, input:not([type]), input[type="text"], input[type="search"], ' +
         'input[type="url"], input[type="tel"], input[type="number"], input[type="email"]';
-    // A safety net against a pathological/circular DOM, not a real limit:
-    // real Moodle markup can easily nest 10-15+ levels deep (Bootstrap
-    // wrappers, section/activity containers) before reaching either an
-    // ancestor with an id or the document root, and buildRobustSelector()
-    // needs to actually reach one of those two to produce a selector
-    // querySelector() can resolve reliably — stopping short at an
-    // arbitrary depth produced a selector anchored to nothing, which
-    // essentially never matched anything for elements without an id (the
-    // common case: most Moodle links/buttons don't have one). See
-    // docs/decisions.md.
-    var HOVER_SELECTOR_MAX_DEPTH = 30;
     var PAGE_HEARTBEAT_MS = 5000;
     var PAGE_DEBOUNCE_MS = 1500;
     var SCROLL_THROTTLE_MS = 300;
@@ -161,72 +151,6 @@ define(
      */
     var isOwnElement = function(node) {
         return node.nodeType === 1 && !!(node.closest && node.closest('[class*="' + OWN_CLASS_PREFIX + '"]'));
-    };
-
-    /**
-     * Nearest interactive ancestor of $node (including itself), or null.
-     * Used to decide what to highlight in the teacher's reconstruction
-     * while the alumno's mouse hovers a clickable element — see
-     * buildRobustSelector() below.
-     *
-     * @param {Node} node
-     * @return {Element|null}
-     */
-    var findClickableAncestor = function(node) {
-        if (!node || node.nodeType !== 1 || !node.closest) {
-            return null;
-        }
-        return node.closest(CLICKABLE_SELECTOR);
-    };
-
-    /**
-     * Builds a selector that (best-effort) identifies the same element
-     * again inside the teacher's reconstructed, sandboxed DOM — a
-     * different document, captured slightly earlier, not the live one
-     * this runs against. Preference order mirrors the "selectores
-     * robustos" guidance from the original spec for the (since removed)
-     * teacher-driven highlight feature: a stable `id` first (survives
-     * reordering/insertions elsewhere on the page, so the most reliable
-     * choice by far), falling back to a structural path (tag + position
-     * among same-tag siblings) that walks up to either an ancestor with an
-     * `id` or the document root, whichever comes first — HOVER_SELECTOR_MAX_DEPTH
-     * only guards against never terminating, it is not meant to be hit in
-     * practice. The structural fallback is genuinely best-effort: if the captured
-     * snapshot is even slightly stale, sibling order could have shifted
-     * and the selector might miss or match the wrong element — accepted,
-     * see docs/limitations.md, since a miss just means no highlight
-     * shows, not a wrong action.
-     *
-     * @param {Element} el
-     * @return {String|null}
-     */
-    var buildRobustSelector = function(el) {
-        if (el.id) {
-            return '#' + CSS.escape(el.id);
-        }
-
-        var parts = [];
-        var node = el;
-        var depth = 0;
-        while (node && node.nodeType === 1 && depth < HOVER_SELECTOR_MAX_DEPTH) {
-            if (node.id) {
-                parts.unshift('#' + CSS.escape(node.id));
-                break;
-            }
-            var parent = node.parentElement;
-            if (!parent) {
-                parts.unshift(node.tagName.toLowerCase());
-                break;
-            }
-            var sameTagSiblings = Array.prototype.filter.call(parent.children, function(sibling) {
-                return sibling.tagName === node.tagName;
-            });
-            var position = sameTagSiblings.indexOf(node) + 1;
-            parts.unshift(node.tagName.toLowerCase() + ':nth-of-type(' + position + ')');
-            node = parent;
-            depth++;
-        }
-        return parts.join(' > ');
     };
 
     /**
@@ -732,6 +656,101 @@ define(
             });
         };
 
+        // Overlay shown while the teacher is pointing at a clickable element
+        // on the alumno's real page ('teacher_highlight', gated behind
+        // local_remotesupport/enableteacherpointer — off by default, see
+        // docs/decisions.md). Purely visual: `pointer-events: none` so it
+        // never blocks the alumno's own clicks, and it always auto-expires
+        // after the ttl the server stamped into the event (event_manager.php),
+        // never something this client decides for itself. Repositions on
+        // scroll/resize (throttled) while showing, since it overlays the
+        // real, live page, not a static snapshot.
+        var teacherPointerLabelText = '';
+        var teacherPointerBox = null;
+        var teacherPointerEl = null;
+        var teacherPointerTimer = null;
+        var teacherPointerReposition = null;
+
+        var positionTeacherPointer = function() {
+            if (!teacherPointerEl || !teacherPointerBox) {
+                return;
+            }
+            var rect = teacherPointerEl.getBoundingClientRect();
+            teacherPointerBox.style.left = rect.left + 'px';
+            teacherPointerBox.style.top = rect.top + 'px';
+            teacherPointerBox.style.width = rect.width + 'px';
+            teacherPointerBox.style.height = rect.height + 'px';
+        };
+
+        var clearTeacherPointer = function() {
+            if (teacherPointerTimer !== null) {
+                window.clearTimeout(teacherPointerTimer);
+                teacherPointerTimer = null;
+            }
+            if (teacherPointerReposition) {
+                window.removeEventListener('scroll', teacherPointerReposition, true);
+                window.removeEventListener('resize', teacherPointerReposition);
+                teacherPointerReposition = null;
+            }
+            teacherPointerEl = null;
+            if (teacherPointerBox && teacherPointerBox.parentNode) {
+                teacherPointerBox.parentNode.removeChild(teacherPointerBox);
+            }
+            teacherPointerBox = null;
+        };
+
+        var applyTeacherPointer = function(selector, ttlms) {
+            clearTeacherPointer();
+            if (!selector || typeof selector !== 'string') {
+                return;
+            }
+            var el;
+            try {
+                // Scoped to the same capture root event_capture.js itself
+                // sends for reconstruction (findCaptureRoot(mode)), not
+                // document.querySelector() directly: the selector the
+                // teacher's side built (DomSelector.buildRobustSelector(),
+                // run inside the reconstructed iframe) is relative to that
+                // root's captured content whenever it couldn't anchor on a
+                // real id — see dom_selector.js's doc comment. Element.querySelector()
+                // still resolves an absolute '#id' selector exactly like
+                // document.querySelector() would, so this is a strict
+                // superset of the old behaviour, not a narrower one.
+                el = findCaptureRoot(mode).querySelector(selector);
+            } catch (e) {
+                // Malformed/stale selector — no highlight, not an error,
+                // same treatment as the hover/typing highlight above.
+                return;
+            }
+            if (!el || isOwnElement(el)) {
+                return;
+            }
+
+            teacherPointerEl = el;
+            teacherPointerBox = document.createElement('div');
+            teacherPointerBox.className = 'local-remotesupport-teacher-pointer';
+            var label = document.createElement('span');
+            label.className = 'local-remotesupport-teacher-pointer-label';
+            label.textContent = teacherPointerLabelText;
+            teacherPointerBox.appendChild(label);
+            document.body.appendChild(teacherPointerBox);
+            positionTeacherPointer();
+
+            teacherPointerReposition = throttle(positionTeacherPointer, 100);
+            window.addEventListener('scroll', teacherPointerReposition, true);
+            window.addEventListener('resize', teacherPointerReposition);
+
+            var ttl = (typeof ttlms === 'number' && ttlms > 0) ? ttlms : 5000;
+            teacherPointerTimer = window.setTimeout(clearTeacherPointer, ttl);
+        };
+
+        Str.get_string('teacherpointer_label', 'local_remotesupport').then(function(label) {
+            teacherPointerLabelText = label;
+            return null;
+        }).catch(function() {
+            // Non-fatal: the box still shows without its text label.
+        });
+
         var cleanup = function() {
             stickyFooterObserver.disconnect();
             chat.destroy();
@@ -741,6 +760,7 @@ define(
             if (bodyObserver) {
                 bodyObserver.disconnect();
             }
+            clearTeacherPointer();
             showSessionEndedNotice();
         };
 
@@ -757,6 +777,16 @@ define(
                         sendPageSnapshot();
                     } else if (event.eventtype === 'chat_message') {
                         chat.receive(event, isReplay);
+                    } else if (event.eventtype === 'teacher_highlight') {
+                        var highlightPayload;
+                        try {
+                            highlightPayload = JSON.parse(event.payload);
+                        } catch (e) {
+                            highlightPayload = null;
+                        }
+                        if (highlightPayload) {
+                            applyTeacherPointer(highlightPayload.selector, highlightPayload.ttlms);
+                        }
                     }
                 });
                 return null;
@@ -808,8 +838,8 @@ define(
         window.addEventListener('mousemove', function(e) {
             lastCursorX = e.clientX;
             lastCursorY = e.clientY;
-            var hoverEl = findClickableAncestor(e.target);
-            lastHoverSelector = (hoverEl && !isOwnElement(hoverEl)) ? buildRobustSelector(hoverEl) : null;
+            var hoverEl = DomSelector.findClickableAncestor(e.target);
+            lastHoverSelector = (hoverEl && !isOwnElement(hoverEl)) ? DomSelector.buildRobustSelector(hoverEl) : null;
             throttledSendCursor();
         }, {passive: true});
 
@@ -843,7 +873,7 @@ define(
         // cursor tick could delay or altogether miss showing the highlight.
         document.addEventListener('focusin', function(e) {
             if (e.target.matches && e.target.matches(TEXT_FIELD_SELECTOR) && !isOwnElement(e.target)) {
-                lastTypingSelector = buildRobustSelector(e.target);
+                lastTypingSelector = DomSelector.buildRobustSelector(e.target);
                 sendCursor();
             }
         }, {passive: true});

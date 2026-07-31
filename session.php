@@ -101,5 +101,6 @@ $PAGE->requires->js_call_amd('local_remotesupport/event_player', 'init', [
     (int) $USER->id,
     fullname($student),
     (bool) get_config('local_remotesupport', 'clicksound'),
+    (bool) get_config('local_remotesupport', 'enableteacherpointer'),
 ]);
 echo $OUTPUT->footer();

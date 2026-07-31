@@ -86,14 +86,43 @@
  * student's mouse stays right where it was; renderPage() re-applies
  * lastHoverSelector once the new document loads to compensate.
  *
+ * Also supports "picking" mode (startPicking()/stopPicking()), used only by
+ * event_player.js and only while local_remotesupport/enableteacherpointer is
+ * enabled: while active, hovering a clickable element (same notion of
+ * "clickable" as event_capture.js's own hover highlight, shared via
+ * local_remotesupport/dom_selector) previews it inside this reconstructed
+ * document, and clicking it computes a selector and hands it to the
+ * caller's callback — never lets the click do anything real, since it
+ * never actually reaches an element *inside* the iframe's document at all.
+ * The 'mousemove'/'click' listeners live on viewportWrapper instead (see
+ * elementUnderPointer()'s doc comment): a scaled iframe (true whenever the
+ * teacher's viewport is narrower than the alumno's captured one) nested
+ * inside an `overflow: hidden` ancestor sized to its *scaled* dimensions —
+ * exactly viewportWrapper's own situation — turns out to never receive a
+ * real pointer event at all, confirmed live via a raw synthetic mouse move
+ * producing zero events on the iframe element itself even though the
+ * browser's own hit-testing agrees it is topmost there; viewportWrapper (not
+ * itself scaled) receives the same events completely normally — see
+ * docs/decisions.md. elementFromPoint() with manually unscaled coordinates,
+ * run against iframe.contentDocument, is what actually finds the element
+ * under the pointer. The caller (event_player.js) is responsible for turning
+ * the resulting selector into a 'teacher_highlight' event; this module knows
+ * nothing about the transport.
+ *
  * @module     local_remotesupport/screen_renderer
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define([], function() {
+define(['local_remotesupport/dom_selector'], function(DomSelector) {
 
-    var VIEWPORT_CONTENT_ID = 'local-remotesupport-viewport-content';
+    // Single source of truth in dom_selector.js: buildRobustSelector()
+    // needs to recognise this exact id to avoid anchoring a selector on it
+    // (see that module's doc comment) — kept here as a local alias only
+    // for brevity at the two call sites below.
+    var VIEWPORT_CONTENT_ID = DomSelector.VIEWPORT_CONTENT_ID;
     var CLICK_MARK_DURATION_MS = 600;
+    var PICKING_ACTIVE_CLASS = 'local-remotesupport-picking-active';
+    var PICKING_CANDIDATE_CLASS = 'local-remotesupport-picking-candidate';
 
     var audioCtx = null;
 
@@ -135,7 +164,8 @@ define([], function() {
      * @param {HTMLIFrameElement} iframe
      * @param {HTMLElement} viewportWrapper
      * @return {Object} {applyViewportSize, applyScrollPosition, renderPage,
-     *                    applyCursorPosition, hideCursor, showClickMark, playClickSound}
+     *                    applyCursorPosition, hideCursor, showClickMark, playClickSound,
+     *                    startPicking, stopPicking}
      */
     var create = function(iframe, viewportWrapper) {
         var lastViewport = null;
@@ -147,6 +177,8 @@ define([], function() {
         var lastHoverSelector = null;
         var lastTypingEl = null;
         var lastTypingSelector = null;
+        var pickingCallback = null;
+        var pickingCandidateEl = null;
 
         // Forces the iframe to actually be the alumno's own reported
         // viewport size (not just visually similar), then shrinks it back
@@ -369,6 +401,132 @@ define([], function() {
             }
         };
 
+        var clearPickingCandidate = function() {
+            if (pickingCandidateEl) {
+                pickingCandidateEl.classList.remove(PICKING_CANDIDATE_CLASS);
+                pickingCandidateEl = null;
+            }
+        };
+
+        /**
+         * Resolves a mouse event's screen position to the element it lands
+         * on *inside* the iframe's own document — via elementFromPoint()
+         * with manually unscaled coordinates, never by letting the browser
+         * dispatch the native event across the document boundary itself.
+         * That native cross-document delivery turns out not to happen at
+         * all for a *scaled* iframe nested inside an `overflow: hidden`
+         * ancestor sized to its scaled (not its native, laid-out) dimensions
+         * — exactly viewportWrapper's own situation (see its CSS): confirmed
+         * live (see docs/decisions.md, "picking no funcionaba en un iframe
+         * reescalado") that a real mouse move over the visibly-correct spot
+         * produces zero events on the iframe element itself, even though
+         * `document.elementFromPoint()` on the outer page agrees the iframe
+         * is topmost there — a real hit-testing limitation of this exact
+         * combination, not a coordinate-math bug, and not specific to any
+         * one testing tool. viewportWrapper itself (not scaled, only
+         * clipped) receives events over that same area completely normally,
+         * which is why the listeners below are attached there instead of to
+         * the iframe. elementFromPoint() on the iframe's *own* document is
+         * unaffected either way: a plain synchronous DOM query the parent's
+         * own script already has every right to make
+         * (sandbox="allow-same-origin"), regardless of which outer element
+         * actually received the triggering event.
+         *
+         * @param {MouseEvent} e A 'mousemove'/'click' on viewportWrapper.
+         * @return {Element|null}
+         */
+        var elementUnderPointer = function(e) {
+            var doc = iframe.contentDocument;
+            if (!doc) {
+                return null;
+            }
+            var rect = iframe.getBoundingClientRect();
+            var scale = lastScale || 1;
+            var x = (e.clientX - rect.left) / scale;
+            var y = (e.clientY - rect.top) / scale;
+            return doc.elementFromPoint(x, y);
+        };
+
+        var handlePickingMouseMove = function(e) {
+            var el = elementUnderPointer(e);
+            var candidate = el ? DomSelector.findClickableAncestor(el) : null;
+            if (candidate === pickingCandidateEl) {
+                return;
+            }
+            clearPickingCandidate();
+            if (candidate) {
+                candidate.classList.add(PICKING_CANDIDATE_CLASS);
+                pickingCandidateEl = candidate;
+            }
+        };
+
+        var handlePickingClick = function(e) {
+            var el = elementUnderPointer(e);
+            var candidate = el ? DomSelector.findClickableAncestor(el) : null;
+            if (candidate && pickingCallback) {
+                pickingCallback(DomSelector.buildRobustSelector(candidate));
+            }
+        };
+
+        // Listeners live on viewportWrapper, not on the iframe itself or on
+        // iframe.contentDocument — see elementUnderPointer()'s doc comment
+        // for why. A welcome side effect of not needing anything attached
+        // to the document specifically: the iframe element (and its
+        // wrapper) are stable references across every renderPage() reload
+        // (unlike contentDocument, replaced wholesale each time srcdoc
+        // changes), so these never need re-attaching after a reload the way
+        // per-document listeners would.
+        var attachPickingListeners = function() {
+            if (!pickingCallback) {
+                return;
+            }
+            viewportWrapper.addEventListener('mousemove', handlePickingMouseMove);
+            viewportWrapper.addEventListener('click', handlePickingClick);
+            var doc = iframe.contentDocument;
+            if (doc && doc.body) {
+                doc.body.classList.add(PICKING_ACTIVE_CLASS);
+            }
+        };
+
+        var detachPickingListeners = function() {
+            viewportWrapper.removeEventListener('mousemove', handlePickingMouseMove);
+            viewportWrapper.removeEventListener('click', handlePickingClick);
+            var doc = iframe.contentDocument;
+            if (doc && doc.body) {
+                doc.body.classList.remove(PICKING_ACTIVE_CLASS);
+            }
+        };
+
+        /**
+         * Enters picking mode: the next clicks inside the reconstruction
+         * pick a clickable element instead of doing anything else, until
+         * stopPicking() is called. Safe to call again with a new callback
+         * without an intervening stopPicking() (just replaces it).
+         *
+         * @param {Function} onPick Called with a selector string each time
+         *                          the teacher clicks a clickable element.
+         */
+        var startPicking = function(onPick) {
+            detachPickingListeners();
+            pickingCallback = onPick;
+            // Deliberately does NOT touch the iframe's own `pointer-events`
+            // (styles.css keeps it permanently `none` — "nothing captured
+            // inside it can ever react to a stray click"): the listeners
+            // above are on viewportWrapper, never the iframe, so nothing
+            // here depends on the iframe being able to receive events at
+            // all. See elementUnderPointer()'s doc comment.
+            attachPickingListeners();
+        };
+
+        /**
+         * Leaves picking mode: no-op if not currently picking.
+         */
+        var stopPicking = function() {
+            detachPickingListeners();
+            clearPickingCandidate();
+            pickingCallback = null;
+        };
+
         /**
          * @param {Object} payload Decoded 'page' event payload.
          * @param {HTMLElement} [pageInfo] Optional element to show title/url in.
@@ -439,6 +597,21 @@ define([], function() {
                 }
                 applyHoverHighlight(lastHoverSelector);
                 applyTypingHighlight(lastTypingSelector);
+                // A fresh srcdoc is a brand-new document — any candidate
+                // element the old one referenced no longer exists, so just
+                // drop the reference rather than try to un-mark it. The
+                // picking listeners themselves live on the stable iframe
+                // element (see attachPickingListeners()'s doc comment), so
+                // they need no re-attaching here, but the new document's
+                // <body> still needs the active-picking class re-applied,
+                // since it is a fresh element too.
+                pickingCandidateEl = null;
+                if (pickingCallback) {
+                    var newDoc = iframe.contentDocument;
+                    if (newDoc && newDoc.body) {
+                        newDoc.body.classList.add(PICKING_ACTIVE_CLASS);
+                    }
+                }
             };
             // html/body get no scrollable overflow of their own — see the
             // module doc comment. The modal and any extracted fixed
@@ -456,7 +629,11 @@ define([], function() {
                 '.local-remotesupport-typing-highlight{' +
                 'outline:3px solid rgba(40,167,69,.85) !important;' +
                 'outline-offset:2px !important;' +
-                'background-color:rgba(40,167,69,.12) !important;}</style>' +
+                'background-color:rgba(40,167,69,.12) !important;}' +
+                '.' + PICKING_ACTIVE_CLASS + ',.' + PICKING_ACTIVE_CLASS + ' *{cursor:crosshair !important;}' +
+                '.' + PICKING_CANDIDATE_CLASS + '{' +
+                'outline:3px dashed rgba(13,110,253,.85) !important;' +
+                'outline-offset:2px !important;}</style>' +
                 '</head><body>' +
                 '<div id="' + VIEWPORT_CONTENT_ID + '">' + payload.html + '</div>' +
                 modalHtml + fixedHtml + '</body></html>';
@@ -479,7 +656,9 @@ define([], function() {
             applyCursorPosition: applyCursorPosition,
             hideCursor: hideCursor,
             showClickMark: showClickMark,
-            playClickSound: playClickSound
+            playClickSound: playClickSound,
+            startPicking: startPicking,
+            stopPicking: stopPicking
         };
     };
 

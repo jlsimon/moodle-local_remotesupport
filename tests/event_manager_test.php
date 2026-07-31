@@ -402,6 +402,74 @@ class event_manager_test extends \advanced_testcase {
         $this->assertNotNull($fromother);
     }
 
+    public function test_teacher_highlight_event_type_accepted(): void {
+        $this->resetAfterTest();
+
+        $event = event_manager::record_event(1, 2, 'teacher_highlight', ['selector' => '#some-link']);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertSame('teacher_highlight', $event->eventtype);
+        $this->assertSame('#some-link', $payload['selector']);
+    }
+
+    public function test_rejects_teacher_highlight_missing_selector(): void {
+        $this->resetAfterTest();
+
+        $this->expectException(\moodle_exception::class);
+        event_manager::record_event(1, 2, 'teacher_highlight', []);
+    }
+
+    public function test_rejects_teacher_highlight_blank_selector(): void {
+        $this->resetAfterTest();
+
+        $this->expectException(\moodle_exception::class);
+        event_manager::record_event(1, 2, 'teacher_highlight', ['selector' => '']);
+    }
+
+    public function test_teacher_highlight_selector_is_truncated(): void {
+        $this->resetAfterTest();
+
+        $long = str_repeat('a', event_manager::MAX_HOVER_SELECTOR_LENGTH + 50);
+        $event = event_manager::record_event(1, 2, 'teacher_highlight', ['selector' => $long]);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertSame(event_manager::MAX_HOVER_SELECTOR_LENGTH, strlen($payload['selector']));
+    }
+
+    public function test_teacher_highlight_ttl_is_stamped_from_config(): void {
+        $this->resetAfterTest();
+        set_config('teacherpointerttlseconds', 7, 'local_remotesupport');
+
+        $event = event_manager::record_event(1, 2, 'teacher_highlight', ['selector' => '#x']);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertSame(7000, $payload['ttlms']);
+    }
+
+    public function test_teacher_highlight_ttl_ignores_client_supplied_value(): void {
+        // The teacher's own client never gets to decide how long its
+        // highlight lingers on the alumno's screen — see the module doc
+        // comment. A modified client sending its own 'ttlms' must be
+        // overwritten, not merely supplemented.
+        $this->resetAfterTest();
+        set_config('teacherpointerttlseconds', 3, 'local_remotesupport');
+
+        $event = event_manager::record_event(1, 2, 'teacher_highlight', ['selector' => '#x', 'ttlms' => 999999]);
+
+        $payload = json_decode($event->payload, true);
+        $this->assertSame(3000, $payload['ttlms']);
+    }
+
+    public function test_teacher_highlight_events_are_rate_limited(): void {
+        $this->resetAfterTest();
+
+        $first = event_manager::record_event(1, 2, 'teacher_highlight', ['selector' => '#a']);
+        $second = event_manager::record_event(1, 2, 'teacher_highlight', ['selector' => '#b']);
+
+        $this->assertNotNull($first);
+        $this->assertNull($second);
+    }
+
     public function test_purge_stale_events_exempts_chat_message(): void {
         global $DB;
         $this->resetAfterTest();

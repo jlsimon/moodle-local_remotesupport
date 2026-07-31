@@ -87,6 +87,33 @@
     }
 }
 
+.local-remotesupport-teacher-pointer {
+    position: fixed;
+    box-sizing: border-box;
+    border: 3px solid rgba(13, 110, 253, 0.9);
+    border-radius: 3px;
+    background: rgba(13, 110, 253, 0.08);
+    /* Purely a visual signal: never intercepts the student's own clicks on
+       the real element underneath it, exactly like the reconstruction's own
+       cursor/click marks. */
+    pointer-events: none;
+    z-index: 100000;
+    transition: left 0.15s linear, top 0.15s linear, width 0.15s linear, height 0.15s linear;
+}
+
+.local-remotesupport-teacher-pointer-label {
+    position: absolute;
+    left: 0;
+    bottom: 100%;
+    margin-bottom: 4px;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    background: rgba(13, 110, 253, 0.95);
+    color: #fff;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
 .local-remotesupport-player-frame {
     display: block;
     width: 100%;

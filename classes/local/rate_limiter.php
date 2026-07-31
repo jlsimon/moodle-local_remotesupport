@@ -44,6 +44,7 @@ class rate_limiter {
         'cursor' => 0.15,
         'student_click' => 0.1,
         'chat_message' => 0.3,
+        'teacher_highlight' => 0.2,
     ];
 
     /**

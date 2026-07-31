@@ -13,11 +13,14 @@ definido en `AGENTS.md` (solicitud/sesión, y reconstrucción de pantalla
 con scroll/modales/CSS real), pero no las Fases 3, 5 y 6 ni la extensión
 de scroll bidireccional que llegaron a implementarse en una versión
 anterior: el profesor únicamente observa la navegación del alumno, sin
-cursor remoto, resaltado, clic remoto, escritura remota ni capacidad de
-mover el scroll del alumno. Esta reducción de alcance fue una decisión
-explícita del usuario, documentada en `docs/decisions.md`; el código y
-las pruebas de esas capacidades se conservan accesibles en el tag de git
-`pre-viewonly-full-featured` por si se necesitan más adelante.
+cursor remoto, clic remoto, escritura remota ni capacidad de mover el
+scroll del alumno. Esta reducción de alcance fue una decisión explícita
+del usuario, documentada en `docs/decisions.md`; el código y las
+pruebas de esas capacidades se conservan accesibles en el tag de git
+`pre-viewonly-full-featured` por si se necesitan más adelante. Única
+excepción, añadida después y desactivada por defecto: el profesor puede
+señalar (no controlar) un elemento clicable en la pantalla del alumno —
+ver la entrada correspondiente más abajo.
 
 **Ampliación posterior — icono de solicitudes pendientes.** Un icono
 junto a mensajes/notificaciones en la barra de navegación avisa al
@@ -177,6 +180,16 @@ separada de `:replaysession` para poder revocar el borrado sin afectar
 a la reproducción; borrar elimina también la grabación de pantalla y
 el chat de esas sesiones, igual que ya hacía una baja de datos por
 privacidad.
+
+**Ampliación posterior — señalar un elemento clicable.** Con el nuevo
+ajuste `enableteacherpointer` activado (desactivado por defecto), el
+profesor puede elegir un elemento clicable dentro de su reconstrucción
+de la pantalla del alumno y dibujar un recuadro temporal alrededor de
+ese mismo elemento en la pantalla real del alumno, con una duración
+configurable en segundos tras la que desaparece solo. Es puramente
+visual — nunca ejecuta ningún clic ni concede ningún otro control — y
+reintroduce de forma selectiva y acotada una pieza concreta de la Fase
+3 original que se había retirado por completo; ver `docs/decisions.md`.
 
 ## Requisitos
 

@@ -73,6 +73,21 @@ if ($hassiteconfig) {
         1
     ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_remotesupport/enableteacherpointer',
+        get_string('setting_enableteacherpointer', 'local_remotesupport'),
+        get_string('setting_enableteacherpointer_desc', 'local_remotesupport'),
+        0
+    ));
+
+    $settings->add(new admin_setting_configduration(
+        'local_remotesupport/teacherpointerttlseconds',
+        get_string('setting_teacherpointerttlseconds', 'local_remotesupport'),
+        get_string('setting_teacherpointerttlseconds_desc', 'local_remotesupport'),
+        5,
+        1
+    ));
+
     $settings->add(new admin_setting_configselect(
         'local_remotesupport/trackretentiondays',
         get_string('setting_trackretentiondays', 'local_remotesupport'),

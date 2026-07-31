@@ -35,6 +35,15 @@ defined('MOODLE_INTERNAL') || die();
  * events sourced by the *other* participant, except chat_message, which
  * both need to see in full (including their own messages).
  *
+ * 'teacher_highlight' (the teacher marking a clickable element on the
+ * student's real page) is a special case, not part of the static
+ * ROLE_EVENT_TYPES table below: it is additionally gated by the site-wide
+ * local_remotesupport/enableteacherpointer admin setting, which a const
+ * array cannot express. See push_event() for the actual check — disabled
+ * by default, since it selectively re-introduces one narrow piece of the
+ * teacher-driven interaction this plugin deliberately removed (see
+ * docs/decisions.md, "Reduce plugin to view-only").
+ *
  * Also feeds track_manager: every successfully stored page/scroll/cursor/
  * student_click/chat_message event is additionally, permanently recorded
  * for later playback (see track_manager's own doc comment for why this is
@@ -56,7 +65,12 @@ class polling_transport implements transport_interface {
         $session = session_manager::get_session($sessionid);
         $role = $this->role_of($session, $userid);
 
-        if (!in_array($eventtype, self::ROLE_EVENT_TYPES[$role], true)) {
+        if ($eventtype === 'teacher_highlight') {
+            if ($role !== 'teacher' || !get_config('local_remotesupport', 'enableteacherpointer')) {
+                audit_manager::access_denied(\context_course::instance($session->courseid), 'wrongrole');
+                throw new moodle_exception('errornopermission', 'local_remotesupport');
+            }
+        } elseif (!in_array($eventtype, self::ROLE_EVENT_TYPES[$role], true)) {
             audit_manager::access_denied(\context_course::instance($session->courseid), 'wrongrole');
             throw new moodle_exception('errornopermission', 'local_remotesupport');
         }

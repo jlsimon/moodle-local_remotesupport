@@ -121,6 +121,27 @@ Añadido tras completar el MVP, con el modo de captura `fullpage`:
   página completa; siguen existiendo y siguen aplicándose igual, solo
   con un techo distinto — ver `docs/decisions.md`.
 
+Añadido tras completar el MVP, con `teacher_highlight` (el señalado de
+un elemento del profesor hacia el alumno) — el primer flujo
+profesor→alumno con efecto visible en la pantalla del alumno desde que
+se retiró el cursor remoto en `aa58c26`:
+
+- Un **profesor** intentando señalar un elemento cuando el sitio tiene
+  `enableteacherpointer` desactivado — rechazado en el servidor, no solo
+  oculto en la interfaz (ver "Eventos permitidos" más abajo).
+- Un **alumno** intentando empujar `teacher_highlight` (no le
+  corresponde: es una señal del profesor hacia el alumno, no al
+  revés) — mismo tratamiento que un alumno intentando `resync_request`.
+- Un cliente del profesor manipulado enviando su propio `ttlms` para
+  que el señalado dure indefinidamente en la pantalla del alumno —
+  el servidor lo sobrescribe siempre, nunca confía en el valor recibido.
+- Un `selector` que, al resolverse en el DOM real del alumno, apunte a
+  un elemento distinto del que el profesor realmente señaló (foto
+  desactualizada, estructura cambiada) — el riesgo es puramente visual
+  (confuso, nunca una acción: nunca se ejecuta ningún clic), mismo
+  riesgo ya aceptado para el resaltado `hover`/`typing` existente, ver
+  `docs/limitations.md`.
+
 ## Capacidades
 
 `local/remotesupport:requestassistance` (alumno, contexto curso),
@@ -193,8 +214,9 @@ de esa sesión), y queda auditado (`session_deleted`).
 ## Eventos permitidos
 
 Lista blanca cerrada en `event_manager::EVENT_TYPES`: `page`, `scroll`,
-`cursor`, `student_click`, `resync_request`, `chat_message`. Cualquier
-otro valor (`eval`, `script`, `html`, etc.) es rechazado con
+`cursor`, `student_click`, `resync_request`, `chat_message`,
+`teacher_highlight`. Cualquier otro valor (`eval`, `script`, `html`,
+etc.) es rechazado con
 `errorinvalideventtype` antes de llegar a almacenarse. También se
 valida el tamaño (`MAX_PAYLOAD_BYTES`, 600 000 bytes de JSON) y, para
 `page`, el propio contenido HTML (y, desde la Fase 4, el HTML del modal
@@ -217,6 +239,16 @@ de texto que el alumno tiene enfocado, añadido tras el MVP — ver
 `docs/decisions.md`): nunca lleva el valor tecleado, solo qué campo
 es, y password/hidden quedan excluidos ya en el propio cliente
 (`event_capture.js`) antes de que llegue nada al servidor.
+`teacher_highlight` (añadido tras el MVP, ver
+`docs/architecture.md`) requiere un campo `selector` de texto no vacío
+(mismo tratamiento que `hover`/`typing`: acotado a
+`MAX_HOVER_SELECTOR_LENGTH`, nunca sanea como HTML porque nunca lo es,
+solo argumento de `querySelector()`), y su campo `ttlms` **nunca se
+toma del cliente**: `event_manager::record_event()` lo sobrescribe
+siempre a partir del ajuste `local_remotesupport/teacherpointerttlseconds`
+vigente en el momento de guardar el evento, precisamente para que un
+cliente del profesor modificado no pueda hacer que su propio señalado
+dure más de lo que el administrador del sitio permite.
 `chat_message`
 requiere un campo `message` de texto no vacío (tras recortar espacios),
 truncado a `MAX_CHAT_MESSAGE_LENGTH` (1000 caracteres) — siempre texto
@@ -235,6 +267,18 @@ intenta empujar un `resync_request`, se rechaza igual que si no
 perteneciera a la sesión en absoluto, y se registra como `access_denied`
 con motivo `wrongrole`.
 
+`teacher_highlight` añade una segunda condición encima del rol,
+comprobada aparte en `push_event()` porque una constante `ROLE_EVENT_TYPES`
+no puede consultar configuración: además de ser el profesor de la
+sesión, el ajuste `local_remotesupport/enableteacherpointer` tiene que
+estar activo — **desactivado por defecto**. Si el ajuste está
+desactivado, se rechaza exactamente igual (`errornopermission`,
+`access_denied` con motivo `wrongrole`) tanto si lo intenta el profesor
+como si lo intenta el alumno; la interfaz del profesor (`event_player.js`)
+ni siquiera crea el botón correspondiente cuando el ajuste está
+desactivado, pero esa es solo la mitad de la defensa — el servidor no
+confía en que el cliente respete esa ausencia de botón.
+
 `chat_message` es también el único tipo que **no** excluye al propio
 emisor al leer: `get_events_since()` normalmente filtra "no me devuelvas
 mis propios eventos" (el alumno nunca necesita ver su propio `page`/
@@ -248,8 +292,9 @@ quién puede pedir qué sesión.
 
 `rate_limiter::is_allowed()` exige al menos 150 ms entre eventos
 `scroll`, 150 ms entre eventos `cursor`, 100 ms entre eventos
-`student_click` y 300 ms entre eventos `chat_message` de la misma
-sesión, respaldado por una caché de aplicación (no por la tabla de
+`student_click`, 300 ms entre eventos `chat_message` y 200 ms entre
+eventos `teacher_highlight` de la misma sesión, respaldado por una
+caché de aplicación (no por la tabla de
 eventos, cuyo `timecreated` solo tiene resolución de un segundo). Un
 evento que llega demasiado pronto **no se guarda ni se lanza un
 error**: `record_event()` devuelve `null` y el llamador AJAX responde
@@ -481,7 +526,7 @@ uno:
   participantes en una sesión), aunque sea una única consulta indexada
   por `studentid+status`. Aceptable para el objetivo de 1–20 sesiones
   simultáneas; revisar si el sitio crece mucho más.
-- **Límite de frecuencia solo para `scroll`/`cursor`/`student_click`/`chat_message`**:
+- **Límite de frecuencia solo para `scroll`/`cursor`/`student_click`/`chat_message`/`teacher_highlight`**:
   `page` y `resync_request` no tienen límite de frecuencia propio en el
   servidor — solo el `debounce`/`throttle` del cliente (o, para
   `resync_request`, el hecho de que solo se dispara por una recuperación

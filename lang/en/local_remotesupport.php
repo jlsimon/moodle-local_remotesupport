@@ -197,6 +197,13 @@ $string['setting_clicksound'] = 'Play a sound on student clicks';
 $string['setting_clicksound_desc'] = 'Whether the teacher\'s browser plays a short sound whenever the student clicks something, in addition to the visual mark. Default for every new session; the teacher can still mute or unmute it for the session they\'re currently viewing.';
 $string['button_mutesound'] = 'Mute click sound';
 $string['button_unmutesound'] = 'Unmute click sound';
+$string['setting_enableteacherpointer'] = 'Allow teacher to point at elements';
+$string['setting_enableteacherpointer_desc'] = 'Whether the teacher can pick a clickable element inside their reconstruction of the student\'s screen and draw a temporary outline around that same element on the student\'s real page, to point it out without acting on it in any way. Off by default. Applies to every session on the site.';
+$string['setting_teacherpointerttlseconds'] = 'Pointer highlight duration';
+$string['setting_teacherpointerttlseconds_desc'] = 'How long the outline the teacher draws around an element stays visible on the student\'s screen before it disappears on its own.';
+$string['button_startpointer'] = 'Point at element';
+$string['button_stoppointer'] = 'Stop pointing';
+$string['teacherpointer_label'] = 'The teacher is pointing at this';
 
 // Privacy.
 $string['privacy:path'] = 'Remote assistance sessions';

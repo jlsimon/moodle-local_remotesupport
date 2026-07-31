@@ -1,5 +1,167 @@
 # Changelog
 
+## 0.23.2 (fix: el señalado del profesor seguía sin reflejarse en la pantalla del alumno) — 2026-07-31
+
+- El usuario reportó que, tras el fix de la 0.23.1, seguía sin funcionar
+  ("cliqué sobre Calificaciones y no se reflejó… ¿a ti te funciona?").
+  Como no hay navegador disponible normalmente en este entorno, se montó
+  una verificación end-to-end real con Chromium headless (Playwright) —
+  curso y usuarios desechables, sesión completa alumno-profesor, clic
+  real dentro de la reconstrucción — que efectivamente reprodujo el
+  fallo en vivo, dejando dos causas reales distintas, ninguna de ellas
+  la que se había arreglado en la 0.23.1 (esa sí era un bug real, pero
+  no el único):
+- **Causa 1 — un iframe reescalado dentro de un contenedor `overflow:
+  hidden` nunca recibe eventos de ratón reales, aunque el navegador
+  esté de acuerdo en que es el elemento superior en ese punto.**
+  Confirmado con un `page.mouse.move()` de bajo nivel: 0 eventos
+  `mousemove` en el propio elemento `<iframe>`, tanto si sus
+  `pointer-events` están en `auto` como si se activan dinámicamente por
+  JS. Reproducido de forma aislada (sin nada de Moodle) en cuanto se
+  replicó la misma estructura real: iframe con su tamaño de layout
+  completo (sin escalar) dentro de un envoltorio `position:relative;
+  overflow:hidden` dimensionado solo al tamaño *visual* (escalado) —
+  exactamente `.local-remotesupport-player-viewport`. El propio
+  envoltorio (no escalado) sí recibe los eventos con normalidad.
+  **Arreglo**: `screen_renderer.js` escucha `mousemove`/`click` en
+  `viewportWrapper`, no en el iframe ni en su `contentDocument`, y sigue
+  usando `elementFromPoint()` con las coordenadas deshechas de la
+  escala para encontrar el elemento real dentro del iframe — el toggle
+  de `pointer-events` del fix anterior (0.23.0) ya no hace falta y se
+  ha retirado; `styles.css` mantiene `pointer-events: none` en el
+  iframe permanentemente, sin ninguna excepción.
+- **Causa 2 — `event.payload` llega como cadena JSON sin analizar, no
+  como objeto ya decodificado**, exactamente igual que en el resto de
+  tipos de evento (`chat_widget.js` ya hace su propio `JSON.parse()`
+  antes de usarlo) — un patrón ya establecido que la nueva rama de
+  `teacher_highlight` en `pollIncoming()` pasó por alto, leyendo
+  directamente `event.payload.selector`/`.ttlms` de una cadena, lo que
+  siempre daba `undefined` y hacía que `applyTeacherPointer()` volviera
+  de inmediato sin hacer nada. Arreglado con el mismo `JSON.parse()`
+  envuelto en `try`/`catch` que ya usa `chat_widget.js`.
+- Ninguno de los dos fallos lo detectaban las pruebas PHPUnit (son
+  puramente de JavaScript cliente, sin arnés de pruebas JS en este
+  proyecto — ver `docs/limitations.md`) ni se habían detectado sin
+  ejecutar el flujo completo en un navegador real; quedan documentados
+  en detalle en `docs/decisions.md` para que la próxima vez que se
+  añada un consumidor de eventos no se repita ninguno de los dos.
+- También se descubrió, y hubo que corregir para poder verificar nada,
+  que dos purgas de caché de JavaScript de Moodle (`admin/cli/purge_caches.php`)
+  habían quedado pendientes tras desplegar la 0.23.0/0.23.1 — el
+  navegador seguía sirviendo JS anterior al fix hasta que se purgó
+  explícitamente. Ver `docs/decisions.md` y la entrada correspondiente
+  en la memoria del proyecto.
+- Verificado en vivo, extremo a extremo, con Chromium headless: el
+  recuadro que aparece en la pantalla del alumno coincide en píxeles
+  con la posición real del enlace "Calificaciones" que el profesor
+  señaló en su reconstrucción.
+
+## 0.23.1 (fix: el señalado del profesor no se reflejaba en la pantalla del alumno) — 2026-07-31
+
+- **Bug encontrado por el usuario nada más probar en vivo**: al usar
+  "Señalar elemento", el profesor veía el resaltado azul discontinuo al
+  pasar el ratón por su propia reconstrucción, pero nada aparecía nunca
+  en la pantalla del alumno.
+- **Causa**: el contenido capturado se inyecta en el iframe del
+  profesor como el `innerHTML` de un `<div id="local-remotesupport-viewport-content">`
+  — un envoltorio sintético que solo existe dentro de esa
+  reconstrucción, nunca en la página real del alumno. Cuando el
+  elemento que el profesor pulsaba no tenía un `id` propio (el caso
+  habitual, según ya advertía `docs/limitations.md` para el resaltado
+  `hover`), `buildRobustSelector()` subía por los ancestros hasta
+  encontrar ese `id` sintético y lo usaba como ancla del selector
+  (`#local-remotesupport-viewport-content > div:nth-of-type(3)`), un
+  selector que nunca puede coincidir con nada en el DOM real del
+  alumno — así que el señalado nunca se resolvía ni se mostraba,
+  siempre, no solo a veces.
+- **Arreglo**: `buildRobustSelector()` (en el nuevo `dom_selector.js`,
+  ver 0.23.0) ahora reconoce ese `id` sintético y detiene la subida sin
+  incluirlo, dejando un selector relativo al contenido de ese
+  envoltorio en vez de un ancla falsa. `event_capture.js` resuelve ese
+  selector con `findCaptureRoot(mode).querySelector(selector)` (el
+  mismo elemento raíz que ya usa para capturar, no `document`
+  directamente) en vez de `document.querySelector()` — `Element.querySelector()`
+  sigue resolviendo igual un selector absoluto `#id` real, así que esto
+  amplía el caso que ya funcionaba (elementos con `id` propio) en vez
+  de estrecharlo.
+- Fix puramente de JavaScript cliente, sin PHP implicado, así que no
+  añade pruebas PHPUnit — no hay arnés de pruebas JavaScript en este
+  proyecto (ver `docs/limitations.md`), verificado por lectura del
+  código y pendiente de confirmación en vivo por el usuario.
+
+## 0.23.0 (nuevo: el profesor puede señalar un elemento clicable en la pantalla del alumno) — 2026-07-31
+
+- **Pedido por el usuario**: reintroducir, de forma selectiva y activable
+  desde la configuración general, una pieza concreta de la Fase 3 original
+  (cursor remoto y resaltado) que se había retirado por completo al reducir
+  el plugin a solo-visualización (commit `aa58c26`): que el profesor pueda
+  señalar un elemento clicable de la pantalla del alumno. El usuario pidió
+  explícitamente que la localización se basara en el elemento del DOM, no
+  en coordenadas x/y (la imprecisión de posición del cursor ya documentada
+  en `docs/decisions.md` no sirve para señalar con precisión un elemento
+  concreto), y que el resaltado expirase solo, con la duración configurable
+  en segundos.
+- Dos ajustes nuevos en la configuración general del plugin:
+  `enableteacherpointer` (casilla, desactivado por defecto — es una
+  reversión selectiva de una decisión de producto deliberada, no debía
+  activarse silenciosamente) y `teacherpointerttlseconds` (duración, 5 s
+  por defecto) — cuánto tiempo permanece visible cada señalado antes de
+  desaparecer solo.
+- Nuevo tipo de evento `teacher_highlight` (profesor → alumno), el primer
+  evento en ese sentido desde que se retiró el cursor remoto: payload
+  `{selector, ttlms}`. `ttlms` nunca lo decide el cliente del profesor —
+  `event_manager::record_event()` lo sobrescribe siempre a partir del
+  ajuste `teacherpointerttlseconds` vigente en ese momento, para que un
+  cliente modificado no pueda hacer que su propio señalado dure más de lo
+  que el administrador permite. `selector` reutiliza el mismo límite de
+  longitud y el mismo tratamiento que los selectores `hover`/`typing` de
+  `cursor` (nunca interpretado como HTML, solo argumento de
+  `querySelector()`).
+- Autorización en dos capas independientes, igual que el resto del
+  transporte: `polling_transport::push_event()` exige rol profesor **y**
+  el ajuste `enableteacherpointer` activo (si no, rechaza aunque el
+  profesor lo intente); `event_player.js` ni siquiera crea el botón
+  "Señalar elemento" si el ajuste está desactivado. Suelo de frecuencia
+  añadido en `rate_limiter` (0.2 s), igual que otros eventos discretos
+  (`student_click`, `chat_message`).
+- Selección del elemento en el lado del profesor: nuevo módulo compartido
+  `amd/src/dom_selector.js` (extraído de `event_capture.js`, sin cambiar su
+  comportamiento) con `buildRobustSelector()` y `CLICKABLE_SELECTOR` — el
+  mismo algoritmo de selector robusto y la misma noción de "clicable" que
+  ya usaba el resaltado `hover` del alumno, ahora usados también por
+  `screen_renderer.js` para que el profesor "recoja" un elemento dentro de
+  su propia reconstrucción (`startPicking()`/`stopPicking()`): al pasar el
+  ratón por encima de un elemento clicable dentro del iframe reconstruido
+  se resalta como candidato (contorno azul discontinuo), y al hacer clic
+  se calcula su selector y se envía como `teacher_highlight`.
+- **Hallazgo durante la implementación**: `styles.css` ya fijaba
+  `pointer-events: none` en el iframe de reconstrucción del profesor,
+  deliberadamente, "para que ningún elemento capturado pueda reaccionar a
+  un clic" — lo cual habría impedido también que el modo de señalado
+  recibiera los eventos de ratón. Solución: `startPicking()`/`stopPicking()`
+  activan y desactivan `pointer-events` en el iframe solo mientras dura el
+  modo de señalado, dejando la política por defecto intacta el resto del
+  tiempo.
+- Render en el alumno: `event_capture.js` resuelve el selector recibido
+  contra el DOM real (no la reconstrucción) y dibuja un recuadro
+  superpuesto (`position: fixed`, `pointer-events: none`) con una etiqueta
+  ("El profesor está señalando esto"), reposicionándose en scroll/resize
+  mientras esté activo y desapareciendo solo tras `ttlms` — igual que el
+  resto de marcas visuales del plugin, un selector que no resuelve a nada
+  simplemente no muestra nada, nunca es un error.
+- Deliberadamente fuera de alcance (para no reabrir lo que se quitó en
+  `aa58c26`): no se ejecuta ningún clic, no hay niveles de permiso por
+  sesión, no se guarda `teacher_highlight` en la grabación permanente de
+  sesión (`track_manager::TRACKED_EVENT_TYPES` sin cambios) — es
+  puramente una señal visual en tiempo real, simétrica al resaltado
+  `hover` existente pero en sentido contrario.
+- Pruebas PHPUnit nuevas en `event_manager_test.php` (tipo aceptado,
+  selector obligatorio, truncado, ttl siempre tomado de la configuración
+  incluso si el cliente envía uno propio, límite de frecuencia) y
+  `polling_transport_test.php` (rechazado con el ajuste desactivado,
+  aceptado solo para el profesor con el ajuste activado, rechazado para
+  el alumno aunque esté activado, no se graba en `local_remotesupport_track`).
+
 ## 0.22.0 (nuevo: el profesor puede eliminar sesiones de su historial) — 2026-07-30
 
 - **Pedido por el usuario**: en `sessionhistory.php`, poder eliminar

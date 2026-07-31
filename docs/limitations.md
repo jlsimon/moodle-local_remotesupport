@@ -563,3 +563,45 @@ decisión y qué código se retiró.
   página de confirmación propia, y su comportamiento al entrar desde
   el botón flotante en distintas páginas del sitio, quedan pendientes
   de la verificación manual del usuario.
+
+## Nuevas tras completar el MVP — señalar un elemento clicable (profesor → alumno)
+
+- **Desactivado por defecto.** `local_remotesupport/enableteacherpointer`
+  no existe para ninguna sesión hasta que un administrador lo activa
+  explícitamente — es una reversión selectiva de la reducción a
+  solo-visualización (`aa58c26`), no una función disponible de serie.
+- **Mismo riesgo de selector estructural que el resaltado `hover`
+  existente, ahora en sentido contrario.** Si la foto de página que ve
+  el profesor está ligeramente desactualizada respecto al DOM real del
+  alumno en el momento del clic, `buildRobustSelector()` podría no
+  encontrar el elemento, o encontrar uno distinto. Sigue siendo
+  puramente visual (nunca se ejecuta ningún clic), pero aquí el efecto
+  se ve en la pantalla del alumno, no solo en la del profesor. Ver la
+  entrada equivalente más arriba ("resaltado del elemento bajo el
+  cursor") para el mismo razonamiento sobre por qué se acepta.
+- **Solo se puede señalar lo que la lista `CLICKABLE_SELECTOR` (en
+  `dom_selector.js`) reconoce como clicable** — un elemento interactivo
+  por otras vías (JavaScript propio de la actividad, sin ninguno de
+  esos atributos/roles) no aparece como candidato al pasar el ratón por
+  la reconstrucción, aunque sea perfectamente clicable para el alumno.
+- **Sin persistencia en la reproducción de sesiones.** `teacher_highlight`
+  no se graba en `local_remotesupport_track` (decisión deliberada, ver
+  `docs/decisions.md`) — reproducir una sesión antigua nunca muestra
+  dónde señaló el profesor, solo lo que el alumno veía y hacía.
+- **Verificado extremo a extremo con Chromium headless (Playwright),
+  no con los navegadores reales que usarán alumno y profesor.** Tras
+  dos rondas de bugs reales en uso (ver `docs/decisions.md`: un
+  selector anclado en un `id` sintético, y un iframe reescalado que no
+  recibía eventos de ratón reales), se montó una verificación completa
+  — curso y usuarios desechables, sesión real, clic real sobre un
+  elemento concreto ("Calificaciones") — que confirmó que el recuadro
+  aparece en el alumno exactamente sobre el elemento señalado. Sigue
+  pendiente la verificación manual en los navegadores reales del
+  usuario (Firefox, Safari, y Chrome/Edge no headless): en particular,
+  si el recuadro y su etiqueta son suficientemente visibles sobre
+  distintos temas, y si el reposicionado durante scroll se percibe
+  fluido. Tampoco existe un arnés de pruebas JavaScript en este
+  proyecto (ver `docs/testing.md`), así que `dom_selector.js` y la
+  lógica de `startPicking()`/`stopPicking()` no tienen pruebas
+  automáticas propias, solo esta verificación puntual y la revisión por
+  lectura.
