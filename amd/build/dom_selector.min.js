@@ -32,6 +32,30 @@ define([], function() {
         'input[type="checkbox"], input[type="radio"], select, summary, label, ' +
         '[role="button"], [role="link"], [role="tab"], [role="menuitem"]';
 
+    // Text-like fields, same list event_capture.js already uses to decide
+    // which focused field is worth showing the teacher as "typing"
+    // (password and hidden excluded — never even a candidate, consistent
+    // with how the rest of the plugin treats them as a stricter category).
+    // Not part of CLICKABLE_SELECTOR itself: a text field isn't something
+    // the alumno's mouse "clicks" in the same sense a link or button is, so
+    // it stays out of the alumno-side hover highlight (which already has
+    // its own, focus-based mechanism for remarking a typed-in field) — see
+    // POINTABLE_SELECTOR below for where it *is* included.
+    var TEXT_FIELD_SELECTOR = 'textarea, input:not([type]), input[type="text"], input[type="search"], ' +
+        'input[type="url"], input[type="tel"], input[type="number"], input[type="email"]';
+
+    // What the teacher may point at (screen_renderer.js's picking mode) —
+    // CLICKABLE_SELECTOR plus text fields. Deliberately a separate list
+    // from CLICKABLE_SELECTOR rather than folding text fields into it:
+    // pointing is a different, non-destructive act from the alumno's own
+    // mouse-hover signal (which stays clickable-only, see above), and
+    // unlike Fase 5/6's remote click/write, there is no field-safety policy
+    // to apply here — pointing never executes anything or reveals a value,
+    // so nothing needs excluding on security grounds (not even password
+    // fields, though TEXT_FIELD_SELECTOR excludes those too, for
+    // consistency with how the rest of the plugin treats them).
+    var POINTABLE_SELECTOR = CLICKABLE_SELECTOR + ', ' + TEXT_FIELD_SELECTOR;
+
     // screen_renderer.js injects captured content as the innerHTML of a
     // wrapper div with this id (see its own VIEWPORT_CONTENT_ID) — a
     // synthetic node that exists only inside the teacher's reconstructed
@@ -66,6 +90,20 @@ define([], function() {
             return null;
         }
         return node.closest(CLICKABLE_SELECTOR);
+    };
+
+    /**
+     * Same as findClickableAncestor(), but also matches text fields — used
+     * only for the teacher's picking mode (see POINTABLE_SELECTOR above).
+     *
+     * @param {Node} node
+     * @return {Element|null}
+     */
+    var findPointableAncestor = function(node) {
+        if (!node || node.nodeType !== 1 || !node.closest) {
+            return null;
+        }
+        return node.closest(POINTABLE_SELECTOR);
     };
 
     /**
@@ -134,8 +172,11 @@ define([], function() {
 
     return {
         CLICKABLE_SELECTOR: CLICKABLE_SELECTOR,
+        TEXT_FIELD_SELECTOR: TEXT_FIELD_SELECTOR,
+        POINTABLE_SELECTOR: POINTABLE_SELECTOR,
         VIEWPORT_CONTENT_ID: VIEWPORT_CONTENT_ID,
         findClickableAncestor: findClickableAncestor,
+        findPointableAncestor: findPointableAncestor,
         buildRobustSelector: buildRobustSelector
     };
 });

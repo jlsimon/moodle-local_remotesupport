@@ -88,10 +88,13 @@
  *
  * Also supports "picking" mode (startPicking()/stopPicking()), used only by
  * event_player.js and only while local_remotesupport/enableteacherpointer is
- * enabled: while active, hovering a clickable element (same notion of
- * "clickable" as event_capture.js's own hover highlight, shared via
- * local_remotesupport/dom_selector) previews it inside this reconstructed
- * document, and clicking it computes a selector and hands it to the
+ * enabled: while active, hovering a pointable element — clickable elements
+ * plus text fields, local_remotesupport/dom_selector's POINTABLE_SELECTOR,
+ * a slightly wider notion than event_capture.js's own CLICKABLE_SELECTOR-only
+ * hover highlight, since pointing never executes anything so there is no
+ * reason to exclude text fields the way Fase 5/6's remote click/write had
+ * to — previews it inside this reconstructed document, and clicking it
+ * computes a selector and hands it to the
  * caller's callback — never lets the click do anything real, since it
  * never actually reaches an element *inside* the iframe's document at all.
  * The 'mousemove'/'click' listeners live on viewportWrapper instead (see
@@ -449,7 +452,7 @@ define(['local_remotesupport/dom_selector'], function(DomSelector) {
 
         var handlePickingMouseMove = function(e) {
             var el = elementUnderPointer(e);
-            var candidate = el ? DomSelector.findClickableAncestor(el) : null;
+            var candidate = el ? DomSelector.findPointableAncestor(el) : null;
             if (candidate === pickingCandidateEl) {
                 return;
             }
@@ -462,7 +465,7 @@ define(['local_remotesupport/dom_selector'], function(DomSelector) {
 
         var handlePickingClick = function(e) {
             var el = elementUnderPointer(e);
-            var candidate = el ? DomSelector.findClickableAncestor(el) : null;
+            var candidate = el ? DomSelector.findPointableAncestor(el) : null;
             if (candidate && pickingCallback) {
                 pickingCallback(DomSelector.buildRobustSelector(candidate));
             }

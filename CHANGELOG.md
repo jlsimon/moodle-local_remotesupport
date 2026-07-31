@@ -1,5 +1,77 @@
 # Changelog
 
+## 0.23.4 (fix: el recuadro de señalado se filtraba en la reconstrucción del profesor) — 2026-07-31
+
+- **Bug encontrado por el usuario**: el recuadro "El profesor está
+  señalando esto" (visible en la pantalla real del alumno) aparecía
+  también, en una posición incorrecta, dentro de la propia
+  reconstrucción del profesor.
+- **Causa**: el recuadro se añade a `document.body` en la página real
+  del alumno — como cualquier otro elemento propio del plugin (barra
+  de estado, chat flotante). La siguiente foto de página capturada
+  (el latido cada 5 s, o cualquier otra mutación real, o el envío
+  inmediato tras un clic) lo serializaba tal cual dentro del HTML
+  enviado al profesor. Su `position: fixed` con `top`/`left` en
+  píxeles absolutos (calculados sobre el viewport real del alumno) no
+  significa nada dentro del contenedor reescalado y transformado de la
+  reconstrucción, así que aparecía desplazado a una posición sin
+  relación con el elemento señalado. La barra de estado y el chat ya
+  tenían un problema relacionado (documentado desde antes en
+  `docs/architecture.md`), mitigado solo a medias: se excluían de la
+  extracción de elementos `fixed`, pero nunca se eliminaban del todo de
+  la captura.
+- **Arreglo**: nueva función `removeOwnElements()` en `event_capture.js`,
+  llamada desde `cleanClone()` en cada foto de página — elimina del
+  clon, antes de serializarlo, cualquier elemento cuya clase empiece
+  por `local-remotesupport-` (barra de estado, chat, y ahora también el
+  recuadro/etiqueta de señalado), con el mismo patrón "solo los más
+  externos" que ya usaba `extractFixedHtml()` para no repetir trabajo
+  con elementos anidados. Resuelve el problema de raíz para este
+  elemento y, de paso, para cualquier otro futuro: nada de la interfaz
+  propia del plugin vuelve a aparecer nunca en la reconstrucción,
+  correctamente posicionado o no.
+- El usuario decidió explícitamente no mostrar además una confirmación
+  anclada dentro de la propia reconstrucción del profesor (opción
+  considerada y descartada) — el recuadro sigue siendo una señal
+  exclusiva para el alumno.
+- Puramente cliente, sin cambios de servidor. Los 200 tests PHPUnit no
+  se ven afectados.
+
+## 0.23.3 (nuevo: el profesor también puede señalar campos de texto) — 2026-07-31
+
+- **Pedido por el usuario**: tras confirmar que el señalado ya
+  funcionaba, observó que los campos de texto (`input[type="text"]`,
+  `textarea`, etc.) no se podían señalar — el profesor no veía el
+  contorno de "candidato" al pasar el ratón por encima de uno dentro de
+  su reconstrucción. Causa: el modo de señalado reutilizaba
+  `CLICKABLE_SELECTOR`, la misma lista que ya usaba el resaltado
+  `hover` del alumno (pensada para "qué tiene el ratón encima con
+  intención de pulsar", no para campos de texto — esos ya tienen su
+  propio mecanismo de resaltado `typing`, basado en el foco, no en el
+  ratón). Al heredar esa lista sin plantearse si tenía sentido para el
+  señalado, los campos de texto quedaron excluidos sin que fuera una
+  decisión consciente para este caso.
+- Nueva constante `POINTABLE_SELECTOR` en `dom_selector.js`
+  (`CLICKABLE_SELECTOR` + campos de texto, reutilizando exactamente el
+  mismo `TEXT_FIELD_SELECTOR` que ya usaba `event_capture.js` para el
+  resaltado `typing` del alumno, ahora también exportado desde
+  `dom_selector.js` como fuente única) y `findPointableAncestor()`,
+  usada solo por el modo de señalado del profesor
+  (`screen_renderer.js`). Deliberadamente **no** se ha ampliado
+  `CLICKABLE_SELECTOR` en sí, para no cambiar el comportamiento ya
+  probado del resaltado `hover` del alumno (que sigue siendo solo
+  elementos clicables).
+- A diferencia del clic remoto o la escritura remota (Fases 5/6, que sí
+  necesitaban excluir campos por seguridad), señalar nunca ejecuta nada
+  ni revela ningún valor — es puramente visual, así que no hay ninguna
+  razón de seguridad para excluir campos de texto aquí. Se excluyen
+  contraseña y campos ocultos igualmente, solo por coherencia con el
+  resto del `TEXT_FIELD_SELECTOR` compartido, no por ningún riesgo
+  nuevo.
+- Sin cambios de servidor ni de esquema — puramente JavaScript cliente,
+  reutilizando la misma tubería de eventos (`teacher_highlight`) ya
+  existente. Los 200 tests PHPUnit no se ven afectados.
+
 ## 0.23.2 (fix: el señalado del profesor seguía sin reflejarse en la pantalla del alumno) — 2026-07-31
 
 - El usuario reportó que, tras el fix de la 0.23.1, seguía sin funcionar

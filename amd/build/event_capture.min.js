@@ -120,14 +120,6 @@ define(
     var MODAL_SELECTOR = '.modal.show, .modal.in, [aria-modal="true"]';
     var BLOCKED_TAGS = ['script', 'iframe', 'object', 'embed', 'applet', 'noscript', 'link', 'meta'];
     var OWN_CLASS_PREFIX = 'local-remotesupport-';
-    // Text-like fields whose *focus* (never their value, see the module doc
-    // comment) is worth showing the teacher, so they can see which field
-    // the alumno is currently typing in. Password and hidden inputs are
-    // deliberately excluded even though only a selector is ever sent, no
-    // value — consistent with how Fase 6's field policy treats them as a
-    // stricter category than ordinary text fields.
-    var TEXT_FIELD_SELECTOR = 'textarea, input:not([type]), input[type="text"], input[type="search"], ' +
-        'input[type="url"], input[type="tel"], input[type="number"], input[type="email"]';
     var PAGE_HEARTBEAT_MS = 5000;
     var PAGE_DEBOUNCE_MS = 1500;
     var SCROLL_THROTTLE_MS = 300;
@@ -193,6 +185,8 @@ define(
             });
         });
 
+        removeOwnElements(clone);
+
         clone.querySelectorAll('*').forEach(function(el) {
             for (var i = el.attributes.length - 1; i >= 0; i--) {
                 var attr = el.attributes[i];
@@ -207,6 +201,51 @@ define(
         });
         clone.querySelectorAll('textarea').forEach(function(el) {
             el.textContent = '';
+        });
+    };
+
+    /**
+     * Strips every element of the plugin's own injected UI (status bar,
+     * chat widget, teacher-pointer highlight box) out of a page-snapshot
+     * clone before it is sent — none of it is real page content the
+     * teacher should see reconstructed.
+     *
+     * Without this, an own element that happens to still be attached to
+     * $root at capture time (any page snapshot after the first — the
+     * status bar/chat widget are appended asynchronously right after
+     * init(), and the teacher-pointer box lives on the page for as long as
+     * its ttl) gets serialized into the captured HTML like any other
+     * content. `position: fixed` ones (the status bar, the pointer box)
+     * were already kept out of the *separate* `fixed` extraction via the
+     * matching `isOwnElement()` check in markFixedElements() above, but
+     * that only ever controlled which extraction path they took — it never
+     * removed them from the clone outright. Left in, the teacher-pointer
+     * box's `position: fixed` inline `top`/`left` (computed against the
+     * alumno's own real viewport) get reinterpreted inside the
+     * reconstruction's scaled, `transform`-ed wrapper, landing at a
+     * visually wrong position — exactly the bug this fixes, found by the
+     * user testing 'teacher_highlight' live. Same reasoning applies to any
+     * other own element that might end up mid-capture; excluding the whole
+     * class of them here is more robust than patching each one
+     * individually as it's added.
+     *
+     * Same "outermost only" pattern as extractFixedHtml(): a nested own
+     * element (e.g. a button inside the chat widget) is already removed
+     * along with its own-element ancestor, so re-selecting it separately
+     * would be redundant.
+     *
+     * @param {Element} clone
+     */
+    var removeOwnElements = function(clone) {
+        var ownSelector = '[class*="' + OWN_CLASS_PREFIX + '"]';
+        var candidates = Array.prototype.slice.call(clone.querySelectorAll(ownSelector));
+        var outermost = candidates.filter(function(el) {
+            return !el.parentElement || !el.parentElement.closest(ownSelector);
+        });
+        outermost.forEach(function(el) {
+            if (el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
         });
     };
 
@@ -872,13 +911,13 @@ define(
         // the mouse at all while typing, so waiting for the next throttled
         // cursor tick could delay or altogether miss showing the highlight.
         document.addEventListener('focusin', function(e) {
-            if (e.target.matches && e.target.matches(TEXT_FIELD_SELECTOR) && !isOwnElement(e.target)) {
+            if (e.target.matches && e.target.matches(DomSelector.TEXT_FIELD_SELECTOR) && !isOwnElement(e.target)) {
                 lastTypingSelector = DomSelector.buildRobustSelector(e.target);
                 sendCursor();
             }
         }, {passive: true});
         document.addEventListener('focusout', function(e) {
-            if (e.target.matches && e.target.matches(TEXT_FIELD_SELECTOR) && !isOwnElement(e.target)) {
+            if (e.target.matches && e.target.matches(DomSelector.TEXT_FIELD_SELECTOR) && !isOwnElement(e.target)) {
                 lastTypingSelector = null;
                 sendCursor();
             }

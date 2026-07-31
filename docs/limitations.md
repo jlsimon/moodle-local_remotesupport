@@ -579,11 +579,17 @@ decisión y qué código se retiró.
   se ve en la pantalla del alumno, no solo en la del profesor. Ver la
   entrada equivalente más arriba ("resaltado del elemento bajo el
   cursor") para el mismo razonamiento sobre por qué se acepta.
-- **Solo se puede señalar lo que la lista `CLICKABLE_SELECTOR` (en
-  `dom_selector.js`) reconoce como clicable** — un elemento interactivo
-  por otras vías (JavaScript propio de la actividad, sin ninguno de
-  esos atributos/roles) no aparece como candidato al pasar el ratón por
-  la reconstrucción, aunque sea perfectamente clicable para el alumno.
+- **Solo se puede señalar lo que la lista `POINTABLE_SELECTOR` (en
+  `dom_selector.js`) reconoce** — enlaces, botones y similares
+  (`CLICKABLE_SELECTOR`) más campos de texto (`TEXT_FIELD_SELECTOR`,
+  desde 0.23.3). Un elemento interactivo por otras vías (JavaScript
+  propio de la actividad, sin ninguno de esos atributos/roles/tipos) no
+  aparece como candidato al pasar el ratón por la reconstrucción,
+  aunque sea perfectamente clicable/editable para el alumno. Campos de
+  contraseña y ocultos quedan fuera igual que en el resto del plugin,
+  aunque aquí no hay ningún riesgo de seguridad en incluirlos (señalar
+  nunca revela ni ejecuta nada) — es solo coherencia con
+  `TEXT_FIELD_SELECTOR`, no una restricción necesaria.
 - **Sin persistencia en la reproducción de sesiones.** `teacher_highlight`
   no se graba en `local_remotesupport_track` (decisión deliberada, ver
   `docs/decisions.md`) — reproducir una sesión antigua nunca muestra
