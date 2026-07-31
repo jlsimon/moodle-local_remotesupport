@@ -62,5 +62,24 @@ $perpageselect->label = get_string('perpage', 'moodle');
 
 echo $OUTPUT->header();
 echo html_writer::div($OUTPUT->render($perpageselect), 'local-remotesupport-perpage');
+
+// Plain POST form, no JavaScript: the checkboxes rendered by the table's
+// own 'select' column (session_history_table::col_select()) already sit
+// inside this form by virtue of being part of its output. sessiondelete.php
+// re-validates ownership/capability/status per id regardless of which
+// checkboxes were actually offered here, so a tampered request cannot
+// delete a session this teacher was not entitled to delete.
+echo html_writer::start_tag('form', [
+    'method' => 'post',
+    'action' => new moodle_url('/local/remotesupport/sessiondelete.php'),
+]);
+echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()]);
 $table->out($perpage, true);
+echo html_writer::tag(
+    'button',
+    $OUTPUT->pix_icon('t/delete', '') . ' ' . get_string('button_deleteselected', 'local_remotesupport'),
+    ['type' => 'submit', 'class' => 'btn btn-secondary']
+);
+echo html_writer::end_tag('form');
+
 echo $OUTPUT->footer();

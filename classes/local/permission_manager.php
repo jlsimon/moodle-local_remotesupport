@@ -159,6 +159,42 @@ class permission_manager {
     }
 
     /**
+     * Whether the given user may delete this closed session from their
+     * history: same rule as can_replay_session() (owning teacher still
+     * holding the capability in the session's course, or a site-wide
+     * manager override) — deleting is not offered to anyone who could not
+     * already replay the same session.
+     *
+     * @param \stdClass $session Row from local_remotesupport_session.
+     * @param int $userid
+     * @return bool
+     */
+    public static function can_delete_session_history(\stdClass $session, int $userid): bool {
+        if (self::can_manage($userid)) {
+            return true;
+        }
+        if ((int) $session->teacherid !== $userid) {
+            return false;
+        }
+        return has_capability('local/remotesupport:deletesessionhistory', context_course::instance($session->courseid), $userid);
+    }
+
+    /**
+     * Require that the current user may delete this session from their
+     * history. See can_delete_session_history() for the rule.
+     *
+     * @param \stdClass $session Row from local_remotesupport_session.
+     * @param int $userid
+     * @throws moodle_exception
+     */
+    public static function require_can_delete_session_history(\stdClass $session, int $userid): void {
+        if (!self::can_delete_session_history($session, $userid)) {
+            audit_manager::access_denied(context_course::instance($session->courseid), 'notowner');
+            throw new moodle_exception('errornopermission', 'local_remotesupport');
+        }
+    }
+
+    /**
      * Require that the current user owns the session (as student or teacher)
      * or holds the managesessions capability.
      *

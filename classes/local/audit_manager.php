@@ -111,6 +111,22 @@ class audit_manager {
     }
 
     /**
+     * Record that a teacher deleted a closed session from their history.
+     *
+     * @param \stdClass $session
+     * @param int $actorid User who deleted it.
+     */
+    public static function session_deleted(\stdClass $session, int $actorid): void {
+        \local_remotesupport\event\session_deleted::create([
+            'objectid' => $session->id,
+            'context' => context_course::instance($session->courseid),
+            'courseid' => $session->courseid,
+            'userid' => $actorid,
+            'relateduserid' => $session->studentid,
+        ])->trigger();
+    }
+
+    /**
      * Record a relevant authorization failure.
      *
      * @param context $context

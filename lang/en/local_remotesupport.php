@@ -33,6 +33,7 @@ $string['remotesupport:viewactivesessions'] = 'View pending and active remote as
 $string['remotesupport:viewsessionhistory'] = 'View past remote assistance sessions';
 $string['remotesupport:replaysession'] = 'Replay the recording of a past remote assistance session';
 $string['remotesupport:managesessions'] = 'Manage any remote assistance session';
+$string['remotesupport:deletesessionhistory'] = 'Delete own past remote assistance sessions';
 
 // Pages: student.
 $string['pagetitle_request'] = 'Remote assistance';
@@ -87,6 +88,13 @@ $string['col_studentlastname'] = 'Student last name';
 $string['durationshort_hours'] = '{$a}h';
 $string['durationshort_minutes'] = '{$a}m';
 $string['durationshort_seconds'] = '{$a}s';
+$string['button_deleteselected'] = 'Delete selected';
+
+// Page: session deletion confirmation.
+$string['confirmdeletesessions'] = 'You are about to delete {$a} session(s) from your history, together with all of their screen recording and chat. This cannot be undone.';
+$string['confirmdeletesessions_row'] = 'Session #{$a->id} — {$a->date} — {$a->course} — {$a->student}';
+$string['notice_sessionsdeleted'] = '{$a} session(s) deleted.';
+$string['errornosessionselected'] = 'No session was selected.';
 
 // Pages: teacher session replay.
 $string['pagetitle_replay'] = 'Session replay';
@@ -146,6 +154,7 @@ $string['event_request_accepted'] = 'Assistance request accepted';
 $string['event_request_cancelled'] = 'Assistance request cancelled or expired';
 $string['event_session_started'] = 'Assistance session started';
 $string['event_session_ended'] = 'Assistance session ended';
+$string['event_session_deleted'] = 'Assistance session deleted from history';
 $string['event_access_denied'] = 'Assistance access denied';
 
 // Scheduled tasks.
@@ -154,6 +163,17 @@ $string['task_purgeevents'] = 'Purge stale remote assistance screen events';
 $string['task_purgetrack'] = 'Purge session recordings older than the retention period';
 
 // Settings.
+$string['setting_helpheading_title'] = 'About this extension';
+$string['setting_helpheading_desc'] = '<details><summary>How does it work? (click to expand)</summary>
+<p>Remote assistance lets a teacher help a student inside Moodle via shared browsing (co-browsing), not remote desktop control: the teacher sees a reconstruction of the Moodle page the student is using, never their real screen, other tabs, or applications outside Moodle.</p>
+<ul>
+<li><strong>Basic flow:</strong> the student requests assistance, a teacher with permission in that course accepts it, and a temporary session opens between the two.</li>
+<li><strong>The session is view-only by default.</strong> The student can grant, at any time and revocably, permission for the teacher to point at elements, click a small set of safe elements, or type into non-sensitive text fields.</li>
+<li><strong>Privacy:</strong> passwords and the value of any form field are never captured, only their structure. The student always sees a visible bar during the session, with the teacher\'s name and a button to end it instantly.</li>
+<li>The settings on this page are technical (what is captured from the screen, how often the cursor updates, etc.) and do not affect the permission level, which the student decides each session.</li>
+</ul>
+</details>
+<hr>';
 $string['setting_requestexpiryseconds'] = 'Request expiry time';
 $string['setting_requestexpiryseconds_desc'] = 'How long a pending assistance request stays valid before it automatically expires.';
 $string['setting_capturemode'] = 'Screen capture mode';

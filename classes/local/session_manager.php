@@ -435,6 +435,46 @@ class session_manager {
     }
 
     /**
+     * Delete closed sessions from a teacher's own history, together with
+     * their recorded screen/track data and any leftover events — the same
+     * purge as the privacy provider's erasure path (see
+     * privacy\provider::purge_sessions_and_events()), just triggered
+     * manually by the teacher instead of a data-deletion request.
+     *
+     * Re-validates ownership/capability and status per session rather than
+     * trusting the caller already did, same defensive pattern as
+     * close_session() above — $ids may come straight from a submitted form.
+     *
+     * @param int[] $ids
+     * @param int $actorid
+     * @return int Number of sessions actually deleted.
+     * @throws moodle_exception If any id does not exist, is not owned by
+     *                          $actorid (unless managing), or is not closed.
+     */
+    public static function delete_sessions(array $ids, int $actorid): int {
+        global $DB;
+
+        $sessions = [];
+        foreach ($ids as $id) {
+            $session = self::get_session((int) $id);
+            permission_manager::require_can_delete_session_history($session, $actorid);
+            if ($session->status !== self::STATUS_CLOSED) {
+                throw new moodle_exception('errorinvalidstatetransition', 'local_remotesupport');
+            }
+            $sessions[] = $session;
+        }
+
+        foreach ($sessions as $session) {
+            event_manager::purge_session_events($session->id);
+            track_manager::purge_session_track($session->id);
+            audit_manager::session_deleted($session, $actorid);
+            $DB->delete_records('local_remotesupport_session', ['id' => $session->id]);
+        }
+
+        return count($sessions);
+    }
+
+    /**
      * Expire pending requests whose deadline has passed. Intended to be called
      * from the scheduled task only.
      *

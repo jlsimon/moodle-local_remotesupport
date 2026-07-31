@@ -168,6 +168,16 @@ pidió asistencia (guardada en el momento de la solicitud), en vez de
 mostrar una confirmación aparte que además llevaba siempre a la
 portada del curso.
 
+**Ampliación posterior — eliminar sesiones del historial.**
+`sessionhistory.php` gana una columna de casillas de selección y un
+botón "Eliminar seleccionadas", con la confirmación en dos pasos
+habitual de Moodle antes de borrar nada. Requiere la nueva capacidad
+`local/remotesupport:deletesessionhistory` (profesorado, por defecto),
+separada de `:replaysession` para poder revocar el borrado sin afectar
+a la reproducción; borrar elimina también la grabación de pantalla y
+el chat de esas sesiones, igual que ya hacía una baja de datos por
+privacidad.
+
 ## Requisitos
 
 - Moodle 4.1 o posterior.
@@ -187,9 +197,10 @@ portada del curso.
      el arquetipo `student`).
    - `local/remotesupport:provideassistance`,
      `local/remotesupport:viewactivesessions`,
-     `local/remotesupport:viewsessionhistory` y
-     `local/remotesupport:replaysession` — profesorado (por defecto, vía
-     `teacher`/`editingteacher`).
+     `local/remotesupport:viewsessionhistory`,
+     `local/remotesupport:replaysession` y
+     `local/remotesupport:deletesessionhistory` — profesorado (por
+     defecto, vía `teacher`/`editingteacher`).
    - `local/remotesupport:managesessions` — administración (por defecto,
      vía `manager`).
 4. Opcional: ajustar en **Administración del sitio → Extensiones locales →

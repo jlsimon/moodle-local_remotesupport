@@ -33,6 +33,7 @@ $string['remotesupport:viewactivesessions'] = 'Ver solicitudes y sesiones de asi
 $string['remotesupport:viewsessionhistory'] = 'Ver sesiones de asistencia remota pasadas';
 $string['remotesupport:replaysession'] = 'Reproducir la grabación de una sesión de asistencia remota pasada';
 $string['remotesupport:managesessions'] = 'Gestionar cualquier sesión de asistencia remota';
+$string['remotesupport:deletesessionhistory'] = 'Eliminar sesiones de asistencia remota pasadas propias';
 
 // Páginas: alumno.
 $string['pagetitle_request'] = 'Asistencia remota';
@@ -87,6 +88,13 @@ $string['col_studentlastname'] = 'Apellidos del alumno';
 $string['durationshort_hours'] = '{$a}h';
 $string['durationshort_minutes'] = '{$a}m';
 $string['durationshort_seconds'] = '{$a}s';
+$string['button_deleteselected'] = 'Eliminar seleccionadas';
+
+// Página: confirmación de borrado de sesiones.
+$string['confirmdeletesessions'] = 'Vas a eliminar {$a} sesión/es de tu historial, junto con toda su grabación de pantalla y chat. Esta acción no se puede deshacer.';
+$string['confirmdeletesessions_row'] = 'Sesión #{$a->id} — {$a->date} — {$a->course} — {$a->student}';
+$string['notice_sessionsdeleted'] = 'Se ha/n eliminado {$a} sesión/es.';
+$string['errornosessionselected'] = 'No se ha seleccionado ninguna sesión.';
 
 // Páginas: reproducción de sesión.
 $string['pagetitle_replay'] = 'Reproducción de sesión';
@@ -146,6 +154,7 @@ $string['event_request_accepted'] = 'Solicitud de asistencia aceptada';
 $string['event_request_cancelled'] = 'Solicitud de asistencia cancelada o caducada';
 $string['event_session_started'] = 'Sesión de asistencia iniciada';
 $string['event_session_ended'] = 'Sesión de asistencia finalizada';
+$string['event_session_deleted'] = 'Sesión de asistencia eliminada del historial';
 $string['event_access_denied'] = 'Acceso a asistencia denegado';
 
 // Tareas programadas.
@@ -154,6 +163,17 @@ $string['task_purgeevents'] = 'Depurar eventos de pantalla de asistencia remota 
 $string['task_purgetrack'] = 'Depurar grabaciones de sesión más antiguas que el periodo de retención';
 
 // Ajustes.
+$string['setting_helpheading_title'] = 'Acerca de esta extensión';
+$string['setting_helpheading_desc'] = '<details><summary>¿Cómo funciona? (haz clic para ver más)</summary>
+<p>Asistencia remota permite a un profesor ayudar a un alumno dentro de Moodle mediante navegación compartida (co-browsing), no mediante control remoto del escritorio: el profesor ve una reconstrucción de la página de Moodle que el alumno está usando, nunca su pantalla real, otras pestañas ni aplicaciones ajenas a Moodle.</p>
+<ul>
+<li><strong>Flujo básico:</strong> el alumno solicita asistencia, un profesor con permiso en ese curso la acepta, y se abre una sesión temporal entre ambos.</li>
+<li><strong>Por defecto la sesión es de solo visualización.</strong> El alumno puede conceder, en cualquier momento y de forma revocable, permiso para que el profesor señale elementos, haga clic en un conjunto reducido de elementos seguros o escriba en campos de texto no sensibles.</li>
+<li><strong>Privacidad:</strong> nunca se capturan contraseñas ni el valor de ningún campo de formulario, solo su estructura. El alumno ve siempre una barra visible durante la sesión, con el nombre del profesor y un botón para finalizarla al instante.</li>
+<li>Los ajustes de esta página son técnicos (qué se captura de la pantalla, con qué frecuencia se actualiza el cursor, etc.) y no afectan al nivel de permisos, que decide el alumno en cada sesión.</li>
+</ul>
+</details>
+<hr>';
 $string['setting_requestexpiryseconds'] = 'Tiempo de caducidad de la solicitud';
 $string['setting_requestexpiryseconds_desc'] = 'Cuánto tiempo permanece válida una solicitud de asistencia pendiente antes de caducar automáticamente.';
 $string['setting_capturemode'] = 'Modo de captura de pantalla';

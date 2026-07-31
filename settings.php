@@ -28,6 +28,12 @@ if ($hassiteconfig) {
     $settings = new admin_settingpage('local_remotesupport', get_string('pluginname', 'local_remotesupport'));
     $ADMIN->add('localplugins', $settings);
 
+    $settings->add(new admin_setting_heading(
+        'local_remotesupport/helpheading',
+        get_string('setting_helpheading_title', 'local_remotesupport'),
+        get_string('setting_helpheading_desc', 'local_remotesupport')
+    ));
+
     $settings->add(new admin_setting_configduration(
         'local_remotesupport/requestexpiryseconds',
         get_string('setting_requestexpiryseconds', 'local_remotesupport'),

@@ -60,9 +60,10 @@ class session_history_table extends table_sql {
         $this->teacherid = $teacherid;
 
         $this->define_columns([
-            'id', 'chatlink', 'coursefullname', 'studentfirstname', 'studentlastname', 'timestarted', 'duration',
+            'select', 'id', 'chatlink', 'coursefullname', 'studentfirstname', 'studentlastname', 'timestarted', 'duration',
         ]);
         $this->define_headers([
+            '',
             get_string('col_sessionnumber', 'local_remotesupport'),
             get_string('col_chat', 'local_remotesupport'),
             get_string('col_course', 'local_remotesupport'),
@@ -76,9 +77,11 @@ class session_history_table extends table_sql {
         $this->set_sql($sql['fields'], $sql['from'], $sql['where'], $sql['params']);
 
         $this->sortable(true, 'timestarted', SORT_DESC);
-        // 'chatlink' is not a real SQL column, only a rendered link — sorting
-        // by it would send an ORDER BY the underlying query can't satisfy.
+        // 'chatlink' and 'select' are not real SQL columns, only a rendered
+        // link/checkbox — sorting by either would send an ORDER BY the
+        // underlying query can't satisfy.
         $this->no_sorting('chatlink');
+        $this->no_sorting('select');
         $this->collapsible(false);
         $this->set_attribute('id', 'local-remotesupport-sessionhistory');
     }
@@ -113,6 +116,24 @@ class session_history_table extends table_sql {
               WHERE eventtype = ? AND sessionid $insql",
             $params
         );
+    }
+
+    /**
+     * A checkbox to include this row in a bulk delete (sessiondelete.php),
+     * only shown when the viewer is actually allowed to delete this
+     * particular session — same authorization as col_id()/col_chatlink()
+     * above, so a row never offers a checkbox that would just be rejected
+     * server-side anyway.
+     *
+     * @param \stdClass $row
+     * @return string
+     */
+    protected function col_select(\stdClass $row): string {
+        $pseudosession = (object) ['teacherid' => $this->teacherid, 'courseid' => $row->courseid];
+        if (!permission_manager::can_delete_session_history($pseudosession, $this->teacherid)) {
+            return '';
+        }
+        return \html_writer::checkbox('ids[]', $row->id, false, '', ['aria-label' => '#' . $row->id]);
     }
 
     /**

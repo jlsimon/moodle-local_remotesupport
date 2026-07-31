@@ -129,10 +129,12 @@ Añadido tras completar el MVP, con el modo de captura `fullpage`:
 curso, `RISK_PERSONAL` — tras el MVP, ver más abajo por qué es una
 capacidad aparte y no una reutilización de `:viewactivesessions`),
 `:replaysession` (profesor, contexto curso, `RISK_PERSONAL` — tras el
-MVP, ver más abajo), `:managesessions` (manager, contexto sistema).
-Todas las comprobaciones pasan por `permission_manager`; ninguna otra
-clase llama a `require_capability()`/`has_capability()` directamente
-sobre capacidades del plugin.
+MVP, ver más abajo), `:deletesessionhistory` (profesor, contexto
+curso, `RISK_DATALOSS` — tras el MVP, ver más abajo), `:managesessions`
+(manager, contexto sistema). Todas las comprobaciones pasan por
+`permission_manager`; ninguna otra clase llama a
+`require_capability()`/`has_capability()` directamente sobre
+capacidades del plugin.
 
 **`:viewsessionhistory` y `:replaysession` son las únicas con
 `RISK_PERSONAL` entre las de solo lectura, y son capacidades distintas
@@ -156,6 +158,21 @@ la propiedad: `session_manager` exige que quien cancela sea el
 `studentid`, que quien acepta tenga la capacidad en el curso de esa
 solicitud (no en cualquier curso), y que quien cierra o entra sea el
 `studentid`, el `teacherid`, o tenga `managesessions`.
+
+**`:deletesessionhistory` reutiliza exactamente la regla de
+`:replaysession` (post-MVP, 2026-07-30), a propósito: nadie puede
+eliminar una sesión que no podría ya reproducir.**
+`permission_manager::can_delete_session_history()` es, campo por
+campo, la misma comprobación que `can_replay_session()` (profesor
+asignado + capacidad en el curso, o `managesessions`) — capacidad
+separada de todas formas, para que un administrador pueda revocar el
+borrado sin tocar la reproducción. `session_manager::delete_sessions()`
+revalida esto (y que la sesión esté cerrada) por cada id, sin confiar
+en que quien llama ya lo comprobó, y es todo-o-nada: si un id del
+lote falla cualquier comprobación, no se borra ninguno del lote. El
+borrado reutiliza el mismo purgado ya usado por la baja de datos por
+privacidad (`local_remotesupport_track` y `local_remotesupport_event`
+de esa sesión), y queda auditado (`session_deleted`).
 
 ## Tokens
 

@@ -73,6 +73,16 @@ $capabilities = [
         ],
     ],
 
+    'local/remotesupport:deletesessionhistory' => [
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'riskbitmask' => RISK_DATALOSS,
+        'archetypes' => [
+            'teacher' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+        ],
+    ],
+
     'local/remotesupport:managesessions' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,

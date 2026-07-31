@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.22.0 (nuevo: el profesor puede eliminar sesiones de su historial) — 2026-07-30
+
+- **Pedido por el usuario**: en `sessionhistory.php`, poder eliminar
+  entradas del historial de sesiones pasadas, del modo habitual de
+  Moodle: casillas de selección por fila y un icono de borrado con
+  confirmación. También pidió una capacidad específica para poder
+  revocar ese permiso de borrado por separado, concedida a profesores
+  por defecto.
+- Nueva capacidad `local/remotesupport:deletesessionhistory`
+  (contexto de curso, `CAP_ALLOW` para `teacher`/`editingteacher` por
+  defecto) — un administrador puede revocarla sin tocar
+  `provideassistance` ni el resto de capacidades del plugin.
+- `permission_manager::can_delete_session_history()` reutiliza
+  exactamente la misma regla que ya gobernaba quién puede reproducir
+  una sesión (`can_replay_session()`): el profesor asignado a esa
+  sesión, si sigue teniendo la capacidad en el curso, o cualquiera con
+  `managesessions` como override. Nadie puede eliminar una sesión que
+  no podría reproducir.
+- `session_manager::delete_sessions()` revalida propiedad/capacidad y
+  que la sesión esté cerrada por cada id (mismo patrón defensivo que
+  `close_session()`, no confía en que el llamador ya lo comprobó), y
+  es todo-o-nada: si cualquier id del lote falla la validación, no se
+  borra ninguno. El borrado reutiliza exactamente el mismo purgado que
+  ya usaba la baja por privacidad (grabación de pantalla en
+  `local_remotesupport_track` y eventos en `local_remotesupport_event`),
+  y queda auditado con un nuevo evento `session_deleted`.
+- Interfaz sin JavaScript nuevo: `session_history_table` gana una
+  columna de casillas (`ids[]`), `sessionhistory.php` envuelve la
+  tabla en un formulario POST con un botón "Eliminar seleccionadas",
+  y la nueva `sessiondelete.php` implementa el flujo clásico de
+  confirmación en dos pasos de Moodle (`$OUTPUT->confirm()`) antes de
+  borrar nada.
+- 11 nuevas pruebas PHPUnit (capacidad por defecto, revocación de la
+  capacidad, profesor distinto rechazado, sesión aún abierta
+  rechazada, override de gestor, borrado en cascada de la grabación,
+  todo-o-nada en un lote mixto). 189 tests pasando (antes 178).
+  Verificado también en vivo (curso/usuarios desechables): la casilla
+  y el borrado en cascada funcionan igual que en las pruebas.
+- **Bug encontrado por el usuario nada más probarlo en vivo**: al
+  pulsar "Eliminar seleccionadas" aparecía el error de Moodle "clean()
+  can not process arrays, please use clean_array() instead".
+  `sessiondelete.php` leía el mismo parámetro `ids` con
+  `optional_param_array()` (array, primer paso) y con `optional_param(
+  ..., PARAM_SEQUENCE)` (cadena, paso de confirmación) sin condición —
+  cuando llegaba como array real, `clean_param()` lo rechazaba. Arreglado
+  usando nombres de parámetro distintos para cada forma (`ids` para el
+  array, `idlist` para la secuencia), eliminando la ambigüedad en vez
+  de intentar detectarla. Ver `docs/decisions.md` para el detalle
+  completo y cómo se verificó.
+
 ## 0.21.0 (nuevo: el campo de texto en el que escribe el alumno se remarca en la reconstrucción del profesor) — 2026-07-30
 
 - **Pedido por el usuario**: cuando el alumno teclea en un campo de

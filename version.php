@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026073000;
+$plugin->version = 2026073100;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.21.0 (nuevo: el campo de texto en el que escribe el alumno se remarca en la reconstrucción del profesor)';
+$plugin->release = '0.22.0 (nuevo: el profesor puede eliminar sesiones de su historial)';

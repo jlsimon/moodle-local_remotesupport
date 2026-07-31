@@ -120,4 +120,82 @@ class permission_manager_test extends \advanced_testcase {
         $this->expectException(\moodle_exception::class);
         permission_manager::require_can_replay_session($session, $stranger->id);
     }
+
+    public function test_can_delete_session_history_allows_the_assigned_teacher_by_default(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        $session = (object) ['teacherid' => $teacher->id, 'courseid' => $course->id];
+
+        $this->assertTrue(permission_manager::can_delete_session_history($session, $teacher->id));
+    }
+
+    public function test_can_delete_session_history_rejects_a_different_teacher(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $otherteacher = $generator->create_and_enrol($course, 'editingteacher');
+
+        $session = (object) ['teacherid' => $teacher->id, 'courseid' => $course->id];
+
+        $this->assertFalse(permission_manager::can_delete_session_history($session, $otherteacher->id));
+    }
+
+    public function test_can_delete_session_history_rejects_the_student(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $student = $generator->create_and_enrol($course, 'student');
+
+        $session = (object) ['teacherid' => $teacher->id, 'courseid' => $course->id];
+
+        $this->assertFalse(permission_manager::can_delete_session_history($session, $student->id));
+    }
+
+    public function test_can_delete_session_history_respects_capability_revoked_from_teacher(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $context = \context_course::instance($course->id);
+        $roleid = $generator->create_role();
+        assign_capability('local/remotesupport:deletesessionhistory', CAP_PROHIBIT, $roleid, $context->id);
+        role_assign($roleid, $teacher->id, $context->id);
+
+        $session = (object) ['teacherid' => $teacher->id, 'courseid' => $course->id];
+
+        $this->assertFalse(permission_manager::can_delete_session_history($session, $teacher->id));
+    }
+
+    public function test_can_delete_session_history_allows_manager_override(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $manager = $generator->create_user();
+        $roleid = $DB->get_field('role', 'id', ['shortname' => 'manager']);
+        role_assign($roleid, $manager->id, \context_system::instance()->id);
+
+        $session = (object) ['teacherid' => $teacher->id, 'courseid' => $course->id];
+
+        $this->assertTrue(permission_manager::can_delete_session_history($session, $manager->id));
+    }
+
+    public function test_require_can_delete_session_history_throws_when_not_allowed(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $stranger = $generator->create_user();
+
+        $session = (object) ['teacherid' => $teacher->id, 'courseid' => $course->id];
+
+        $this->expectException(\moodle_exception::class);
+        permission_manager::require_can_delete_session_history($session, $stranger->id);
+    }
 }

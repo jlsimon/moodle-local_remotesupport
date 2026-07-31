@@ -454,4 +454,71 @@ class session_manager_test extends \advanced_testcase {
 
         $this->assertCount(0, $rows);
     }
+
+    public function test_delete_sessions_removes_the_session_and_its_recording(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [$session, , , $teacher] = $this->create_closed_session_with_duration(60);
+        \local_remotesupport\local\track_manager::record($session->id, $teacher->id, 'page', '{}');
+        \local_remotesupport\local\event_manager::record_event($session->id, $teacher->id, 'chat_message', ['message' => 'hola']);
+
+        $deleted = session_manager::delete_sessions([$session->id], $teacher->id);
+
+        $this->assertSame(1, $deleted);
+        $this->assertFalse($DB->record_exists('local_remotesupport_session', ['id' => $session->id]));
+        $this->assertFalse($DB->record_exists('local_remotesupport_track', ['sessionid' => $session->id]));
+        $this->assertFalse($DB->record_exists('local_remotesupport_event', ['sessionid' => $session->id]));
+    }
+
+    public function test_delete_sessions_rejects_a_different_teacher(): void {
+        $this->resetAfterTest();
+        [$session] = $this->create_closed_session_with_duration(60);
+        $otherteacher = $this->getDataGenerator()->create_user();
+
+        $this->expectException(\moodle_exception::class);
+        session_manager::delete_sessions([$session->id], $otherteacher->id);
+    }
+
+    public function test_delete_sessions_rejects_a_still_open_session(): void {
+        $this->resetAfterTest();
+        [$course, $student, $teacher] = $this->setup_course_with_users();
+        $session = session_manager::create_request($course->id, $student->id);
+        session_manager::accept_request($session->id, $teacher->id);
+
+        $this->expectException(\moodle_exception::class);
+        session_manager::delete_sessions([$session->id], $teacher->id);
+    }
+
+    public function test_delete_sessions_allows_manager_override(): void {
+        $this->resetAfterTest();
+        [$session] = $this->create_closed_session_with_duration(60);
+
+        $manager = $this->getDataGenerator()->create_user();
+        $managerroleid = $this->getDataGenerator()->create_role();
+        assign_capability('local/remotesupport:managesessions', CAP_ALLOW, $managerroleid, \context_system::instance());
+        role_assign($managerroleid, $manager->id, \context_system::instance());
+
+        $deleted = session_manager::delete_sessions([$session->id], $manager->id);
+        $this->assertSame(1, $deleted);
+    }
+
+    public function test_delete_sessions_is_all_or_nothing_across_a_batch(): void {
+        global $DB;
+        $this->resetAfterTest();
+        [$ownsession, , , $teacher] = $this->create_closed_session_with_duration(60);
+        [$othersession] = $this->create_closed_session_with_duration(60);
+
+        // $teacher owns $ownsession but not $othersession — the whole batch
+        // must be rejected, so even the session $teacher legitimately owns
+        // must survive.
+        try {
+            session_manager::delete_sessions([$ownsession->id, $othersession->id], $teacher->id);
+            $this->fail('Expected a moodle_exception to be thrown.');
+        } catch (\moodle_exception $e) {
+            // Expected.
+        }
+
+        $this->assertTrue($DB->record_exists('local_remotesupport_session', ['id' => $ownsession->id]));
+        $this->assertTrue($DB->record_exists('local_remotesupport_session', ['id' => $othersession->id]));
+    }
 }
