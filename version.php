@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026080105;
+$plugin->version = 2026080106;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.24.6 (accesibilidad: nombre accesible del chat y del enlace de reproducción)';
+$plugin->release = '0.24.7 (verificación: 20 sesiones concurrentes reales, sin cambios de código)';

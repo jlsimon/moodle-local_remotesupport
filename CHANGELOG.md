@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.24.7 (verificación: 20 sesiones concurrentes reales, sin cambios de código) — 2026-08-01
+
+- Verificado en vivo el objetivo de concurrencia declarado en
+  `CLAUDE.md` (1-20 sesiones simultáneas): 20 parejas alumno-profesor
+  reales, activas al mismo tiempo, intercambiando eventos en paralelo
+  durante una ráfaga sostenida de 15 s. 680 eventos empujados/680
+  filas permanentes registradas, 0 errores, 0 fugas entre sesiones
+  (verificado contra `local_remotesupport_track`, comparando cada fila
+  con el `studentid`/`teacherid` real de su propia sesión).
+- Sin cambios de código del plugin — solo documentación
+  (`docs/decisions.md`, `docs/tests_todo.md`) y este bump de versión.
+  Detalle completo, incluido un fallo real del arnés de pruebas (no
+  del plugin) encontrado y corregido en el camino, en
+  `docs/decisions.md`.
+
 ## 0.24.6 (accesibilidad: nombre accesible del chat y del enlace de reproducción) — 2026-08-01
 
 - Auditoría de accesibilidad (`axe-core`, WCAG2A/WCAG2AA) de la
