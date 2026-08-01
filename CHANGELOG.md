@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.24.8 (verificación: tema classic y viewports móviles, sin cambios de código) — 2026-08-01
+
+- Verificada la barra de estado y el chat flotante en las cuatro
+  combinaciones de tema (`boost`/`classic`, los únicos instalados en
+  este sitio) × viewport (escritorio/móvil 375×667), con una sesión
+  activa real: sin desbordamiento horizontal, ambos elementos siempre
+  dentro del viewport, sin solapamiento real entre el chat y la barra
+  de estado, 0 violaciones de `axe-core` en las cuatro.
+- Sin cambios de código del plugin — solo documentación
+  (`docs/decisions.md`, `docs/tests_todo.md`) y este bump de versión.
+  Detalle completo, incluida la forma de probar `classic` sin afectar
+  a otros usuarios del sitio, en `docs/decisions.md`.
+
 ## 0.24.7 (verificación: 20 sesiones concurrentes reales, sin cambios de código) — 2026-08-01
 
 - Verificado en vivo el objetivo de concurrencia declarado en
