@@ -149,7 +149,16 @@ class html_sanitizer {
                 continue;
             }
 
-            if (in_array($name, self::URL_ATTRIBUTES, true) && preg_match('/^\s*javascript:/i', $attr->value)) {
+            // Browsers strip ASCII tab/newline/CR from anywhere in a url
+            // before parsing its scheme (WHATWG URL spec), so a value like
+            // "java\tscript:alert(1)" is still a working javascript: url to
+            // them even though it doesn't match the naive pattern below.
+            // Normalizing them out first, rather than relying on
+            // DOMDocument::saveHTML()'s percent-encoding of those same
+            // characters as an incidental side effect, is what actually
+            // keeps this filter's contract (see docs/security.md).
+            $urlvalue = preg_replace('/[\t\r\n]/', '', $attr->value);
+            if (in_array($name, self::URL_ATTRIBUTES, true) && preg_match('/^\s*javascript:/i', $urlvalue)) {
                 $toremove[] = $attr->name;
                 continue;
             }

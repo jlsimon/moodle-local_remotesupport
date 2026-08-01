@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.25.2 — Security fixes ahead of Moodle Plugins directory submission — 2026-08-01
+
+Two findings from an earlier adversarial review, previously documented as
+known, low-impact, not-currently-exploitable risks in `docs/security.md`,
+are now fixed rather than just accepted:
+
+- `html_sanitizer::clean_attributes()`'s `javascript:` filter now
+  normalizes tab/newline/CR characters out of a url before checking it,
+  closing a known browser-parsing bypass technique (embedding a control
+  character inside the `javascript:` scheme word itself). Two independent
+  defenses already made this inert in practice, but the function's own
+  contract now holds without relying on them.
+- `session_manager::create_request()` now rejects any `returnurl` value
+  containing a `..` path segment, closing a same-site-only open-redirect
+  quirk in the "return to where you were" link shown after a session
+  starts.
+
+Maturity bumped from alpha to beta, reflecting the plugin's actual state
+ahead of a Moodle Plugins directory submission.
+
 ## 0.25.1 — Harden against leftover code after an incomplete uninstall — 2026-08-01
 
 `local_remotesupport_before_footer()` and `local_remotesupport_render_navbar_output()`

@@ -475,6 +475,9 @@ one:
    `new moodle_url($session->returnurl)`, wrapped in a `try`/`catch` that
    falls back to the course front page for any value that doesn't look
    like a valid local path.
+3. **`session_manager::create_request()` rejects `..` path segments**,
+   which `PARAM_LOCALURL` alone does not — see "Known risks" below for the
+   same-site-only redirect this closes off.
 
 ## Known risks
 
@@ -517,48 +520,32 @@ one:
   recovery from the official client, and each one costs the same as the
   normal periodic heartbeat (one `page` snapshot), so it isn't a real
   amplification vector.
-- **Known, currently inert bypass of the `javascript:` filter in
-  `html_sanitizer::clean_attributes()`** (found 2026-08-01, adversarial
-  review): the check `preg_match('/^\s*javascript:/i', $attr->value)`
-  runs on the attribute value as `DOMDocument` gives it (before
-  serialization), so a tab/newline/carriage return embedded inside the
-  scheme itself (`java` + TAB + `script:alert(1)`) doesn't match the
-  pattern and the attribute isn't removed — a known bypass technique
-  (browsers ignore those control characters when parsing a URL scheme).
-  Confirmed live: the value survives the check. **Not exploitable today,
-  due to two independent defenses**: (1) `DOMDocument::saveHTML()`
-  percent-encodes those control characters when serializing `href`/`src`
-  attributes (`java%09script:...`), which stops being a valid
-  `javascript:` scheme for any real URL parser; (2) the teacher's
-  reconstruction `iframe` has permanent `pointer-events: none` (never
-  disabled, not even during pointing mode — that feature's listeners
-  live on `viewportWrapper`, never on the `iframe` itself or its
-  `contentDocument`) and `sandbox="allow-same-origin"` with no
-  `allow-scripts`, so no real click ever reaches the reconstructed
-  content to trigger a navigation in the first place. This remains a
-  real defect in that function's own contract (its docblock promises to
-  filter `javascript:` and doesn't do so reliably) — pending a fix, not
-  urgent given the above. Likely fix: normalize (strip control
-  characters from) the value before applying the regex, instead of
-  relying on the serializer to neutralize them as a side effect.
-- **`returnurl`/`fromurl` doesn't filter `../` segments** (same 2026-08-01
-  finding): `PARAM_LOCALURL` correctly rejects everything tested that
-  tried to escape to another domain (`https://evil.example`,
-  `//evil.example`, `javascript:`, `user@evil.example`-style tricks, or
-  subdomain-suffix tricks) — confirmed with a battery of payloads against
-  `clean_param()` live — but it doesn't normalize or reject `../`, and
-  neither `moodle_url` nor `session.php` do when reconstructing the
-  destination (`new moodle_url($session->returnurl)` is literal
-  concatenation, without resolving `..`). A `fromurl` like
-  `/local/remotesupport/../../other/path` survives intact and produces a
-  real redirect to that other path. **It never crosses to another
-  domain** (confirmed: without a `//` opening a new authority, `..` can
-  only cancel path segments within the same host) — so this doesn't
-  contradict, but does narrow, the "Redirect to the originating page
-  without open-redirect risk" section above: that guarantee holds against
-  another domain, not against another path on the same site. Bounded
-  impact: the destination path is still subject to `require_login()`/
-  whatever capability checks apply to whatever is there.
+- **`javascript:` filter bypass via embedded control characters — fixed
+  2026-08-01** (found the same day, adversarial review): the check in
+  `html_sanitizer::clean_attributes()` ran on the attribute value as
+  `DOMDocument` gave it, before serialization, so a tab/newline/carriage
+  return embedded inside the scheme itself (`java` + TAB + `script:...`)
+  didn't match the `^\s*javascript:` pattern — a known browser-parsing
+  bypass technique (browsers strip those control characters from
+  anywhere in a url before parsing its scheme). It was not exploitable in
+  practice even before the fix, due to two independent defenses that
+  remain in place regardless: `DOMDocument::saveHTML()` percent-encodes
+  those characters on output, and the teacher's reconstruction `iframe`
+  has permanent `pointer-events: none` plus `sandbox="allow-same-origin"`
+  with no `allow-scripts`, so no click ever reaches the reconstructed
+  content in the first place. Fixed by normalizing (stripping tab/
+  newline/CR from) the value before applying the regex, so the function's
+  own contract now holds independently of those other defenses too.
+- **`returnurl`/`fromurl` `../` path segments — fixed 2026-08-01** (same
+  finding): `PARAM_LOCALURL` correctly rejects everything that could
+  escape to another domain, but left `../` path segments untouched, so a
+  `fromurl` like `/local/remotesupport/../../other/path` survived intact
+  and produced a real, same-site-only redirect to that other path (never
+  cross-domain — confirmed: without a `//` opening a new authority, `..`
+  can only cancel path segments within the same host — and still subject
+  to whatever `require_login()`/capability checks apply to that
+  destination). `session_manager::create_request()` now rejects any
+  `returnurl` containing a `..` path segment before it is ever stored.
 - **`chat_message` outlives every other event type, by design**: exempt
   from `purge_stale_events()` (the 2-minute purge), it only disappears
   when the session closes. This means that, during a long session, the

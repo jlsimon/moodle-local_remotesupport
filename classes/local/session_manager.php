@@ -83,7 +83,7 @@ class session_manager {
         }
 
         $returnurl = trim($returnurl);
-        if (core_text::strlen($returnurl) > self::MAX_RETURNURL_LENGTH) {
+        if (core_text::strlen($returnurl) > self::MAX_RETURNURL_LENGTH || self::has_path_traversal_segment($returnurl)) {
             $returnurl = '';
         }
 
@@ -108,6 +108,26 @@ class session_manager {
         audit_manager::request_created($record);
 
         return $record;
+    }
+
+    /**
+     * Whether a local url string contains a '..' path-traversal segment.
+     *
+     * PARAM_LOCALURL (applied by every entry point that feeds $returnurl
+     * here — request.php and classes/external/request_assistance.php)
+     * already rejects anything that could escape to another domain, but
+     * treats '..' as an ordinary path character, not something to reject.
+     * Left unchecked, a value like '/local/remotesupport/../../other/path'
+     * would still be stored and later turned into a real redirect to that
+     * other same-site path by session.php — never off-site (clean_param()
+     * already blocks that), but not what a "return to where the student
+     * was" url is meant to allow either. See docs/security.md.
+     *
+     * @param string $url
+     * @return bool
+     */
+    private static function has_path_traversal_segment(string $url): bool {
+        return (bool) preg_match('#(^|/)\.\.(/|$)#', $url);
     }
 
     /**

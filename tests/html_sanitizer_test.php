@@ -52,6 +52,17 @@ final class html_sanitizer_test extends \basic_testcase {
         $this->assertStringNotContainsString('javascript:', $out);
     }
 
+    public function test_strips_javascript_url_with_embedded_tab(): void {
+        // A tab embedded inside the scheme word itself ("java" + TAB +
+        // "script:") is still a working javascript: url to a real browser
+        // (WHATWG URL spec strips ASCII tab/newline/CR from anywhere in a
+        // url before parsing its scheme), but did not match the sanitizer's
+        // naive '^\s*javascript:' pattern before this was fixed — see
+        // docs/security.md's "Known risks" section.
+        $out = html_sanitizer::sanitize("<a href=\"java\tscript:alert(1)\">click</a>");
+        $this->assertStringNotContainsString('href=', $out);
+    }
+
     public function test_strips_input_values(): void {
         $out = html_sanitizer::sanitize('<input type="text" value="secret-value">');
         $this->assertStringNotContainsString('secret-value', $out);

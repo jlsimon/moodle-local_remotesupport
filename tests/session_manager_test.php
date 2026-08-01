@@ -107,6 +107,53 @@ final class session_manager_test extends \advanced_testcase {
         $this->assertNull($session->returnurl);
     }
 
+    /**
+     * A returnurl with a '..' path segment is dropped, not stored as-is.
+     *
+     * @dataProvider path_traversal_returnurl_provider
+     * @param string $returnurl
+     */
+    public function test_create_request_drops_returnurl_with_path_traversal_segment(string $returnurl): void {
+        // PARAM_LOCALURL (applied upstream, by request.php and
+        // classes/external/request_assistance.php) already blocks anything
+        // that could escape to another domain, but leaves '..' path
+        // segments untouched — this is create_request()'s own defense
+        // against that gap turning into a same-site open redirect via
+        // session.php. See docs/security.md's "Known risks" section.
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $session = session_manager::create_request($course->id, $student->id, '', $returnurl);
+
+        $this->assertNull($session->returnurl);
+    }
+
+    /**
+     * Data provider of returnurl values containing a '..' path segment.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function path_traversal_returnurl_provider(): array {
+        return [
+            'leading ../' => ['../other/path'],
+            'embedded /../' => ['/local/remotesupport/../../other/path'],
+            'trailing /..' => ['/local/remotesupport/..'],
+            'bare ..' => ['..'],
+        ];
+    }
+
+    public function test_create_request_keeps_returnurl_with_dots_that_are_not_a_path_segment(): void {
+        // Only a '..' *segment* (bounded by '/' or the string edges) is
+        // rejected — an otherwise ordinary url that merely contains two
+        // adjacent dots elsewhere must not be dropped by mistake.
+        $this->resetAfterTest();
+        [$course, $student] = $this->setup_course_with_users();
+
+        $session = session_manager::create_request($course->id, $student->id, '', '/mod/page/view.php?name=a..b');
+
+        $this->assertSame('/mod/page/view.php?name=a..b', $session->returnurl);
+    }
+
     public function test_create_request_drops_oversized_returnurl_instead_of_truncating(): void {
         $this->resetAfterTest();
         [$course, $student] = $this->setup_course_with_users();
