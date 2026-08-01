@@ -174,6 +174,7 @@ define(['core/str', 'local_remotesupport/transport'], function(Str, Transport) {
             toggle.insertBefore(document.createTextNode(strings[0]), badge);
             heading.textContent = strings[1];
             input.setAttribute('placeholder', strings[2]);
+            input.setAttribute('aria-label', strings[2]);
             sendButton.textContent = strings[3];
             return null;
         }).catch(function() {

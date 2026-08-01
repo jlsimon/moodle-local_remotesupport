@@ -83,6 +83,7 @@ $string['col_duration'] = 'Duration';
 $string['col_sessionnumber'] = '#';
 $string['col_chat'] = 'Chat';
 $string['link_viewchat'] = 'View chat';
+$string['link_replaysession'] = 'Replay session #{$a}';
 $string['col_studentfirstname'] = 'Student first name';
 $string['col_studentlastname'] = 'Student last name';
 $string['durationshort_hours'] = '{$a}h';

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.6 (accesibilidad: nombre accesible del chat y del enlace de reproducción) — 2026-08-01
+
+- Auditoría de accesibilidad (`axe-core`, WCAG2A/WCAG2AA) de la
+  interfaz propia del plugin (barra de estado, chat, botones de
+  sonido/señalado, historial de sesiones): 0 violaciones en las cuatro
+  páginas verificadas en vivo con una sesión activa.
+- **Fix**: el campo de texto del chat ahora tiene `aria-label` (antes
+  solo `placeholder`, un nombre accesible válido pero no fiable en
+  todos los lectores de pantalla).
+- **Fix**: el enlace "#123" de reproducir sesión en el historial ahora
+  tiene `aria-label="Reproducir sesión #123"` (nueva cadena
+  `link_replaysession`) — el texto visible no cambia, solo su nombre
+  accesible, antes ambiguo fuera de contexto.
+- `amd/build/chat_widget.min.js` regenerado con un build Grunt real
+  (núcleo de Moodle clonado en un directorio temporal, sin base de
+  datos ni Composer — ver `docs/decisions.md`), no copiado a mano.
+
 ## 0.24.5 (revisión de seguridad adversarial, sin cambios de código) — 2026-08-01
 
 - Revisión de seguridad adversarial manual (la skill `/security-review`

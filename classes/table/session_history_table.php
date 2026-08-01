@@ -154,7 +154,9 @@ class session_history_table extends table_sql {
             return '#' . $row->id;
         }
         $url = new \moodle_url('/local/remotesupport/sessionreplay.php', ['id' => $row->id]);
-        return \html_writer::link($url, '#' . $row->id);
+        return \html_writer::link($url, '#' . $row->id, [
+            'aria-label' => get_string('link_replaysession', 'local_remotesupport', $row->id),
+        ]);
     }
 
     /**
