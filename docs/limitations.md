@@ -1,613 +1,569 @@
-# Limitaciones conocidas
+# Known limitations
 
-**Nota: este plugin es deliberadamente de solo visualización.** El
-profesor no puede señalar, hacer clic ni escribir en la página del
-alumno — solo observarla. Ver `docs/decisions.md` para el porqué de esta
-decisión y qué código se retiró.
+**Note: this plugin is deliberately view-only.** The teacher cannot point
+at, click, or type into the student's page — only observe it.
 
-## Vigentes desde la Fase 1
+## In effect since Phase 1
 
-- **El token de entrada viaja en la URL.** Ver
-  [security.md](security.md#riesgos-conocidos) — es una limitación
-  aceptada para el MVP, no un descuido.
-- **Borrado de datos personales por dos titulares.** Una fila de
-  `local_remotesupport_session` nombra a la vez a un alumno y a un
-  profesor. Cuando se ejercita el derecho de supresión de una de las dos
-  personas, se borra la fila completa (no se anonimiza conservando la
-  mitad de los datos de la otra persona). Esto es una simplificación
-  deliberada para el MVP: significa que borrar los datos del alumno
-  también hace desaparecer, de esa fila, el registro de que ese profesor
-  atendió esa sesión. Si esto resulta inaceptable en producción, revisar
-  antes de salir del estado experimental.
-- **Sin tabla de auditoría propia.** Los eventos relevantes de sesión
+- **The entry token travels in the URL.** See
+  [security.md](security.md#known-risks) — this is an accepted MVP
+  limitation, not an oversight.
+- **Personal-data deletion has two owners per row.** A
+  `local_remotesupport_session` row names both a student and a teacher at
+  once. When either person exercises their right to erasure, the entire
+  row is deleted (not anonymized while keeping the other person's half of
+  the data). This is a deliberate MVP simplification: it means deleting
+  the student's data also removes, from that row, the record that this
+  teacher handled that session. Revisit if this proves unacceptable in
+  production.
+- **No dedicated audit table.** Relevant session events
   (`request_created`, `request_accepted`, `request_cancelled`,
-  `session_started`, `session_ended`, `access_denied`) se registran a
-  través del sistema estándar de eventos/log de Moodle, no en una tabla
-  propia del plugin. Su retención depende de la configuración general de
-  logs del sitio.
-- **Sin panel de administración dedicado.** Un manager puede cerrar
-  cualquier sesión mediante `session_manager::close_session()` (cubierto
-  por PHPUnit) pero no hay todavía una página de administración que liste
-  todas las sesiones activas del sitio.
+  `session_started`, `session_ended`, `access_denied`) are logged through
+  Moodle's standard events/log system, not a table of the plugin's own.
+  Their retention depends on the site's general log configuration.
+- **No dedicated admin panel.** A manager can close any session via
+  `session_manager::close_session()` (covered by PHPUnit) but there is no
+  admin page yet listing every active session on the site.
 
-## Nuevas desde la Fase 2
+## New since Phase 2
 
-- **Los endpoints AJAX requieren Moodle ≥4.2.** `classes/external/*.php`
-  usa las clases namespaced `core_external\external_api` y compañía. Se
-  probó primero con los nombres globales heredados
-  (`external_api`, etc.) tal como existían en Moodle 4.1, pero al
-  cargarlos vía el autoloader de un plugin (no incluyendo
-  `lib/externallib.php` manualmente) PHPUnit los rechaza con "debe
-  ejecutarse en un proceso aislado" — es una protección real de Moodle
-  contra un patrón de carga legado, no un capricho de este plugin. El
-  resto del plugin (sesiones, tokens, capacidades) sigue funcionando
-  desde Moodle 4.1; solo esta parte necesitaría revisarse para un sitio
-  4.1/4.2 real.
+- **The AJAX endpoints require Moodle ≥4.2.** `classes/external/*.php`
+  uses the namespaced `core_external\external_api` classes and friends.
+  These were first tried with the legacy global names (`external_api`,
+  etc.) as they existed in Moodle 4.1, but loading them via a plugin's
+  autoloader (rather than manually including `lib/externallib.php`)
+  makes PHPUnit reject them with "must run in an isolated process" — a
+  real Moodle protection against a legacy loading pattern, not a quirk of
+  this plugin. The rest of the plugin (sessions, tokens, capabilities)
+  still works from Moodle 4.1 onward; only this part would need review
+  for a real 4.1/4.2 site.
+- **Single, fixed "main content" selector**
+  (`#region-main` → `main[role="main"]` → `main` → `body`). On heavily
+  customized themes that use none of those selectors, the reconstruction
+  falls back to the entire `<body>`, which may include more noise
+  (header, navigation) than desired. No per-theme configuration exists
+  yet.
+- **No capture of content inside an `iframe`, even same-site.** The tag
+  is removed entirely during sanitization — this includes activities that
+  render their content in their own `iframe` (some H5P, LTI, SCORM
+  content): the teacher will see an empty gap where that activity would
+  be, not an error, but not its content either. **Verified live
+  (2026-08-01)** against real SCORM, H5P, LTI, quiz-in-progress, forum,
+  book, and assignment content in a disposable course: the exclusion
+  behaves correctly and doesn't crash the capture pipeline for any of
+  them — 8/8 pages clean, no nested `<iframe>` ever leaked into the
+  reconstruction, no JS errors. Rich text editors, popups, and content
+  from actual external domains remain untested.
+- **A page snapshot is "frozen" HTML, not the live page.** Links, buttons
+  and forms are visible but don't react inside the teacher's frame (this
+  is intentional: the `iframe` doesn't execute scripts). It isn't an
+  interactive preview.
+- **Bandwidth cost of a full snapshot, not a diff.** See `security.md`.
+- **Orphaned-event purging depends on a scheduled task, it isn't
+  instant.** An event from a session that never closed properly (tab
+  closed, client hung) lives for up to ~2 minutes (see
+  `classes/task/purge_events.php`) instead of disappearing the exact
+  instant the session should have ended.
+- **Automated JavaScript tests (Jest) exist for two modules only.**
+  `tests/jest/` covers `dom_selector.js` (all three exported functions)
+  and the non-iframe-navigation part of `screen_renderer.js` (viewport
+  scaling, cursor/hover/typing highlight, click mark, `srcdoc`
+  construction, picking mode) — 37 tests, added 2026-08-01. Every other
+  client-side module (`event_capture.js`, `event_player.js`,
+  `chat_widget.js`, `session_replay.js`, `student_client.js`,
+  `teacher_client.js`, `navbar_badge.js`, `session_requests.js`,
+  `transport.js`) still has no Jest coverage — verified only via
+  `node --check`, code review, and manual/end-to-end testing.
+- ~~No real AMD build (Grunt/Webpack)~~ — resolved: `amd/build/*.min.js`
+  are now genuine `grunt amd` (Rollup) output, with real sourcemaps.
 
-- **Selector de "contenido principal" único y fijo**
-  (`#region-main` → `main[role="main"]` → `main` → `body`). En temas muy
-  personalizados que no usen ninguno de esos selectores, la reconstrucción
-  cae a `<body>` completo, que puede incluir más ruido (cabecera,
-  navegación) del deseado. No hay configuración por tema todavía.
-- **Sin captura de contenido dentro de `iframe`, aunque sea del mismo
-  sitio.** La etiqueta se elimina por completo al sanear — esto incluye
-  actividades que renderizan su contenido en un `iframe` propio (algunos
-  H5P, LTI, SCORM): el profesor verá un hueco vacío donde estaría esa
-  actividad, no un error, pero tampoco su contenido.
-- **La foto de página es HTML "congelado", no la página funcionando.**
-  Enlaces, botones y formularios se ven pero no reaccionan dentro del
-  recuadro del profesor (es intencional: el `iframe` no ejecuta scripts).
-  No es una vista previa interactiva.
-- **Ancho de banda por foto completa, no por diferencias.** Ver
-  `docs/decisions.md` y `docs/security.md`.
-- **La purga de eventos huérfanos depende de una tarea programada, no es
-  instantánea.** Un evento de una sesión que nunca cerró correctamente
-  (pestaña cerrada, cliente colgado) vive como máximo ~2 minutos (ver
-  `classes/task/purge_events.php`) en vez de desaparecer en el instante
-  exacto en que la sesión debería haber terminado.
-- **Sin pruebas JavaScript automatizadas (Jest).** El entorno de pruebas
-  no tenía Node/Grunt configurado; instalarlo era otra intervención de
-  infraestructura considerable. La lógica de saneamiento/validación está
-  cubierta en PHPUnit del lado servidor (la capa autoritativa); la
-  construcción de la foto en el navegador y el pintado en el `iframe` solo
-  están cubiertos por la verificación manual. Ver `docs/testing.md`.
-- ~~Sin build real de AMD (Grunt/Webpack)~~ — resuelto: `amd/build/*.min.js`
-  son ahora salida real de `grunt amd` (Rollup), con sourcemaps
-  genuinos. Ver `docs/decisions.md`.
-- **No probado contra SCORM, H5P, LTI, contenido externo, editores
-  enriquecidos, popups ni cuestionarios en curso** — la exclusión de
-  `iframe` cubre el caso más común, pero no se ha verificado
-  exhaustivamente contra cada tipo de actividad.
+## New since Phase 4
 
-## Nuevas tras completar el MVP — aviso al profesor cuando el alumno finaliza
+- **Only one modal is captured at a time, the first one the selector
+  finds.** If several were open simultaneously (rare in Moodle), only
+  the first is relaxed.
+- **The modal is injected at the end of `<body>` in the `srcdoc`, not at
+  its original position.** Since its own CSS positions it with
+  `position: fixed`/`absolute`, its place in the tree usually doesn't
+  matter, but a heavily customized theme relying on relative position
+  could look different.
+- **Modal detection relies on Bootstrap classes (`.modal.show`,
+  `.modal.in`) or `aria-modal="true"`.** A dialog component using neither
+  convention (uncommon in standard Moodle) wouldn't be detected.
+- **Stylesheets are referenced by URL, not frozen at snapshot time.** If
+  the teacher loads a newer CSS version than the one the student had at
+  the exact moment of capture (for example, right after a theme cache
+  purge), appearance could vary slightly. Irrelevant in practice since a
+  theme's CSS doesn't change mid-session.
+- **`resync_request` doesn't also force an immediate resend of
+  scroll/modal beyond the `page` snapshot** — the `page` snapshot does
+  include current scroll and modal state, so in practice a full resync
+  already covers everything, but conceptually it's a single "send a new
+  snapshot" event, not a generic per-type resync mechanism.
+- **CSS `<link>` loading inside the sandboxed `iframe` has now been
+  confirmed working correctly in real browsers**, across dozens of live
+  screenshots captured throughout 2026-08-01's testing (Chromium,
+  Firefox, WebKit) — every reconstruction rendered with its stylesheet
+  applied as expected.
 
-- **No se puede saber con certeza quién cerró la sesión**, solo que no
-  fue el propio profesor desde esa misma pestaña. El mensaje asume que
-  fue el alumno (el caso ampliamente más frecuente); si en realidad la
-  cerró un manager, o el mismo profesor desde otra pestaña, el aviso
-  sería técnicamente impreciso pero inofensivo (solo texto, ningún
-  efecto). Ver `docs/decisions.md`.
-- **No cierra la pestaña**, solo muestra un aviso y un enlace de
-  vuelta — cerrar una pestaña que no se abrió con `window.open()` no es
-  posible desde JavaScript en ningún navegador moderno.
-- **No probado en un navegador real** (mismo motivo que el resto del
-  módulo de reproducción).
+## New after completing the MVP — teacher notice when the student ends the session
 
-## Nuevas desde la Fase 4
+- **There is no way to know for certain who closed the session**, only
+  that it wasn't the teacher from that same tab. The message assumes it
+  was the student (by far the most common case); if a manager, or the
+  same teacher from another tab, actually closed it, the notice would be
+  technically imprecise but harmless (text only, no side effect).
+- **It doesn't close the tab**, only shows a notice and a link back —
+  closing a tab that wasn't opened with `window.open()` isn't possible
+  from JavaScript in any modern browser.
+- **Verified in real browsers (Chromium, Firefox, WebKit)** as part of
+  the 2026-08-01 cross-browser session-lifecycle pass — the notice
+  renders correctly in all three.
 
-- **Solo se captura un modal a la vez, el primero que encuentre el
-  selector.** Si hubiera varios abiertos simultáneamente (poco frecuente
-  en Moodle), solo se relaja el primero.
-- **El modal se inyecta al final de `<body>` en el `srcdoc`, no en su
-  posición original.** Como su propio CSS lo posiciona con `position:
-  fixed`/`absolute`, normalmente no importa dónde quede en el árbol, pero
-  un tema muy personalizado que dependiera de la posición relativa podría
-  verse distinto.
-- **La detección de modal se basa en clases de Bootstrap
-  (`.modal.show`, `.modal.in`) o en `aria-modal="true"`.** Un componente
-  de diálogo que no use ninguna de las dos convenciones (poco común en
-  Moodle estándar) no se detectaría.
-- **Las hojas de estilo se referencian por URL, no se congelan en el
-  momento de la foto.** Si el profesor carga una versión de la CSS más
-  nueva que la que tenía el alumno en el momento exacto de la captura
-  (por ejemplo, justo tras purgar cachés de tema), el aspecto podría
-  variar mínimamente. Irrelevante en la práctica porque el CSS de un
-  tema no cambia en mitad de una sesión de asistencia.
-- **`resync_request` no fuerza también un reenvío de scroll/modal
-  inmediatos más allá de la foto `page`** — la foto `page` sí incluye el
-  scroll y el modal actuales, así que en la práctica una resincronización
-  completa ya cubre todo, pero conceptualmente es un único evento "pide
-  una foto nueva", no un mecanismo genérico de resincronización por tipo.
-- **No se ha verificado en un navegador real que la carga del `<link>`
-  de CSS dentro del `iframe` sandbox funcione exactamente como se
-  espera.**
+## New after completing the MVP — pending-requests navbar icon
 
-## Nuevas tras completar el MVP — icono de solicitudes pendientes
+- **The counter doesn't update live.** It's recalculated on every page
+  load, not while the teacher stays on a single screen — background
+  polling was deliberately left out of this first version.
+- **The icon disappears entirely when there's nothing pending**, rather
+  than staying visible with a zero counter like the notifications bell —
+  a deliberate decision, not an oversight.
+- **No test of the Mustache template itself**
+  (`navbar_requests.mustache`) or its real visual integration into the
+  theme's `navbar.mustache` — `tests/lib_test.php` covers the
+  authorization logic and the returned HTML's content, not its final
+  rendering in a browser. Not covered by this session's screenshot-based
+  testing either, since it wasn't a focus area.
 
-- **El contador no se actualiza en vivo.** Se recalcula en cada carga de
-  página, no mientras el profesor permanece en una única pantalla — ver
-  `docs/decisions.md` para por qué se descartó el sondeo en segundo
-  plano en esta primera versión.
-- **El icono desaparece por completo cuando no hay nada pendiente**, en
-  vez de quedarse siempre visible con un contador en cero como la
-  campana de notificaciones — decisión deliberada, no un descuido; ver
-  `docs/decisions.md`.
-- **Sin pruebas de la plantilla Mustache en sí** (`navbar_requests.mustache`)
-  ni de su integración visual real en `navbar.mustache` del tema — las
-  pruebas de `tests/lib_test.php` cubren la lógica de autorización y
-  contenido del HTML devuelto, no su renderizado final en un navegador.
+## New after completing the MVP — reload-free request/session lifecycle
 
-## Nuevas tras completar el MVP — ciclo de vida de solicitud/sesión sin recarga de página
+- **It isn't real-time, it's periodic polling.** A state change can take
+  up to 4s to show up in `request.php`/`view.php`, and up to 15s in the
+  navbar badge — same as the rest of the plugin (in-session event
+  polling), there's no WebSocket. Acceptable for the MVP's 1-20
+  simultaneous sessions target.
+- **The navbar badge poll runs on every Moodle page** for any teacher
+  with the capability to provide assistance, not just the plugin's own
+  pages — unlike the rest of the polling, which only exists while the
+  student/teacher has `request.php`/`view.php` open. It's a cheap AJAX
+  request every 15s (paused when the tab isn't visible), but it is, by
+  design, the plugin's first sitewide poll; worth revisiting if the site
+  grows well past that target.
+- **No automated JavaScript tests** for `session_requests.js`,
+  `student_client.js`, `teacher_client.js`, or `navbar_badge.js` — same
+  gap noted above; the Jest suite added 2026-08-01 covers different
+  modules. Click interception, `setInterval`/`visibilitychange`, and
+  re-rendering via `core/templates` are only covered by manual
+  verification.
+- **A table row's `sessionid` is extracted from the already-rendered
+  `href`** (`teacher_client.js`), rather than coming from a dedicated
+  `data-*` attribute — works because `teacher_dashboard.mustache` didn't
+  change and that `href` already carried `sessionid` as a
+  `sesskey`-signed query parameter, but it's an implicit dependency
+  between the JS and the exact way the template builds those URLs; a
+  future template change that stopped including `sessionid` in the URL
+  would silently break the interception (links would keep working as a
+  full reload via progressive enhancement, but without the no-reload
+  update).
 
-- **No es tiempo real, es sondeo periódico.** Un cambio de estado puede
-  tardar hasta 4 s en reflejarse en `request.php`/`view.php`, y hasta
-  15 s en el badge del navbar — igual que el resto del plugin (sondeo
-  de eventos en sesión), no hay WebSocket. Aceptable para el objetivo de
-  1-20 sesiones simultáneas del MVP.
-- **El sondeo del badge de navbar corre en todas las páginas de Moodle**
-  para cualquier profesor con capacidad de proveer asistencia, no solo
-  en las páginas propias del plugin — a diferencia del resto del
-  sondeo, que solo existe mientras el alumno/profesor tiene
-  `request.php`/`view.php` abiertos. Es una petición AJAX barata cada
-  15 s (se pausa si la pestaña no es visible), pero es, por diseño, el
-  primer sondeo sitewide de este plugin; revisar si el sitio crece
-  mucho más allá de ese objetivo.
-- **Sin pruebas JavaScript automatizadas** para `session_requests.js`,
-  `student_client.js`, `teacher_client.js` ni `navbar_badge.js`, mismo
-  motivo que el resto del plugin (sin Node/Grunt en el servidor de
-  pruebas). La interceptación de clics, el `setInterval`/
-  `visibilitychange`, y el re-renderizado vía `core/templates` solo
-  están cubiertos por la verificación manual (`docs/testing.md`).
-- **El `sessionid` de una fila de la tabla del profesor se extrae del
-  `href` ya renderizado** (`teacher_client.js`), en vez de venir en un
-  atributo `data-*` dedicado — funciona porque `teacher_dashboard.mustache`
-  no cambió y ese `href` ya llevaba el `sessionid` como parámetro de
-  consulta firmado con `sesskey`, pero es una dependencia implícita
-  entre el JS y la forma exacta en que la plantilla construye esas
-  urls; un cambio futuro en la plantilla que dejara de incluir
-  `sessionid` en la url rompería silenciosamente la interceptación (los
-  enlaces seguirían funcionando como recarga completa, vía
-  progressive enhancement, pero sin la actualización sin recarga).
+## New after completing the MVP — `fullpage` capture mode
 
-## Nuevas tras completar el MVP — modo de captura `fullpage`
+- **A single site-wide setting, not per-session or per-teacher.** Every
+  active session on the site uses the same mode (`main` or `fullpage`) at
+  once; there's no way for a specific teacher to request "full page" only
+  for their own session without changing it site-wide. A deliberate
+  decision, not a technical constraint that couldn't be otherwise.
+- **More potential noise in resends.** By watching the entire `<body>`,
+  in `fullpage` any live navigation element (for example, a periodically
+  updating badge) can trigger a new snapshot more often than in `main`,
+  where that element was never inside what was being observed.
+- **No list of "sensitive" blocks to selectively exclude.** `fullpage` is
+  all-or-nothing: there's no way to say "capture navigation and footer,
+  but not this specific side block." If a specific block turns out to be
+  problematic, the only lever available today is reverting to `main`.
+- **Not specifically exercised in this session's real-browser testing** —
+  the general capture pipeline was confirmed working across real
+  browsers, but that testing used `main` mode throughout; `fullpage`
+  mode itself, and in particular how it looks on a heavily customized
+  theme's block structure, remains unverified against a real browser.
 
-- **Ajuste único de sitio, no por sesión ni por profesor.** Todas las
-  sesiones activas del sitio usan el mismo modo (`main` o `fullpage`) a
-  la vez; no hay forma de que un profesor concreto pida "página
-  completa" solo para su propia sesión sin cambiarlo para todo el
-  sitio. Decisión deliberada (ver `docs/decisions.md`), no una
-  limitación técnica de por qué no podría ser de otra forma.
-- **Más ruido potencial en el reenvío.** Al vigilar `<body>` entero, en
-  `fullpage` cualquier elemento vivo de la navegación (por ejemplo, un
-  badge que se actualiza periódicamente) puede disparar una foto nueva
-  con más frecuencia que en `main`, donde ese elemento nunca estaba
-  dentro de lo observado.
-- **Sin lista de bloques "sensibles" que excluir selectivamente.**
-  `fullpage` es todo o nada: no hay forma de decir "captura navegación
-  y pie, pero no este bloque lateral en concreto". Si un bloque
-  concreto resulta problemático, la única palanca disponible hoy es
-  volver a `main`.
-- **No probado en un navegador real** (mismo motivo que el resto de
-  Fase 2/3/4: sin esa herramienta en esta sesión) — en particular, si
-  la estructura de bloques/tema de un sitio muy personalizado hace que
-  la reconstrucción de página completa se vea notablemente distinta al
-  original. Ver pasos de verificación manual añadidos en
-  `docs/testing.md`.
+## New after completing the MVP — the reconstruction doesn't scroll natively
 
-## Nuevas tras completar el MVP — la reconstrucción no es scrollable de forma nativa
+- **`position: sticky` elements inside the captured content don't behave
+  as such** (unlike `fixed`, which was fixed — see below). The iframe's
+  document no longer has its own scrollable overflow: scroll position is
+  simulated by applying `transform: translate()` to a `<div>` wrapping
+  all captured content, and a `transform` on an ancestor turns that
+  `<div>` into the containing block for any `sticky` descendant (it stops
+  positioning itself relative to the viewport). `sticky` deliberately
+  doesn't get the same extraction treatment as `fixed`: a `sticky`
+  element usually depends on its original flow position (offset, width)
+  to "stick" correctly, and relocating it without that context could look
+  worse than leaving it. In practice this only matters in `fullpage`
+  capture mode, for themes/activities using `sticky` (not `fixed`)
+  headers or secondary navigation — Boost's own navbar is `fixed`, not
+  `sticky`, and is already handled correctly.
+- **Detection of `fixed` elements walks the entire captured tree with
+  `getComputedStyle()` on every page snapshot.** An accepted, unoptimized
+  cost at the MVP's declared scale (1-20 simultaneous sessions), bounded
+  in frequency by the same debounce/heartbeat that already governs the
+  rest of the capture. A theme with an exceptionally large DOM could
+  notice the cost on the student's browser main thread.
 
-- **Elementos `position: sticky` dentro del contenido capturado no se
-  comportan como tales** (a diferencia de `fixed`, que sí se corrigió —
-  ver más abajo). El documento del iframe ya no tiene overflow
-  scrollable propio: la posición de scroll se simula aplicando
-  `transform: translate()` a un `<div>` que envuelve todo el contenido
-  capturado, y un `transform` en un ancestro convierte a ese `<div>` en
-  el contenedor de referencia de cualquier descendiente `sticky` (deja
-  de posicionarse respecto al viewport). Deliberadamente no se aplica a
-  `sticky` la misma extracción que a `fixed`: un elemento `sticky`
-  suele depender de su posición de flujo original (offset, anchura)
-  para "pegarse" correctamente, y reubicarlo sin ese contexto podría
-  verse peor que dejarlo. En la práctica, esto solo importa en modo de
-  captura `fullpage`, para temas/actividades que usen cabeceras o
-  navegación secundaria `sticky` (no `fixed`) — la barra de navegación
-  de Boost en sí es `fixed`, no `sticky`, y ya está corregida. Ver
-  `docs/decisions.md`.
-- **La detección de elementos `fixed` recorre todo el árbol capturado
-  con `getComputedStyle()` en cada foto de página.** Coste aceptado sin
-  optimizar a la escala declarada del MVP (1-20 sesiones simultáneas),
-  limitado en frecuencia por el mismo debounce/latido que ya rige el
-  resto de la captura — ver `docs/decisions.md`. Un tema con un DOM
-  excepcionalmente grande podría notar el coste en el hilo principal
-  del navegador del alumno.
+## New after completing the MVP — text chat
 
-## Nuevas tras completar el MVP — chat de texto
+- **Deliberately minimal scope.** Plain text only: no attachments, no
+  dedicated emoji picker, no "typing..." indicators, no read receipts, no
+  editing or deleting sent messages. The base spec excludes "complex
+  chat" from the MVP; this is the minimal exchange judged to fall outside
+  that exclusion.
+- **Nothing survives the session closing.** Messages persist while the
+  session is active (unlike `page`/`scroll`, which are purged after 2
+  minutes if nobody consumes them), but disappear entirely once it
+  closes, same as every other event. No transcript, export, or audit
+  record of the conversation's content is kept anywhere.
+- **Per-message length limit** (1000 characters,
+  `MAX_CHAT_MESSAGE_LENGTH`); a longer message is truncated, not
+  rejected. There's no limit on a session's total message count beyond
+  its own duration.
+- **Not available while the teacher is in fullscreen.** `position: fixed`
+  nested inside a fullscreen element proved unreliable for click
+  hit-testing in at least one browser the plugin was tested in (the
+  "Send" button wouldn't respond). Rather than chase that combination,
+  the chat auto-hides on entering fullscreen and reappears on exit — the
+  teacher has to leave fullscreen to use it.
+- **No JavaScript tests** for `chat_widget.js` — same gap noted above:
+  the bidirectional own/other rendering, unread counter, and "first batch
+  isn't unread" heuristic are verified only with `node --check` and
+  manual/live testing.
+- **Verified working across multiple real Chromium sessions this round**
+  (live message exchange captured for the illustrated user guide, and
+  exercised again during the accessibility audit), though not
+  specifically re-verified in Firefox/WebKit — those engines were
+  exercised on the general session lifecycle (item 4 of this round's
+  testing), not specifically on a live chat exchange. **One scenario
+  remains genuinely untested**: if a teacher opens the same session in
+  two tabs simultaneously, both would receive and mark as consumed the
+  same incoming messages, potentially splitting the conversation between
+  the two instead of both seeing everything (the same behavior, and the
+  same limitation, that already existed for `page`/`scroll` before chat
+  existed).
 
-- **Alcance deliberadamente mínimo.** Solo texto plano: sin adjuntos,
-  sin emojis con selector propio, sin indicadores de "escribiendo...",
-  sin confirmaciones de lectura, sin edición ni borrado de mensajes
-  enviados. El documento base excluye "chat complejo" del MVP; este es
-  el intercambio mínimo que se consideró fuera de esa exclusión — ver
-  `docs/decisions.md`.
-- **Nada sobrevive al cierre de la sesión.** Los mensajes persisten
-  mientras la sesión está activa (a diferencia de `page`/`scroll`, que
-  se purgan a los 2 minutos si nadie los consume), pero desaparecen por
-  completo al cerrarla, igual que el resto de eventos. No queda ningún
-  transcript, exportación ni registro de auditoría del contenido de la
-  conversación en ningún sitio.
-- **Límite de longitud por mensaje** (1000 caracteres,
-  `MAX_CHAT_MESSAGE_LENGTH`); un mensaje más largo se trunca, no se
-  rechaza. No hay límite al número total de mensajes de una sesión más
-  allá de su propia duración.
-- **No disponible mientras el profesor está en pantalla completa.**
-  `position: fixed` anidado dentro de un elemento en pantalla completa
-  resultó poco fiable para el hit-testing de clics en al menos un
-  navegador probado por el usuario (el botón "Enviar" no reaccionaba).
-  En vez de perseguir esa combinación sin poder probar en un navegador
-  real durante esta sesión, el chat se oculta automáticamente al entrar
-  en pantalla completa y reaparece al salir — el profesor debe salir de
-  pantalla completa para usarlo. Ver `docs/decisions.md`.
-- **Sin pruebas JavaScript** (mismo hueco de siempre, ver "Vigentes
-  desde la Fase 2" más abajo): la lógica de `chat_widget.js` (bidireccional
-  own/other, contador de no leídos, heurística de "primera tanda no es
-  no-leído") solo se ha verificado con `node --check` y pruebas manuales,
-  no con un runner JS.
-- **No probado en un navegador real** (mismo motivo que el resto de este
-  documento: sin esa herramienta en esta sesión) — en particular, si dos
-  pestañas del profesor abren la misma sesión simultáneamente, ambas
-  recibirían y marcarían como consumidos los mismos mensajes entrantes,
-  pudiendo dividir la conversación entre las dos en vez de que ambas
-  vean todo (mismo comportamiento, y misma limitación, que ya existía
-  para `page`/`scroll` antes del chat).
+## New after completing the MVP — permanent session recording
 
-## Nuevas tras completar el MVP — grabación permanente de la sesión
+- **When first built (storage only, this initial phase) there was no way
+  to view the recording.** That was resolved by the replay feature
+  (`sessionreplay.php`) documented below; this note is kept because the
+  retention/deletion decisions from that first phase still apply
+  unchanged to replay.
+- **Chat became part of the recording once replay was built**, revising
+  this section's original decision (which said the opposite). Only
+  sessions closed after that change have recorded chat — see the replay
+  section below.
+- **Deliberately collides with two requirements from the base spec
+  document** (the exclusion of "session recording" and the instruction
+  not to store full session content indefinitely) — a conscious decision
+  by the plugin's owner, not an oversight.
+- **Theme CSS may be stale in a future replay.** The live reconstruction
+  loads the theme's CSS by URL at viewing time (`payload.css`), not its
+  content; Moodle periodically revises the theme cache, changing that
+  URL. A recording from months ago, replayed later, could show broken
+  styles or ones different from how it originally looked — not serious
+  (the captured HTML stays intact), but it affects the visual fidelity of
+  a future replay.
+- **No cap on accumulated size per session.** Each session can generate
+  dozens of snapshots of up to 400,000 characters each; there's no
+  trimming policy within a single session (only the retention window
+  between sessions), so an exceptionally long session could generate a
+  sizeable recording.
+- **The replay page itself has been visited and confirmed rendering
+  correctly in real browsers** (captured for the illustrated user
+  guide), though the recording's specific edge cases (theme CSS
+  staleness, accumulated size) remain unverified beyond code review.
 
-- **Al construirse (esta primera fase, solo almacenamiento) no había
-  forma de ver la grabación.** Eso se resolvió con la reproducción
-  (`sessionreplay.php`) documentada más abajo; se deja esta nota porque
-  las decisiones y compromisos de esa primera fase (retención,
-  borrado) siguen aplicando sin cambios a la reproducción.
-- **El chat empezó a formar parte de la grabación al construir la
-  reproducción**, revisando la decisión original de esta sección (que
-  decía lo contrario). Solo sesiones cerradas después de ese cambio
-  tienen chat grabado — ver la sección de reproducción más abajo.
-- **Colisiona deliberadamente con dos requisitos del documento base**
-  (exclusión de "grabación de sesiones" y la instrucción de no
-  almacenar el contenido completo de las sesiones indefinidamente) — una
-  decisión consciente del usuario, no un descuido. Ver
-  `docs/decisions.md` para el razonamiento completo y las políticas de
-  retención/borrado acordadas.
-- **CSS del tema potencialmente obsoleto en una reproducción futura.**
-  La reconstrucción en vivo carga el CSS del tema por URL en el momento
-  de verla (`payload.css`), no su contenido; Moodle revisa
-  periódicamente la caché del tema, cambiando esa URL. Una grabación de
-  hace meses, reproducida más adelante, podría verse con estilos rotos
-  o distintos a como se veía originalmente — no es grave (el HTML
-  capturado sigue intacto), pero afecta a la fidelidad visual de una
-  reproducción futura.
-- **Sin límite de tamaño acumulado por sesión.** Cada sesión puede
-  generar decenas de capturas de hasta 400 000 caracteres; sin política
-  de recorte dentro de una misma sesión (solo la ventana de retención
-  entre sesiones), una sesión excepcionalmente larga podría generar una
-  grabación considerable.
-- **No probado en un navegador real** (mismo motivo que el resto de este
-  documento).
+## New after completing the MVP — teacher's session history
 
-## Nuevas tras completar el MVP — historial de sesiones del profesor
+- **The listing itself still shows only metadata** (date, course,
+  student first/last name, duration); viewing the recorded content
+  requires clicking the "#" column — see the replay section above.
+- **Teacher-only, no equivalent view for the student yet.** This change
+  specifically covered the teacher's listing; a listing letting a student
+  see their own past sessions would be a separate addition, with its own
+  capability and page.
+- **No filter by course/student/date range**, only column sorting —
+  `table_sql` supports adding filters later if needed, but none were
+  requested or built in this change.
+- **No export** (CSV/Excel) — `table_sql` also supports this natively if
+  needed later.
+- **The table itself (its rendering, headers, pagination) has been
+  visited and confirmed rendering correctly in real browsers** multiple
+  times this round (accessibility audit, illustrated guide) — but
+  interactive behaviors specific to it, like clicking a column-sort link,
+  haven't been exercised interactively; columns/ordering were verified
+  by running the underlying SQL directly in PHPUnit and a manual smoke
+  check against the real database, not an automated test of the HTML
+  `table_sql` generates.
+- **No "show all" option for rows per page** (10/20/50/100 only) — not
+  requested, and with a history that grows without bound over time,
+  showing everything at once would defeat the point of having pagination.
+- **Changing rows-per-page doesn't preserve the chosen column sort**,
+  because the selector submits to the page's base URL (without the
+  `tsort`/`tdir` parameters `table_sql` adds when sorting) — a small
+  interface rough edge, not a bug, and the same tradeoff several
+  equivalent pages in Moodle core itself accept.
+- **`export_user_preferences()` for the new preference
+  (`session_history_table::PREF_PERPAGE`) has no dedicated PHPUnit
+  test** — same gap that already existed for the teacher's own preference
+  (`teacher_settings::PREF_SUPPORT_ENABLED`), unchanged by this addition;
+  verified instead with a manual smoke check (save/read the preference,
+  confirm the dropdown reflects the selected value).
 
-- **El listado en sí sigue mostrando solo metadatos** (fecha, curso,
-  nombre/apellidos del alumno, duración); ver el contenido grabado
-  requiere pulsar la columna "#" — ver la sección de reproducción más
-  abajo.
-- **Solo profesor, sin vista equivalente para el alumno todavía.** El
-  usuario pidió explícitamente el listado del profesor en este cambio;
-  un listado para que el alumno vea sus propias sesiones pasadas sería
-  una ampliación aparte, con su propia capacidad y página.
-- **Sin filtro por curso/alumno/rango de fechas**, solo ordenación por
-  columna — `table_sql` soporta añadir filtros más adelante si hiciera
-  falta, pero no se ha pedido ni se ha construido en este cambio.
-- **Sin exportación** (CSV/Excel) — `table_sql` también lo soporta de
-  forma nativa si se necesitara más adelante.
-- **Sin pruebas a nivel de renderizado de `table_sql`** (cabeceras
-  ordenables, HTML de paginación): las columnas/orden se verificaron
-  ejecutando directamente el SQL subyacente en PHPUnit y con una
-  comprobación manual de humo contra la base de datos real (ver
-  `docs/testing.md`), no con una prueba automatizada del HTML que
-  `table_sql` genera — mismo tipo de hueco que las pruebas de
-  renderizado JS en el resto del plugin.
-- **No probado en un navegador real** (mismo motivo que el resto de este
-  documento) — en particular, los enlaces de ordenación por columna
-  (que dependen de que el navegador siga un `<a href>` con parámetros
-  GET) no se han probado interactivamente.
-- **Selector de elementos por página sin opción "Todas"** (10/20/50/100
-  únicamente) — no se pidió, y con un historial que crece sin límite en
-  el tiempo, "mostrar todas" de golpe iría en contra del propio motivo
-  de tener paginación.
-- **Cambiar el número de elementos por página no conserva el orden de
-  columna elegido**, porque el selector envía a la URL base de la
-  página (sin los parámetros `tsort`/`tdir` que `table_sql` añade al
-  ordenar) — una pequeña aspereza de interfaz, no un error, y el mismo
-  compromiso que asumen varias páginas equivalentes del propio núcleo
-  de Moodle.
-- **`export_user_preferences()` de la nueva preferencia
-  (`session_history_table::PREF_PERPAGE`) no tiene una prueba
-  PHPUnit dedicada** — mismo hueco que ya existía para la preferencia
-  del profesor (`teacher_settings::PREF_SUPPORT_ENABLED`), sin cambiar
-  con esta ampliación; verificado en su lugar con una comprobación
-  manual de humo (guardar/leer la preferencia, y que el desplegable
-  refleja el valor seleccionado).
+## New after completing the MVP — replaying recorded sessions
 
-## Nuevas tras completar el MVP — reproducción de sesiones grabadas
+- **Sessions closed before this feature existed have no chat to
+  replay.** Chat only started being permanently recorded once replay was
+  built; its transcript for earlier sessions was never saved and can't be
+  recovered. This only affects chat: the screen (`page`/`scroll`) was
+  already recorded before and replays normally for any session, whether
+  or not it has chat.
+- **The entire recording downloads at once, no pagination or progressive
+  loading.** Consciously accepted at this MVP's scale (1-20 simultaneous
+  sessions, sessions of minutes to about an hour in practice); a session
+  with an exceptionally long recording (see also "no cap on accumulated
+  size per session" above) would have a large initial download payload.
+  Progressive/paginated loading of the track remains a possible future
+  improvement, not built now.
+- **Teacher-only, no replay for the student.** Access is gated by
+  `local/remotesupport:replaysession` (a teaching capability); the
+  student has no screen to replay their own past sessions, even though
+  `local_remotesupport_track` contains their own activity. This would be
+  a separate addition, with its own capability.
+- **The progress bar seeks by time, not by "events."** Dragging it
+  recalculates state (last screen, last scroll, chat transcript) for that
+  instant, but there's no "event list" view or markers on the bar
+  indicating where page changes or new messages happened — just a plain
+  progress bar, like a simple video player.
+- **Theme CSS may be stale**, same reason already documented for the
+  recording itself: replay loads the CSS by URL at viewing time, not its
+  content frozen at the moment of original capture.
+- **Jest coverage is partial.** `screen_renderer.js` (shared between live
+  viewing and replay) does have Jest coverage as of 2026-08-01;
+  `session_replay.js` itself does not. Replay logic specific to that
+  module (locating the last event before a given instant, rebuilding the
+  chat transcript, speed control) is verified only with `node --check`
+  and manual testing.
+- **The replay page has been visited and confirmed rendering correctly in
+  a real browser**, but playback interactivity at speed — smoothness at
+  4x/8x, progress-bar behavior when dragged quickly — hasn't been
+  exercised interactively this round.
+- **`sessionchat.php` (chat-only view, added later) always shows its
+  link in the history, even when the session has no recorded messages at
+  all** — in that case the page itself shows a "no messages" notice
+  instead of an empty list. There's no per-row check hiding the link when
+  there's no chat, for simplicity; same criterion already applied to the
+  "#" replay link.
+- **No rendering-level test for `sessionchat.php`/its template** (same
+  gap as the rest of this plugin's pages, see "teacher's session history"
+  above): verified with a PHPUnit test of
+  `track_manager::get_chat_for_session()` and an authenticated HTTP smoke
+  check against the real site, not an automated test of the HTML/Mustache
+  itself.
 
-- **Sesiones cerradas antes de esta funcionalidad no tienen chat que
-  reproducir.** El chat solo empezó a grabarse permanentemente al
-  construir la reproducción; su transcripción para sesiones anteriores
-  nunca se guardó y no se puede recuperar. Solo afecta al chat: la
-  pantalla (`page`/`scroll`) sí estaba grabada desde antes y se
-  reproduce con normalidad para cualquier sesión, tenga o no chat.
-- **Se descarga toda la grabación de una vez, sin paginar ni cargar de
-  forma progresiva.** Aceptado conscientemente a la escala de este MVP
-  (1-20 sesiones simultáneas, sesiones de minutos a una hora en la
-  práctica); una sesión con una grabación excepcionalmente larga (ver
-  también "sin límite de tamaño acumulado por sesión" arriba) tendría un
-  payload inicial de descarga grande. Carga progresiva/paginada del
-  track queda como posible mejora futura, no construida ahora.
-- **Solo profesor, sin reproducción para el alumno.** El acceso está
-  gateado por `local/remotesupport:replaysession` (capacidad de
-  profesorado); el alumno no tiene ninguna pantalla para reproducir sus
-  propias sesiones pasadas, aunque `local_remotesupport_track` contenga
-  su propia actividad. Sería una ampliación aparte, con su propia
-  capacidad.
-- **La barra de progreso salta por tiempo, no por "eventos".** Al
-  arrastrarla se recalcula el estado (última pantalla, último scroll,
-  transcripción de chat) para ese instante, pero no hay una vista de
-  "lista de eventos" ni marcadores en la barra que indiquen dónde hay
-  cambios de página o mensajes nuevos — solo una barra de progreso lisa,
-  como un reproductor de vídeo simple.
-- **El CSS del tema puede haberse quedado obsoleto**, mismo motivo ya
-  documentado para la grabación en sí: la reproducción carga el CSS por
-  URL en el momento de verla, no su contenido congelado en el instante
-  de la captura original.
-- **Sin pruebas JavaScript** para `session_replay.js`/`screen_renderer.js`
-  (mismo hueco de siempre, ver "Vigentes desde la Fase 2"): la lógica de
-  reproducción (cálculo del último evento anterior a un instante,
-  reconstrucción de la transcripción de chat, control de velocidad) solo
-  se verificó con `node --check` y los pasos de verificación manual de
-  más abajo.
-- **No probado en un navegador real** (mismo motivo que el resto de este
-  documento) — en particular, la fluidez de la reproducción a velocidades
-  altas (4x/8x) y el comportamiento de la barra de progreso al
-  arrastrarla rápidamente no se han probado interactivamente.
-- **`sessionchat.php` (vista de solo chat, añadida después) siempre
-  muestra su enlace en el historial, aunque la sesión no tenga ningún
-  mensaje grabado** — en ese caso la propia página muestra un aviso de
-  "no hubo mensajes" en vez de una lista vacía. No hay una comprobación
-  previa por fila que oculte el enlace cuando no hay chat, por
-  simplicidad (ver `docs/decisions.md`); mismo criterio ya aplicado al
-  enlace "#" de reproducción.
-- **Sin pruebas a nivel de renderizado de `sessionchat.php`/su
-  plantilla** (mismo hueco que el resto de páginas de este plugin, ver
-  "historial de sesiones del profesor" más arriba): verificado con una
-  prueba PHPUnit de `track_manager::get_chat_for_session()` y una
-  comprobación de humo por HTTP autenticado contra el sitio real, no con
-  una prueba automatizada del HTML/Mustache en sí.
+## New after completing the MVP — student cursor position
 
-## Nuevas tras completar el MVP — posición del cursor del alumno
+- **Recorded permanently, unlike other browser movements.** A deliberate
+  exception, explicitly requested by the plugin's owner, to the general
+  guidance against recording every mouse movement — cost was bounded by
+  tying it to the browser's `mousemove` event rather than a timer, and by
+  making the sampling rate of a moving mouse an admin setting.
+- **No interpolation between samples, live or in replay.** The point
+  jumps directly from one position to the next as soon as a `cursor`
+  event arrives/is applied, same as `scroll` — at a high sampling
+  interval (2000ms) the movement looks jumpy, not a continuous trace.
+  Smoothing it would add an animation layer the MVP doesn't need.
+- **Doesn't indicate which element is under the cursor**, only its
+  viewport-coordinate position — unlike the removed remote cursor (Phase
+  3), which could highlight a specific element. This feature is purely
+  informational, with no element selector or intent to point at anything.
+- **Doesn't distinguish a student with multiple monitors or resizing
+  their window mid-movement** beyond what the `iframe`'s own rescaling
+  (`applyViewportSize`) already covers — an abrupt resize can produce a
+  one-time visual jump of the point until the next `cursor` event.
+- **Jest coverage is partial.** The relevant parts of `screen_renderer.js`
+  are covered as of 2026-08-01; `session_replay.js` and the
+  `event_capture.js` logic that generates these events are not — verified
+  with `node --check` and manual testing.
+- **The cursor/hover highlight mechanism was exercised as part of this
+  round's teacher-pointer cross-browser testing** (item 4 of this
+  round's testing plan), which reuses closely related code paths, though
+  the cursor-position trail itself (as opposed to the hover highlight)
+  wasn't the specific target of that pass. Its visual tracking, behavior
+  across page changes, and replay sync remain open for the plugin
+  owner's own manual verification.
 
-- **Se registra permanentemente, a diferencia de otros movimientos del
-  navegador.** Una excepción deliberada y explícitamente pedida por el
-  usuario a la guía general de no grabar cada movimiento del ratón — ver
-  `docs/decisions.md` para el razonamiento completo y las mitigaciones
-  de coste adoptadas (atado a `mousemove`, no a un temporizador; tasa de
-  muestreo configurable).
-- **Sin interpolación entre muestras, ni en directo ni en la
-  reproducción.** El punto salta directamente de una posición a la
-  siguiente en cuanto llega/se aplica un evento `cursor`, igual que
-  `scroll` — con una tasa de muestreo alta (2000 ms) el movimiento se ve
-  a saltos, no como un trazo continuo. Suavizarlo añadiría una capa de
-  animación que el MVP no necesita.
-- **No indica qué elemento hay bajo el cursor**, solo su posición en
-  coordenadas de viewport — a diferencia del cursor remoto retirado
-  (Fase 3, ver la nota al principio de `docs/architecture.md`), que sí
-  podía resaltar un elemento concreto. Esta funcionalidad es puramente
-  informativa, sin selector de elemento ni intención de señalar nada.
-- **No se distingue un alumno con varios monitores o que redimensiona la
-  ventana a mitad de movimiento** más allá de lo que ya cubre el
-  reescalado del `iframe` (`applyViewportSize`) — un cambio de tamaño
-  brusco puede producir un salto visual puntual del punto hasta el
-  siguiente evento `cursor`.
-- **Sin pruebas JavaScript** para la lógica de `screen_renderer.js`/
-  `session_replay.js`/`event_capture.js` añadida (mismo hueco de
-  siempre, ver "Vigentes desde la Fase 2"): verificado con `node --check`
-  y los pasos de verificación manual de `docs/testing.md`, no con un
-  entorno de pruebas de navegador real.
-- **No probado en un navegador real** (mismo motivo que el resto de este
-  documento): el seguimiento visual del punto, su comportamiento al
-  cambiar de página, y su sincronización durante la reproducción quedan
-  pendientes de la verificación manual del usuario.
+## New after completing the MVP — visual mark and sound on student clicks
 
-## Nuevas tras completar el MVP — marca visual y sonido en los clics del alumno
+- **Recorded permanently, same as cursor position.** Same deliberate,
+  explicitly requested exception to the general mouse-interaction
+  recording guidance. Unlike `cursor`, there's no "sampling rate" to
+  throttle: a click is already a discrete, infrequent event on its own.
+- **The sound may not play the first time**, if the teacher's browser
+  blocks audio under its autoplay policy until there's been some user
+  gesture on the page (clicking the sound button, entering fullscreen,
+  etc.). There's no notice to the teacher when this happens — the visual
+  mark still works normally, the sound is simply an extra that can fail
+  silently.
+- **The sound may be audible to people near the teacher** (a shared
+  room, a speaker without headphones) — not a security issue in itself,
+  but a real reason it might be worth disabling; hence the per-session
+  mute button in addition to the general setting.
+- **In replay, a hard seek with the progress bar never "recovers" the
+  marks/sounds of skipped clicks.** Deliberate, not a bug: they only fire
+  when advancing naturally (playing forward), never on a seek. To see
+  exactly when the student clicked in a specific stretch, the teacher has
+  to play through it, not just seek there.
+- **"Own plugin interface" detection is the same mechanism already used
+  by the mutation observers** (`isOwnElement`, based on looking for a
+  `local-remotesupport-*` class on the element itself or an ancestor) —
+  not a new mechanism, but it shares whatever limitation that one already
+  had: if some plugin-injected element were missing that class by
+  mistake, its clicks would get captured. No such case has been found,
+  but there's no automated test guaranteeing it for future elements.
+- **No JavaScript tests** for the logic added to `event_capture.js`/
+  `screen_renderer.js`/`event_player.js`/`session_replay.js` — verified
+  with `node --check` and manual testing; in particular, the "natural
+  playback vs. manual seek" distinction in replay (based on the
+  `playing` flag) hasn't been exercised interactively.
+- **The click mark and sound themselves weren't a specific target of this
+  round's testing** — the general session lifecycle was verified across
+  real browsers, but no test this round specifically triggered a student
+  click to confirm the mark/sound/mute-button behavior. Remains open for
+  manual verification.
 
-- **Se registra permanentemente, igual que la posición del cursor.**
-  Misma excepción deliberada, explícitamente pedida por el usuario, a la
-  guía general de no grabar interacciones de ratón — ver
-  `docs/decisions.md`. A diferencia de `cursor`, no hay ajuste de "tasa
-  de muestreo" que atenuar: un clic es ya un evento discreto e
-  infrecuente por sí mismo.
-- **El sonido puede no reproducirse la primera vez**, si el navegador
-  del profesor bloquea el audio por su política de autoplay hasta que
-  ha habido algún gesto del usuario en la página (clic en el botón de
-  sonido, en pantalla completa, etc.). No hay ningún aviso al profesor
-  cuando esto ocurre — la marca visual sigue funcionando igual, el
-  sonido es simplemente un extra que puede fallar en silencio.
-- **El sonido puede ser audible por terceros cerca del profesor**
-  (una sala compartida, un altavoz sin auriculares) — no es un problema
-  de seguridad del plugin en sí, pero es un motivo real por el que
-  puede convenir desactivarlo; de ahí el botón de silenciar/activar por
-  sesión, además del ajuste general.
-- **En la reproducción, un salto brusco con la barra de progreso nunca
-  "recupera" las marcas/sonidos de los clics saltados.** Es
-  deliberado (ver `docs/decisions.md`), no un fallo: solo se disparan
-  avanzando de forma natural (reproduciendo hacia delante), nunca al
-  saltar. Si el profesor quiere ver exactamente cuándo hizo clic el
-  alumno en un tramo concreto, tiene que reproducirlo, no solo
-  saltar hasta ahí.
-- **La detección de "propia interfaz del plugin" es la misma que ya
-  usan los observadores de mutaciones** (`isOwnElement`, basada en
-  buscar una clase `local-remotesupport-*` en el propio elemento o
-  alguno de sus ancestros) — no un mecanismo nuevo, pero comparte
-  cualquier limitación que ya tuviera: si algún elemento inyectado por
-  el plugin no llevara esa clase por error, sus clics sí se
-  capturarían. No se ha detectado ningún caso así, pero no hay una
-  prueba automatizada que lo garantice para elementos futuros.
-- **Sin pruebas JavaScript** para la lógica añadida en
-  `event_capture.js`/`screen_renderer.js`/`event_player.js`/
-  `session_replay.js` (mismo hueco de siempre, ver "Vigentes desde la
-  Fase 2"): verificado con `node --check` y los pasos de verificación
-  manual de `docs/testing.md`, no con un entorno de pruebas de
-  navegador real — en particular, la distinción "avance natural vs.
-  salto manual" en la reproducción (basada en la bandera `playing`) no
-  se ha podido probar interactivamente en esta sesión.
-- **No probado en un navegador real** (mismo motivo que el resto de
-  este documento): la marca visual, el sonido (y su bloqueo por
-  autoplay), el botón de silenciar en sus dos ubicaciones, y el
-  comportamiento al saltar en la reproducción quedan pendientes de la
-  verificación manual del usuario.
+## New after completing the MVP — reconstruction precision, a structural limit
 
-## Nuevas tras completar el MVP — precisión de la reconstrucción, límite estructural
+- **Perfect precision (the cursor always over the same clickable element
+  on both screens) isn't an achievable goal with this architecture,**
+  not even after this section's improvements. This is DOM reconstruction
+  on a different rendering engine, not a screen mirror — a design
+  decision from the base spec, not something one more setting will fully
+  close. The acceptance criterion became "close enough," with the
+  plugin owner's explicit sign-off.
+- **A window of temporary desync still exists, just narrower than
+  before.** The page snapshot is sent with a 1.5s debounce after a
+  mutation, at most every 5s (previously 10s), and now also right after
+  every click — but a real page change happening *between* those moments
+  still isn't reflected immediately in the teacher's reconstruction.
+- **Inline CSS cleanup isn't a real parser, it's text-based.**
+  `sanitize_inline_css()` removes `@import` and any `url(...)` with
+  regular expressions, not real CSS syntax parsing — any legitimate use
+  of `url()` (background images, `@font-face`) in captured inline
+  stylesheets is lost, and an unusual CSS edge case could in theory not
+  match the regular expressions used exactly. Accepted because PHP has no
+  CSS parser equivalent to `DOMDocument`, and because the `iframe`
+  sandbox remains the real barrier against script execution regardless.
+- **`position: sticky` elements are still not corrected** (unlike
+  `fixed`, already fixed) — see the earlier entry in this same section
+  for why.
+- **Whether the perceived improvement is sufficient for real use remains
+  a subjective judgment call** for the plugin owner, independent of the
+  automated/cross-browser testing done this round.
 
-- **La precisión total (el cursor siempre sobre el mismo elemento
-  clicable en las dos pantallas) no es un objetivo alcanzable con esta
-  arquitectura, ni tras las mejoras de esta sección.** Es
-  reconstrucción por DOM en un motor de renderizado distinto, no
-  espejo de pantalla — decisión de diseño del documento base, no algo
-  que un ajuste adicional vaya a cerrar del todo. Ver
-  `docs/decisions.md` para el razonamiento completo; el criterio de
-  aceptación pasó a ser "lo bastante cerca", con el consentimiento
-  explícito del usuario.
-- **Sigue existiendo una ventana de desincronización temporal, solo
-  más estrecha que antes.** La foto de página se manda con un debounce
-  de 1,5 s tras una mutación, cada 5 s como mucho (antes 10 s), y
-  ahora también justo después de cada clic — pero un cambio de la
-  página real que ocurra *entre* esos momentos sigue sin reflejarse de
-  inmediato en la reconstrucción del profesor.
-- **La limpieza de CSS inline no es un parser real, es texto.**
-  `sanitize_inline_css()` elimina `@import` y cualquier `url(...)` con
-  expresiones regulares, no analizando la sintaxis CSS de verdad — se
-  pierde cualquier uso legítimo de `url()` (imágenes de fondo,
-  `@font-face`) en las hojas inline capturadas, y un caso límite de CSS
-  con sintaxis inusual podría, en teoría, no coincidir exactamente con
-  las expresiones regulares usadas. Aceptado porque PHP no tiene un
-  parser de CSS equivalente a `DOMDocument`, y porque el sandbox del
-  `iframe` sigue siendo la barrera real contra ejecución de scripts.
-- **Elementos `position: sticky` siguen sin corregirse** (a diferencia
-  de `fixed`, ya arreglado) — ver la entrada anterior de esta misma
-  sección de limitaciones para el porqué.
-- **No probado en un navegador real** (mismo motivo que el resto de
-  este documento): en particular, si la mejora percibida es
-  suficiente para el uso real de la funcionalidad queda pendiente de
-  que el usuario retome las pruebas de precisión que había aplazado.
+## New after completing the MVP — highlighting the element under the cursor
 
-## Nuevas tras completar el MVP — resaltado del elemento bajo el cursor
+- **The structural selector fallback can point at the wrong element, not
+  just fail to find one.** When the element under the mouse has no `id`,
+  `buildRobustSelector()` builds a path based on position among siblings
+  of the same tag (`tag:nth-of-type(n)`) — if those siblings' order
+  changed between the captured page snapshot and the moment of
+  highlighting (unlikely given the already-narrowed desync window, but
+  possible), the selector could match a different element than the one
+  the student is actually pointing at. Visually confusing, but never an
+  action: the plugin only marks, never acts on what's highlighted. A
+  third, `data-*`-based robustness level was considered and rejected as
+  only a partial mitigation for a real but low-impact residual risk.
+- **Only "clickable" elements matching a fixed selector list get
+  highlighted** (`a[href]`, `button`, certain `input`s, `select`,
+  `role="button"`/`"link"`/`"tab"`/`"menuitem"`, `summary`, `label`) — an
+  element made interactive some other way (for example, a click handler
+  added by JavaScript without any of those attributes/roles) isn't
+  detected as "clickable" and produces no highlight, even though the
+  student can still click it.
+- **This specific highlight mechanism wasn't a direct target of this
+  round's cross-browser testing** (the pointer testing in item 4 covered
+  the related but distinct `teacher_highlight` feature) — whether the
+  chosen outline is visible enough across different themes/background
+  colors, and how reliable the structural fallback is in practice on
+  real Moodle pages, remain open for manual verification.
 
-- **El respaldo estructural del selector puede señalar el elemento
-  equivocado, no solo fallar en encontrar ninguno.** Cuando el
-  elemento bajo el ratón no tiene `id`, `buildRobustSelector()`
-  construye una ruta basada en la posición entre hermanos del mismo
-  tag (`tag:nth-of-type(n)`) — si el orden de esos hermanos cambió
-  entre la foto de página capturada y el momento del resaltado (poco
-  probable dada la ventana de desincronización ya acortada, pero
-  posible), el selector podría coincidir con un elemento distinto al
-  que el alumno señala realmente. Visualmente confuso, pero nunca una
-  acción: el plugin solo marca, no actúa sobre lo resaltado. Ver
-  `docs/decisions.md` para por qué se aceptó este riesgo residual en
-  vez de un tercer nivel de robustez (`data-*`) que lo mitigaría solo
-  parcialmente.
-- **Solo se resaltan elementos "clicables" según una lista fija de
-  selectores** (`a[href]`, `button`, ciertos `input`, `select`,
-  `role="button"`/`"link"`/`"tab"`/`"menuitem"`, `summary`, `label`) —
-  un elemento interactivo por otras vías (por ejemplo, con un
-  manejador de clic añadido por JavaScript sin ninguno de esos
-  atributos/roles) no se detecta como "clicable" y no genera
-  resaltado, aunque el alumno pueda pulsarlo igualmente.
-- **El resaltado no se ha probado en un navegador real** (mismo motivo
-  que el resto de este documento): en particular, si el `outline`
-  elegido es suficientemente visible sobre distintos temas/colores de
-  fondo, y si el respaldo estructural resulta fiable en la práctica en
-  páginas reales de Moodle, quedan pendientes de la verificación
-  manual del usuario.
+## New after completing the MVP — returning to the originating page on session entry
 
-## Nuevas tras completar el MVP — vuelta a la página de origen al entrar en la sesión
+- **The originating page is only captured if the student reaches
+  `request.php` through the plugin's own links** (course menu, floating
+  button). If they type the URL directly, open it from a saved bookmark,
+  or arrive any other way without `fromurl`, there's no originating page
+  to remember — the course front page is used, the long-standing default
+  behavior.
+- **A saved URL can become stale by the time the teacher accepts.** If
+  the specific activity the student was on gets deleted, hidden, or moved
+  between the request and its acceptance (which can take minutes, even
+  longer if the request expiry window is long), the redirect will still
+  lead to that URL — the outcome depends on how the destination page
+  itself handles no longer finding what it expected (typically a Moodle
+  error), not on anything this plugin controls or can prevent.
+- **Very long URLs (over 255 characters) aren't saved, not even
+  truncated** — they're discarded entirely and the course front page is
+  used instead. Uncommon in practice (a typical Moodle URL is well under
+  that limit), but a page with an especially long query string won't get
+  an exact-URL return trip.
+- **Confirmed working correctly across real browsers.** This exact
+  redirect (`returnurl` → the page the student was actually on) was
+  exercised in every single end-to-end test run this round — the
+  request/accept/enter flow across Chromium, Firefox, and WebKit (item 4
+  of this round's testing) — and worked correctly every time.
 
-- **Solo se captura la página de origen si el alumno llega a
-  `request.php` a través de los propios enlaces del plugin** (menú del
-  curso, botón flotante). Si escribe la URL directamente, la abre
-  desde un marcador guardado, o llega por cualquier otra vía sin
-  `fromurl`, no hay ninguna página de origen que recordar — se usa la
-  portada del curso, el comportamiento de siempre.
-- **Una URL guardada puede quedar obsoleta para cuando el profesor
-  acepta.** Si la actividad concreta donde estaba el alumno se borra,
-  se oculta, o cambia de sitio entre la solicitud y la aceptación
-  (puede pasar minutos, incluso más si la expiración de la solicitud
-  es larga), la redirección llevará a esa URL igualmente — el
-  resultado depende de cómo la propia página de destino maneje ya no
-  encontrar lo que esperaba (típicamente un error de Moodle), no de
-  nada que este plugin controle o pueda prevenir.
-- **URLs muy largas (más de 255 caracteres) no se guardan, ni
-  siquiera truncadas** — se descartan por completo y se usa la
-  portada del curso. Poco frecuente en la práctica (una URL de Moodle
-  típica está muy por debajo de ese límite), pero una página con una
-  cadena de consulta especialmente larga no tendrá vuelta a su URL
-  exacta.
-- **No probado en un navegador real** (mismo motivo que el resto de
-  este documento): en particular, la redirección inmediata sin ninguna
-  página de confirmación propia, y su comportamiento al entrar desde
-  el botón flotante en distintas páginas del sitio, quedan pendientes
-  de la verificación manual del usuario.
+## New after completing the MVP — pointing at a clickable element (teacher → student)
 
-## Nuevas tras completar el MVP — señalar un elemento clicable (profesor → alumno)
-
-- **Desactivado por defecto.** `local_remotesupport/enableteacherpointer`
-  no existe para ninguna sesión hasta que un administrador lo activa
-  explícitamente — es una reversión selectiva de la reducción a
-  solo-visualización (`aa58c26`), no una función disponible de serie.
-- **Mismo riesgo de selector estructural que el resaltado `hover`
-  existente, ahora en sentido contrario.** Si la foto de página que ve
-  el profesor está ligeramente desactualizada respecto al DOM real del
-  alumno en el momento del clic, `buildRobustSelector()` podría no
-  encontrar el elemento, o encontrar uno distinto. Sigue siendo
-  puramente visual (nunca se ejecuta ningún clic), pero aquí el efecto
-  se ve en la pantalla del alumno, no solo en la del profesor. Ver la
-  entrada equivalente más arriba ("resaltado del elemento bajo el
-  cursor") para el mismo razonamiento sobre por qué se acepta.
-- **Solo se puede señalar lo que la lista `POINTABLE_SELECTOR` (en
-  `dom_selector.js`) reconoce** — enlaces, botones y similares
-  (`CLICKABLE_SELECTOR`) más campos de texto (`TEXT_FIELD_SELECTOR`,
-  desde 0.23.3). Un elemento interactivo por otras vías (JavaScript
-  propio de la actividad, sin ninguno de esos atributos/roles/tipos) no
-  aparece como candidato al pasar el ratón por la reconstrucción,
-  aunque sea perfectamente clicable/editable para el alumno. Campos de
-  contraseña y ocultos quedan fuera igual que en el resto del plugin,
-  aunque aquí no hay ningún riesgo de seguridad en incluirlos (señalar
-  nunca revela ni ejecuta nada) — es solo coherencia con
-  `TEXT_FIELD_SELECTOR`, no una restricción necesaria.
-- **Sin persistencia en la reproducción de sesiones.** `teacher_highlight`
-  no se graba en `local_remotesupport_track` (decisión deliberada, ver
-  `docs/decisions.md`) — reproducir una sesión antigua nunca muestra
-  dónde señaló el profesor, solo lo que el alumno veía y hacía.
-- **Verificado extremo a extremo con Chromium headless (Playwright),
-  no con los navegadores reales que usarán alumno y profesor.** Tras
-  dos rondas de bugs reales en uso (ver `docs/decisions.md`: un
-  selector anclado en un `id` sintético, y un iframe reescalado que no
-  recibía eventos de ratón reales), se montó una verificación completa
-  — curso y usuarios desechables, sesión real, clic real sobre un
-  elemento concreto ("Calificaciones") — que confirmó que el recuadro
-  aparece en el alumno exactamente sobre el elemento señalado. Sigue
-  pendiente la verificación manual en los navegadores reales del
-  usuario (Firefox, Safari, y Chrome/Edge no headless): en particular,
-  si el recuadro y su etiqueta son suficientemente visibles sobre
-  distintos temas, y si el reposicionado durante scroll se percibe
-  fluido. Tampoco existe un arnés de pruebas JavaScript en este
-  proyecto (ver `docs/testing.md`), así que `dom_selector.js` y la
-  lógica de `startPicking()`/`stopPicking()` no tienen pruebas
-  automáticas propias, solo esta verificación puntual y la revisión por
-  lectura.
+- **Disabled by default.** `local_remotesupport/enableteacherpointer`
+  does nothing for any session until an administrator explicitly enables
+  it — a selective reintroduction of one piece of the reduction to
+  view-only, not an out-of-the-box feature.
+- **The same structural-selector risk as the existing `hover` highlight,
+  now in the opposite direction.** If the page snapshot the teacher sees
+  is slightly out of date relative to the student's real DOM at the
+  moment of the click, `buildRobustSelector()` might not find the
+  element, or might find a different one. Still purely visual (no click
+  is ever executed), but here the effect shows up on the student's
+  screen, not just the teacher's. See the equivalent entry above
+  ("highlighting the element under the cursor") for the same reasoning
+  on why this is accepted.
+- **Only what the `POINTABLE_SELECTOR` list (in `dom_selector.js`)
+  recognizes can be pointed at** — links, buttons and similar
+  (`CLICKABLE_SELECTOR`) plus text fields (`TEXT_FIELD_SELECTOR`, since
+  0.23.3). An element made interactive some other way (an activity's own
+  JavaScript, without any of those attributes/roles/types) doesn't show
+  up as a candidate when hovering over the reconstruction, even if it's
+  perfectly clickable/editable for the student. Password and hidden
+  fields are excluded the same way as the rest of the plugin, although
+  there's no actual security risk in including them here (pointing never
+  reveals or executes anything) — it's just consistency with
+  `TEXT_FIELD_SELECTOR`, not a necessary restriction.
+- **No persistence in session replay.** `teacher_highlight` isn't
+  recorded into `local_remotesupport_track` (a deliberate decision) —
+  replaying an old session never shows where the teacher pointed, only
+  what the student saw and did.
+- **Verified end to end across real browsers — Chromium, Firefox, and
+  WebKit (2026-08-01).** Earlier live testing had only used Chromium
+  headless; a full cross-browser pass rebuilt the same two-context
+  (teacher/student) harness used for the original 0.23.1/0.23.2
+  hit-testing bug hunt, parameterized by engine, and ran it twice per
+  engine — 7/7 steps green every time, including a real click on a link
+  inside the exact rescaled/`overflow:hidden` iframe scenario that broke
+  production before that earlier fix. Real Safari isn't available on
+  Linux; WebKit is the closest available proxy and is documented as
+  such, not claimed as literal Safari coverage. `dom_selector.js` (the
+  selector-building logic shared by picking and highlighting) and the
+  non-navigation parts of `screen_renderer.js`'s picking mode
+  (`startPicking()`/`stopPicking()`) now have dedicated Jest coverage as
+  of 2026-08-01 as well — previously neither had any automated JS test
+  of its own.

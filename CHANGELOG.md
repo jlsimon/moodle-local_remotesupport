@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.9 (docs: security.md and limitations.md translated to English and corrected) — 2026-08-01
+
+- `docs/security.md` and `docs/limitations.md` translated to English
+  (previously Spanish only), ahead of publishing this repository
+  primarily as Moodle Plugins directory support material.
+- While translating, corrected roughly 15 "not verified in a real
+  browser" / "no automated JS tests" claims in `docs/limitations.md`
+  that this session's testing round had already resolved (cross-browser
+  Chromium/Firefox/WebKit verification, real SCORM/H5P/LTI/quiz/forum/
+  book/assignment content, the Jest suite, the 20-concurrent-session
+  load test) — publishing the old claims verbatim would have shipped a
+  misleading public limitations document.
+- `README.md`'s "Project status" section corrected to match (it still
+  claimed no JS tests and no Behat coverage; both exist now) and its
+  Documentation list updated to only reference files that remain public.
+- No plugin code changes.
+
 ## 0.24.8 (verificación: tema classic y viewports móviles, sin cambios de código) — 2026-08-01
 
 - Verificada la barra de estado y el chat flotante en las cuatro

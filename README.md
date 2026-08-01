@@ -138,31 +138,29 @@ This is an early-stage plugin; the most relevant limitations right now:
 
 **Alpha.** All core flows (request/accept a session, live reconstruction,
 chat, history and replay, pointing at an element) work and are covered by
-an automated PHPUnit suite, but this plugin has not yet gone through a
-full Moodle Plugins directory submission and review. In particular:
-there is no automated JavaScript test suite yet, and no Behat coverage.
-See [`docs/decisions.md`](docs/decisions.md) for the history of design
-decisions, including an earlier, more feature-complete version (remote
-cursor, click, and typing) that was deliberately reduced to view-only for
-privacy and safety — that code remains available in this repository's git
-history if it's ever needed again.
+200 PHPUnit tests, a Behat suite (96 steps), and a Jest suite (37 tests)
+for the client-side JavaScript. The plugin has also been verified live
+across Chromium, Firefox, and WebKit, against real SCORM/H5P/LTI/quiz/
+forum/book/assignment content, under 20 real concurrent sessions, and for
+accessibility (0 axe-core violations on the plugin's own interface), but
+it has not yet gone through a full Moodle Plugins directory submission
+and review. An earlier, more feature-complete version (remote cursor,
+click, and typing) was deliberately reduced to view-only for privacy and
+safety — that code remains available in this repository's git history if
+it's ever needed again.
 
 ## Documentation
 
 - **[User guide](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.html)**
+  ([en español](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.es.html))
   — an illustrated, side-by-side walkthrough of every situation in a support
   session, from both the teacher's and the student's screen. Also available
-  as [`docs/user_guide.md`](docs/user_guide.md).
-- [`docs/architecture.md`](docs/architecture.md) — components, session and
-  event flow, transport, reconnection strategy.
+  as [`docs/user_guide.md`](docs/user_guide.md) /
+  [`docs/user_guide.es.md`](docs/user_guide.es.md).
 - [`docs/security.md`](docs/security.md) — threat model, capabilities,
   allowed events, known risks.
 - [`docs/limitations.md`](docs/limitations.md) — everything this plugin
   does not (yet) do.
-- [`docs/testing.md`](docs/testing.md) — automated and manual test
-  procedures.
-- [`docs/decisions.md`](docs/decisions.md) — why things are built the way
-  they are.
 - [`CHANGELOG.md`](CHANGELOG.md) — full release history.
 
 ## License

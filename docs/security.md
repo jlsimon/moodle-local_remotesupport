@@ -1,602 +1,569 @@
-# Seguridad
+# Security
 
-**Nota: este plugin es deliberadamente de solo visualización.** El
-profesor no puede señalar, hacer clic ni escribir en la página del
-alumno. Ver `docs/decisions.md` para el porqué de esta decisión y qué
-código/superficie de amenaza se retiró junto con ella.
+**Note: this plugin is deliberately view-only.** The teacher cannot point
+at, click, or type into the student's page.
 
-**Nota (2026-07-29): la sesión se graba de forma permanente y puede
-reproducirse**, una excepción deliberada a la política general de este
-plugin de no conservar contenido indefinidamente — ver "Grabación
-permanente de la sesión" más abajo y `docs/decisions.md` para el
-razonamiento completo, incluida la colisión consciente con dos
-requisitos del documento base y la capacidad `:replaysession` que
-protege quién puede ver el contenido reproducido.
+**Note (2026-07-29): the session is recorded permanently and can be
+replayed**, a deliberate exception to the plugin's general policy of not
+retaining content indefinitely — see "Permanent session recording" below,
+including the `:replaysession` capability that governs who can view the
+replayed content.
 
-## Modelo de amenazas
+## Threat model
 
-Actores considerados desde la Fase 1:
+Actors considered since Phase 1:
 
-- Un alumno intentando ver, cancelar o cerrar la solicitud/sesión de otro
-  alumno.
-- Un profesor sin relación con el curso intentando aceptar una solicitud o
-  entrar en una sesión ajena.
-- Un usuario adivinando o incrementando un `sessionid` en la URL.
-- Un usuario reutilizando un enlace de `session.php` (con token) después
-  de que la sesión haya terminado, o de que se haya emitido uno nuevo.
+- A student trying to view, cancel, or close another student's
+  request/session.
+- A teacher with no relationship to the course trying to accept a request
+  or enter someone else's session.
+- A user guessing or incrementing a `sessionid` in the URL.
+- A user reusing a `session.php` link (with token) after the session has
+  ended, or after a new one has been issued.
 
-Añadidos en la Fase 2, con la transmisión de eventos de pantalla:
+Added in Phase 2, with screen event transmission:
 
-- El **navegador del alumno**, potencialmente manipulado (DevTools,
-  petición directa a la API AJAX) para intentar enviar HTML/JS ejecutable
-  que el navegador del profesor terminaría renderizando (XSS almacenado
-  y reflejado a un tercero). Este es el riesgo nuevo más serio de la fase
-  y el que determina el diseño del saneamiento (ver más abajo).
-- Un usuario que no es ni el alumno ni el profesor de una sesión activa
-  intentando empujar o leer eventos de esa sesión.
-- Captura accidental de datos sensibles (contraseñas, campos ocultos,
-  contenido de otro dominio) por un fallo en la lógica de selección de
-  "contenido principal".
-- Acumulación indefinida de eventos si una sesión no se cierra
-  correctamente (pestaña cerrada, cliente colgado).
+- The **student's browser**, potentially tampered with (DevTools, a direct
+  request to the AJAX API) to try to send executable HTML/JS that the
+  teacher's browser would end up rendering (stored XSS reflected to a
+  third party). This is the most serious new risk of this phase, and the
+  one that drives the sanitization design (see below).
+- A user who is neither the student nor the teacher of an active session
+  trying to push or read that session's events.
+- Accidental capture of sensitive data (passwords, hidden fields, content
+  from another domain) due to a flaw in the "main content" selection
+  logic.
+- Unbounded accumulation of events if a session is never closed properly
+  (tab closed, client hung).
 
-Añadidos en la Fase 4, con CSS/modal en el payload de `page` y el nuevo
-evento `resync_request`:
+Added in Phase 4, with CSS/modal in the `page` payload and the new
+`resync_request` event:
 
-- URLs de hoja de estilo arbitrarias reportadas por un cliente
-  manipulado, que el profesor cargaría como `<link>` en su propio
-  navegador si no se filtraran (posible fuga de datos vía CSS, o simple
-  molestia visual con estilos ajenos).
-- HTML de un modal con el mismo tipo de riesgo de XSS que el contenido
-  principal, si no se saneara con la misma rigurosidad.
-- Un **alumno** intentando empujar `resync_request` (no le corresponde:
-  ese evento es una petición del profesor hacia el alumno, no al revés).
+- Arbitrary stylesheet URLs reported by a tampered client, which the
+  teacher would load as a `<link>` in their own browser if not filtered
+  (potential data leak via CSS, or simple visual nuisance with someone
+  else's styles).
+- Modal HTML carrying the same kind of XSS risk as the main content, if
+  not sanitized with the same rigor.
+- A **student** trying to push `resync_request` (not theirs to send: that
+  event is a request from the teacher to the student, not the other way
+  around).
 
-Añadido tras completar el MVP, con el icono de solicitudes pendientes en
-el navbar:
+Added after completing the MVP, with the pending-requests icon in the
+navbar:
 
-- No introduce ninguna superficie de autorización nueva: el icono llama
-  a `session_manager::get_pending_requests_for_teacher()`, el mismo
-  método (y por tanto la misma comprobación de capacidad vía
-  `get_user_capability_course()`) que ya usa `view.php`. No hay ruta para
-  ver el número de solicitudes de un curso sin la capacidad
-  `provideassistance` en él — se comprueba con una prueba dedicada
+- Introduces no new authorization surface: the icon calls
+  `session_manager::get_pending_requests_for_teacher()`, the same method
+  (and therefore the same capability check via
+  `get_user_capability_course()`) `view.php` already uses. There is no
+  path to see a course's request count without the `provideassistance`
+  capability in it — covered by a dedicated test
   (`test_navbar_output_empty_for_teacher_without_capability_in_any_course`).
-  El riesgo real ya está cubierto por las pruebas existentes de
-  `session_manager`; esta es solo una segunda vista sobre el mismo dato
-  ya autorizado.
+  The real risk is already covered by `session_manager`'s existing tests;
+  this is just a second view onto the same already-authorized data.
 
-Añadido tras completar el MVP, con el ciclo de vida de solicitud/sesión
-sin recarga de página y el badge de navbar sondeado en vivo:
+Added after completing the MVP, with the reload-free request/session
+lifecycle and the live-polled navbar badge:
 
-- No se introduce ninguna superficie de autorización nueva: las ocho
-  funciones externas nuevas (`classes/external/get_student_status.php` y
-  compañía) son envoltorios finos que delegan siempre en
-  `session_manager`/`permission_manager` — las mismas comprobaciones de
-  capacidad, propiedad y estado que ya hacían `request.php`/`view.php`
-  por POST/GET, ahora también alcanzables por AJAX. Se añadieron dos
-  métodos nuevos a `permission_manager`
-  (`require_can_view_dashboard()`, `require_can_provide_anywhere()`) para
-  no duplicar en cada función externa la misma comprobación que ya hacía
-  `view.php`/`lib.php` de forma inline.
-- Un usuario sin la capacidad correspondiente que llame directamente a
-  uno de estos web services (sin pasar por la interfaz) recibe el mismo
-  `errornopermission`/`required_capability_exception` que recibiría
-  intentando la URL PHP equivalente — cubierto por
-  `tests/external_api_test.php` para cada una de las ocho funciones.
-- El sondeo del badge de navbar (`navbar_badge.js`, cada 15 s en
-  *cualquier* página de Moodle) reutiliza exactamente la misma consulta
-  que ya usa `view.php` para su lista
-  (`session_manager::get_pending_requests_for_teacher()`); no hay una
-  segunda ruta de autorización que pudiera desincronizarse de la
-  primera.
-- El token de entrada de un solo uso ya no viaja pre-incrustado en el
-  HTML de `request.php`/`view.php`: se pide en el momento del clic vía
-  AJAX (`enter_session`/`accept_request`). No cambia el modelo de
-  amenazas del propio token (sigue siendo de un solo uso, hasheado,
-  ligado a rol — ver "Tokens" más abajo); solo cambia cuándo se genera.
+- No new authorization surface is introduced: the eight new external
+  functions (`classes/external/get_student_status.php` and friends) are
+  thin wrappers that always delegate to `session_manager`/
+  `permission_manager` — the same capability, ownership, and state checks
+  `request.php`/`view.php` already performed via POST/GET, now also
+  reachable via AJAX. Two new methods were added to `permission_manager`
+  (`require_can_view_dashboard()`, `require_can_provide_anywhere()`) so
+  the same check `view.php`/`lib.php` already did inline wouldn't be
+  duplicated in every external function.
+- A user without the corresponding capability who calls one of these web
+  services directly (bypassing the interface) gets the same
+  `errornopermission`/`required_capability_exception` they would get from
+  the equivalent PHP URL — covered by `tests/external_api_test.php` for
+  each of the eight functions.
+- The navbar badge poll (`navbar_badge.js`, every 15s on *any* Moodle
+  page) reuses exactly the same query `view.php` already uses for its
+  list (`session_manager::get_pending_requests_for_teacher()`); there is
+  no second authorization path that could drift out of sync with the
+  first.
+- The one-time entry token no longer travels pre-embedded in
+  `request.php`/`view.php`'s HTML: it's requested at click time via AJAX
+  (`enter_session`/`accept_request`). This doesn't change the token's own
+  threat model (still one-time, hashed, role-bound — see "Tokens" below);
+  only when it's generated changes.
 
-Añadido tras completar el MVP, con el modo de captura `fullpage`:
+Added after completing the MVP, with `fullpage` capture mode:
 
-- Superficie de captura más amplia (todo `<body>`, no solo el contenido
-  principal), pero **la misma capa autoritativa de saneamiento**: pasa
-  igual por `html_sanitizer::sanitize()` que el modo `main`, así que las
-  garantías de siempre (nunca `<script>`, `<iframe>`, atributos `on*`,
-  esquemas `javascript:`, valores de campos de formulario) no cambian —
-  solo cambia cuánto HTML se sanea, no las reglas con las que se sanea.
-- Riesgo nuevo, de privacidad más que de seguridad: bloques laterales o
-  elementos de navegación pueden mostrar información específica del
-  alumno (por ejemplo, mensajes recientes, notas, un bloque
-  personalizado) que en modo `main` nunca se capturaba por estar fuera
-  del contenido principal. Es una consecuencia esperada y deseada de lo
-  que pide `fullpage` ("ver exactamente lo que ve el alumno"), no un
-  fallo — pero es el motivo por el que el ajuste es de administración
-  del sitio, decidido conscientemente, y no el modo por defecto.
-  `MAIN_CONTENT_SELECTORS`, el saneador y el resto de la política de
-  captura no distinguen "qué bloque es sensible", así que activar
-  `fullpage` es responsabilidad de quien administra el sitio, no algo
-  que un profesor o alumno puedan activar por su cuenta.
-- Los límites de tamaño (`html_sanitizer::MAX_LENGTH`,
-  `event_manager::MAX_PAYLOAD_BYTES`) suben para que quepa una foto de
-  página completa; siguen existiendo y siguen aplicándose igual, solo
-  con un techo distinto — ver `docs/decisions.md`.
+- Wider capture surface (the whole `<body>`, not just the main content),
+  but **the same authoritative sanitization layer**: it goes through
+  `html_sanitizer::sanitize()` exactly like `main` mode, so the usual
+  guarantees (never `<script>`, `<iframe>`, `on*` attributes,
+  `javascript:` schemes, form field values) don't change — only how much
+  HTML gets sanitized, not the rules it's sanitized with.
+- A new risk, more about privacy than security: side blocks or navigation
+  elements can show student-specific information (recent messages,
+  notes, a custom block) that `main` mode never captured because it was
+  outside the main content. This is an expected, intended consequence of
+  what `fullpage` asks for ("see exactly what the student sees"), not a
+  bug — but it's why the setting is a site administration decision, made
+  consciously, and not the default mode. `MAIN_CONTENT_SELECTORS`, the
+  sanitizer, and the rest of the capture policy don't distinguish "which
+  block is sensitive," so enabling `fullpage` is the site administrator's
+  responsibility, not something a teacher or student can turn on
+  themselves.
+- The size limits (`html_sanitizer::MAX_LENGTH`,
+  `event_manager::MAX_PAYLOAD_BYTES`) go up to fit a full-page snapshot;
+  they still exist and still apply the same way, just with a different
+  ceiling.
 
-Añadido tras completar el MVP, con `teacher_highlight` (el señalado de
-un elemento del profesor hacia el alumno) — el primer flujo
-profesor→alumno con efecto visible en la pantalla del alumno desde que
-se retiró el cursor remoto en `aa58c26`:
+Added after completing the MVP, with `teacher_highlight` (the teacher
+pointing at an element for the student) — the first teacher→student flow
+with a visible effect on the student's screen since the remote cursor was
+removed in `aa58c26`:
 
-- Un **profesor** intentando señalar un elemento cuando el sitio tiene
-  `enableteacherpointer` desactivado — rechazado en el servidor, no solo
-  oculto en la interfaz (ver "Eventos permitidos" más abajo).
-- Un **alumno** intentando empujar `teacher_highlight` (no le
-  corresponde: es una señal del profesor hacia el alumno, no al
-  revés) — mismo tratamiento que un alumno intentando `resync_request`.
-- Un cliente del profesor manipulado enviando su propio `ttlms` para
-  que el señalado dure indefinidamente en la pantalla del alumno —
-  el servidor lo sobrescribe siempre, nunca confía en el valor recibido.
-- Un `selector` que, al resolverse en el DOM real del alumno, apunte a
-  un elemento distinto del que el profesor realmente señaló (foto
-  desactualizada, estructura cambiada) — el riesgo es puramente visual
-  (confuso, nunca una acción: nunca se ejecuta ningún clic), mismo
-  riesgo ya aceptado para el resaltado `hover`/`typing` existente, ver
+- A **teacher** trying to point at an element when the site has
+  `enableteacherpointer` disabled — rejected server-side, not just hidden
+  in the interface (see "Allowed events" below).
+- A **student** trying to push `teacher_highlight` (not theirs to send:
+  it's a signal from the teacher to the student, not the other way
+  around) — treated the same as a student attempting `resync_request`.
+- A tampered teacher client sending its own `ttlms` so the highlight
+  stays on the student's screen indefinitely — the server always
+  overwrites it, never trusting the received value.
+- A `selector` that, once resolved against the student's real DOM, points
+  at a different element than the one the teacher actually pointed at
+  (stale snapshot, changed structure) — the risk is purely visual
+  (confusing, never an action: no click is ever executed), the same risk
+  already accepted for the existing `hover`/`typing` highlight, see
   `docs/limitations.md`.
 
-## Capacidades
+## Capabilities
 
-`local/remotesupport:requestassistance` (alumno, contexto curso),
-`:provideassistance` (profesor, contexto curso), `:viewactivesessions`
-(profesor, contexto curso), `:viewsessionhistory` (profesor, contexto
-curso, `RISK_PERSONAL` — tras el MVP, ver más abajo por qué es una
-capacidad aparte y no una reutilización de `:viewactivesessions`),
-`:replaysession` (profesor, contexto curso, `RISK_PERSONAL` — tras el
-MVP, ver más abajo), `:deletesessionhistory` (profesor, contexto
-curso, `RISK_DATALOSS` — tras el MVP, ver más abajo), `:managesessions`
-(manager, contexto sistema). Todas las comprobaciones pasan por
-`permission_manager`; ninguna otra clase llama a
-`require_capability()`/`has_capability()` directamente sobre
-capacidades del plugin.
+`local/remotesupport:requestassistance` (student, course context),
+`:provideassistance` (teacher, course context), `:viewactivesessions`
+(teacher, course context), `:viewsessionhistory` (teacher, course
+context, `RISK_PERSONAL` — added post-MVP, see below for why it's a
+separate capability rather than reusing `:viewactivesessions`),
+`:replaysession` (teacher, course context, `RISK_PERSONAL` — added
+post-MVP, see below), `:deletesessionhistory` (teacher, course context,
+`RISK_DATALOSS` — added post-MVP, see below), `:managesessions` (manager,
+system context). All checks go through `permission_manager`; no other
+class calls `require_capability()`/`has_capability()` directly on the
+plugin's own capabilities.
 
-**`:viewsessionhistory` y `:replaysession` son las únicas con
-`RISK_PERSONAL` entre las de solo lectura, y son capacidades distintas
-entre sí.** Ver actividad pasada de un alumno concreto, agregada a lo
-largo de meses (fechas, cursos, duraciones), es un perfil de
-comportamiento más revelador que ver una única sesión activa en curso —
-de ahí el riesgo marcado en `:viewsessionhistory`, a diferencia de
-`:viewactivesessions`, que nunca lo tuvo. Reproducir el contenido
-completo grabado (pantallas reales y conversación) es más sensible
-todavía que ver solo los metadatos del listado, así que `:replaysession`
-es una capacidad aparte, no una reutilización de `:viewsessionhistory` —
-un sitio podría, por ejemplo, conceder ver el historial a más
-profesorado del que puede reproducir el contenido íntegro. Además de la
-capacidad, `permission_manager::can_replay_session()`/
-`require_can_replay_session()` exigen que el usuario sea concretamente
-el profesor asignado a esa sesión (o tenga `managesessions`) — tenerla
-en el curso no basta si la sesión es de otro profesor.
+**`:viewsessionhistory` and `:replaysession` are the only read-only
+capabilities with `RISK_PERSONAL`, and they are distinct capabilities
+from each other.** Seeing a specific student's past activity, aggregated
+over months (dates, courses, durations), is a more revealing behavioral
+profile than seeing a single currently-active session — hence the risk
+flag on `:viewsessionhistory`, unlike `:viewactivesessions`, which never
+had one. Replaying the full recorded content (real screens and
+conversation) is even more sensitive than just seeing the listing's
+metadata, so `:replaysession` is a separate capability, not a reuse of
+`:viewsessionhistory` — a site could, for example, grant history viewing
+to more teaching staff than it grants full-content replay. Beyond the
+capability, `permission_manager::can_replay_session()`/
+`require_can_replay_session()` require that the user specifically be the
+teacher assigned to that session (or hold `managesessions`) — having it
+in the course isn't enough if the session belongs to a different
+teacher.
 
-Además de la capacidad, cada operación sobre una sesión concreta comprueba
-la propiedad: `session_manager` exige que quien cancela sea el
-`studentid`, que quien acepta tenga la capacidad en el curso de esa
-solicitud (no en cualquier curso), y que quien cierra o entra sea el
-`studentid`, el `teacherid`, o tenga `managesessions`.
+Beyond the capability, every operation on a specific session also checks
+ownership: `session_manager` requires that whoever cancels be the
+`studentid`, that whoever accepts hold the capability in that request's
+course (not just any course), and that whoever closes or enters be the
+`studentid`, the `teacherid`, or hold `managesessions`.
 
-**`:deletesessionhistory` reutiliza exactamente la regla de
-`:replaysession` (post-MVP, 2026-07-30), a propósito: nadie puede
-eliminar una sesión que no podría ya reproducir.**
-`permission_manager::can_delete_session_history()` es, campo por
-campo, la misma comprobación que `can_replay_session()` (profesor
-asignado + capacidad en el curso, o `managesessions`) — capacidad
-separada de todas formas, para que un administrador pueda revocar el
-borrado sin tocar la reproducción. `session_manager::delete_sessions()`
-revalida esto (y que la sesión esté cerrada) por cada id, sin confiar
-en que quien llama ya lo comprobó, y es todo-o-nada: si un id del
-lote falla cualquier comprobación, no se borra ninguno del lote. El
-borrado reutiliza el mismo purgado ya usado por la baja de datos por
-privacidad (`local_remotesupport_track` y `local_remotesupport_event`
-de esa sesión), y queda auditado (`session_deleted`).
+**`:deletesessionhistory` deliberately reuses `:replaysession`'s exact
+rule (post-MVP, 2026-07-30): nobody can delete a session they couldn't
+already replay.** `permission_manager::can_delete_session_history()` is,
+field for field, the same check as `can_replay_session()` (assigned
+teacher + capability in the course, or `managesessions`) — a separate
+capability regardless, so an administrator can revoke deletion without
+touching replay. `session_manager::delete_sessions()` revalidates this
+(and that the session is closed) for every id, never trusting that the
+caller already checked, and it's all-or-nothing: if any id in the batch
+fails any check, none of the batch is deleted. Deletion reuses the same
+purge already used for privacy data-erasure requests
+(`local_remotesupport_track` and `local_remotesupport_event` for that
+session), and is audited (`session_deleted`).
 
 ## Tokens
 
-- Generados con `random_bytes(32)` (`token_manager::generate()`), 256 bits
-  de entropía.
-- Solo se persiste `hash('sha256', $token)`, nunca el token en claro.
-- Cada parte (alumno/profesor) tiene su propia columna de hash
-  (`tokenhashstudent`/`tokenhashteacher`): pedir un enlace nuevo no
-  invalida el de la otra parte.
-- Un token solo es válido mientras la sesión está en `accepted` o
-  `active`; se vuelve inservible en cuanto la sesión se cierra, caduca o
-  se cancela.
-- El acceso a `session.php` exige capacidad + propiedad **y** token
-  válido; el token no es el único mecanismo de autorización, es una capa
-  adicional pensada para servir de credencial al futuro transporte en
-  tiempo real (Fase 2+).
+- Generated with `random_bytes(32)` (`token_manager::generate()`), 256
+  bits of entropy.
+- Only `hash('sha256', $token)` is ever persisted, never the plaintext
+  token.
+- Each party (student/teacher) has their own hash column
+  (`tokenhashstudent`/`tokenhashteacher`): requesting a new link doesn't
+  invalidate the other party's.
+- A token is only valid while the session is `accepted` or `active`; it
+  becomes useless as soon as the session closes, expires, or is
+  cancelled.
+- Access to `session.php` requires capability + ownership **and** a valid
+  token; the token is not the sole authorization mechanism, it's an
+  additional layer intended to serve as a credential for a future
+  real-time transport (Phase 2+).
 
-## Eventos permitidos
+## Allowed events
 
-Lista blanca cerrada en `event_manager::EVENT_TYPES`: `page`, `scroll`,
+Closed whitelist in `event_manager::EVENT_TYPES`: `page`, `scroll`,
 `cursor`, `student_click`, `resync_request`, `chat_message`,
-`teacher_highlight`. Cualquier otro valor (`eval`, `script`, `html`,
-etc.) es rechazado con
-`errorinvalideventtype` antes de llegar a almacenarse. También se
-valida el tamaño (`MAX_PAYLOAD_BYTES`, 600 000 bytes de JSON) y, para
-`page`, el propio contenido HTML (y, desde la Fase 4, el HTML del modal
-si lo hay, y las URLs de CSS) se sanea/filtra antes de guardar (ver
-"Saneamiento de HTML" más abajo). `cursor` y `student_click` reciben la
-misma comprobación ligera que `scroll` (campos `x`/`y` presentes y
-numéricos) — ninguno es HTML, así que no pasan por el saneador.
-`cursor` acepta además un campo opcional `hover` (el selector del
-elemento clicable bajo el ratón del alumno, añadido tras el MVP —
-ver `docs/decisions.md`): si es una cadena, se acota a
-`MAX_HOVER_SELECTOR_LENGTH` (1500 caracteres); si no lo es, se
-descarta. Un `hover` inválido o desproporcionado nunca rechaza el
-evento completo, a diferencia de `x`/`y` — es auxiliar a la posición,
-no la razón de ser del evento. No se sanea como HTML porque no lo es:
-nunca se inserta como marcado, solo se usa como argumento de
-`querySelector()` en el `iframe` ya aislado del profesor, envuelto en
-su propio `try`/`catch`. `cursor` acepta, con exactamente la misma
-validación, un segundo campo opcional `typing` (el selector del campo
-de texto que el alumno tiene enfocado, añadido tras el MVP — ver
-`docs/decisions.md`): nunca lleva el valor tecleado, solo qué campo
-es, y password/hidden quedan excluidos ya en el propio cliente
-(`event_capture.js`) antes de que llegue nada al servidor.
-`teacher_highlight` (añadido tras el MVP, ver
-`docs/architecture.md`) requiere un campo `selector` de texto no vacío
-(mismo tratamiento que `hover`/`typing`: acotado a
-`MAX_HOVER_SELECTOR_LENGTH`, nunca sanea como HTML porque nunca lo es,
-solo argumento de `querySelector()`), y su campo `ttlms` **nunca se
-toma del cliente**: `event_manager::record_event()` lo sobrescribe
-siempre a partir del ajuste `local_remotesupport/teacherpointerttlseconds`
-vigente en el momento de guardar el evento, precisamente para que un
-cliente del profesor modificado no pueda hacer que su propio señalado
-dure más de lo que el administrador del sitio permite.
-`chat_message`
-requiere un campo `message` de texto no vacío (tras recortar espacios),
-truncado a `MAX_CHAT_MESSAGE_LENGTH` (1000 caracteres) — siempre texto
-plano, nunca pasa por el saneador de HTML porque nunca se interpreta
-como HTML: el cliente lo pinta con `textContent`. Las acciones de las
-páginas (`request`, `cancel`, `accept`, `enter`, `finish`) siguen
-validándose igual que en la Fase 1, con `PARAM_ALPHA` y una lista fija
-reconocida.
+`teacher_highlight`. Any other value (`eval`, `script`, `html`, etc.) is
+rejected with `errorinvalideventtype` before it can be stored. Size is
+also validated (`MAX_PAYLOAD_BYTES`, 600,000 bytes of JSON), and for
+`page`, the HTML content itself (and, since Phase 4, the modal's HTML if
+any, and CSS URLs) is sanitized/filtered before saving (see "HTML
+sanitization" below). `cursor` and `student_click` get the same
+lightweight check as `scroll` (`x`/`y` fields present and numeric) —
+neither is HTML, so neither goes through the sanitizer. `cursor` also
+accepts an optional `hover` field (the selector of the clickable element
+under the student's mouse, added post-MVP): if it's a string, it's
+capped at `MAX_HOVER_SELECTOR_LENGTH` (1500 characters); if it isn't,
+it's discarded. An invalid or oversized `hover` never rejects the whole
+event, unlike `x`/`y` — it's auxiliary to the position, not the event's
+reason for existing. It isn't sanitized as HTML because it isn't one: it
+is never inserted as markup, only used as a `querySelector()` argument
+inside the teacher's already-sandboxed `iframe`, wrapped in its own
+`try`/`catch`. `cursor` accepts, with exactly the same validation, a
+second optional `typing` field (the selector of the text field the
+student currently has focused, added post-MVP): it never carries the
+typed value, only which field it is, and password/hidden fields are
+already excluded on the client itself (`event_capture.js`) before
+anything reaches the server. `teacher_highlight` (added post-MVP)
+requires a non-empty text `selector` field (same treatment as
+`hover`/`typing`: capped at `MAX_HOVER_SELECTOR_LENGTH`, never sanitized
+as HTML because it never is one, only a `querySelector()` argument), and
+its `ttlms` field **is never taken from the client**:
+`event_manager::record_event()` always overwrites it from the current
+`local_remotesupport/teacherpointerttlseconds` setting at the moment the
+event is saved, precisely so a modified teacher client can't make its own
+highlight last longer than the site administrator allows. `chat_message`
+requires a non-empty `message` text field (after trimming whitespace),
+truncated to `MAX_CHAT_MESSAGE_LENGTH` (1000 characters) — always plain
+text, never sanitized as HTML because it's never interpreted as HTML: the
+client renders it with `textContent`. Page actions (`request`, `cancel`,
+`accept`, `enter`, `finish`) are still validated the same way as in Phase
+1, with `PARAM_ALPHA` and a fixed recognized list.
 
-Cada tipo de evento tiene, además, un **rol autorizado a emitirlo**
-(`polling_transport::ROLE_EVENT_TYPES`): el alumno empuja `page`/
-`scroll`/`cursor`/`student_click`/`chat_message`; el profesor
-`resync_request`/`chat_message`.
-Que el usuario sea participante de la sesión no basta — si un alumno
-intenta empujar un `resync_request`, se rechaza igual que si no
-perteneciera a la sesión en absoluto, y se registra como `access_denied`
-con motivo `wrongrole`.
+Each event type also has an **authorized role to emit it**
+(`polling_transport::ROLE_EVENT_TYPES`): the student pushes `page`/
+`scroll`/`cursor`/`student_click`/`chat_message`; the teacher pushes
+`resync_request`/`chat_message`. Being a participant in the session isn't
+enough on its own — if a student tries to push a `resync_request`, it's
+rejected exactly as if they didn't belong to the session at all, and it's
+logged as `access_denied` with reason `wrongrole`.
 
-`teacher_highlight` añade una segunda condición encima del rol,
-comprobada aparte en `push_event()` porque una constante `ROLE_EVENT_TYPES`
-no puede consultar configuración: además de ser el profesor de la
-sesión, el ajuste `local_remotesupport/enableteacherpointer` tiene que
-estar activo — **desactivado por defecto**. Si el ajuste está
-desactivado, se rechaza exactamente igual (`errornopermission`,
-`access_denied` con motivo `wrongrole`) tanto si lo intenta el profesor
-como si lo intenta el alumno; la interfaz del profesor (`event_player.js`)
-ni siquiera crea el botón correspondiente cuando el ajuste está
-desactivado, pero esa es solo la mitad de la defensa — el servidor no
-confía en que el cliente respete esa ausencia de botón.
+`teacher_highlight` adds a second condition on top of role, checked
+separately in `push_event()` because a `ROLE_EVENT_TYPES` constant can't
+query configuration: besides being the session's teacher, the
+`local_remotesupport/enableteacherpointer` setting has to be on —
+**disabled by default**. If the setting is disabled, it's rejected
+exactly the same way (`errornopermission`, `access_denied` with reason
+`wrongrole`) whether the teacher or the student attempts it; the
+teacher's interface (`event_player.js`) doesn't even create the
+corresponding button when the setting is disabled, but that's only half
+the defense — the server doesn't trust the client to respect that
+button's absence.
 
-`chat_message` es también el único tipo que **no** excluye al propio
-emisor al leer: `get_events_since()` normalmente filtra "no me devuelvas
-mis propios eventos" (el alumno nunca necesita ver su propio `page`/
-`scroll` reflejado de vuelta), pero un chat necesita que cada
-participante vea la conversación completa, incluidos sus propios
-mensajes. Esto no relaja ninguna comprobación de autorización: solo
-altera qué fila de una sesión ya validada como propia se devuelve, no
-quién puede pedir qué sesión.
+`chat_message` is also the only type that does **not** exclude the
+sender's own events on read: `get_events_since()` normally filters out
+"don't return my own events" (the student never needs to see their own
+`page`/`scroll` reflected back), but a chat needs every participant to
+see the full conversation, including their own messages. This doesn't
+relax any authorization check: it only changes which row of an
+already-validated-as-your-own session gets returned, not who can request
+which session.
 
-## Límite de frecuencia
+## Rate limiting
 
-`rate_limiter::is_allowed()` exige al menos 150 ms entre eventos
-`scroll`, 150 ms entre eventos `cursor`, 100 ms entre eventos
-`student_click`, 300 ms entre eventos `chat_message` y 200 ms entre
-eventos `teacher_highlight` de la misma sesión, respaldado por una
-caché de aplicación (no por la tabla de
-eventos, cuyo `timecreated` solo tiene resolución de un segundo). Un
-evento que llega demasiado pronto **no se guarda ni se lanza un
-error**: `record_event()` devuelve `null` y el llamador AJAX responde
-con éxito de todos modos (`id: 0`), porque llegar un poco rápido no es
-un intento de abuso, es tráfico normal de un scroll continuo (o de un
-doble envío accidental de chat). `page` y `resync_request` no tienen
-límite de frecuencia propio (el cliente ya limita `page`
-razonablemente, y `resync_request` solo se dispara por una recuperación
-de conexión, no continuamente).
+`rate_limiter::is_allowed()` requires at least 150ms between `scroll`
+events, 150ms between `cursor` events, 100ms between `student_click`
+events, 300ms between `chat_message` events, and 200ms between
+`teacher_highlight` events within the same session, backed by an
+application cache (not the events table, whose `timecreated` only has
+one-second resolution). An event that arrives too soon **is neither
+stored nor treated as an error**: `record_event()` returns `null` and the
+AJAX caller still responds with success (`id: 0`), because arriving a bit
+fast isn't an abuse attempt, it's normal traffic from a continuous scroll
+(or an accidental double chat submission). `page` and `resync_request`
+have no rate limit of their own (the client already throttles `page`
+reasonably, and `resync_request` only fires on a connection recovery, not
+continuously).
 
-El suelo de `student_click` es más bajo que el de `scroll`/`cursor`
-(100 ms frente a 150 ms) simplemente porque un clic real, a diferencia
-de un movimiento de ratón, nunca necesita muestrearse — el suelo aquí
-existe solo como defensa frente a un cliente modificado que dispare
-clics falsos en bucle, no como un límite pensado para suavizar tráfico
-legítimo (`event_capture.js` no aplica ningún throttling propio a los
-clics, cada clic real se envía).
+`student_click`'s floor is lower than `scroll`/`cursor`'s (100ms vs
+150ms) simply because a real click, unlike a mouse move, never needs
+sampling — the floor here exists purely as a defense against a modified
+client firing fake clicks in a loop, not as a limit meant to smooth
+legitimate traffic (`event_capture.js` applies no throttling of its own
+to clicks; every real click is sent).
 
-El suelo de 150 ms para `cursor` es independiente del ajuste de admin
-`local_remotesupport/cursorsamplems` (200/500/1000/2000 ms, ver
-`docs/architecture.md`): es una defensa en profundidad frente a un
-cliente modificado que ignore su propio throttling, no el mecanismo que
-gobierna la tasa normal — el valor mínimo permitido en el ajuste ya
-queda por encima de este suelo, así que un cliente sin modificar nunca
-lo alcanza.
+The 150ms floor for `cursor` is independent of the
+`local_remotesupport/cursorsamplems` admin setting (200/500/1000/2000ms):
+it's a defense in depth against a modified client that ignores its own
+throttling, not the mechanism that governs the normal rate — the
+setting's minimum allowed value already sits above this floor, so an
+unmodified client never reaches it.
 
-La clave de la caché de límite de frecuencia incluye el **remitente**
-(`sessionid_eventtype_userid`), no solo sesión y tipo — necesario desde
-que `chat_message` es el primer tipo con más de un remitente posible
-por sesión; con una clave compartida, un mensaje de un lado habría
-podido bloquear por error la respuesta del otro si llegaba dentro de la
-misma ventana.
+The rate-limit cache key includes the **sender**
+(`sessionid_eventtype_userid`), not just session and type — necessary
+since `chat_message` is the first type with more than one possible sender
+per session; with a shared key, a message from one side could have
+mistakenly rate-limited the other side's unrelated reply if it arrived
+within the same window.
 
-## Saneamiento de HTML (Fase 2)
+## HTML sanitization (Phase 2)
 
-Dos capas independientes; ninguna confía en que la otra ya haya limpiado
-el contenido:
+Two independent layers; neither trusts that the other has already
+cleaned the content:
 
-1. **Servidor, autoritativa** — `html_sanitizer::sanitize()`, ejecutada
-   siempre en `event_manager::record_event()` para eventos `page`, nunca
-   solo en el cliente. Usa `DOMDocument` para eliminar `<script>`,
-   `<iframe>`, `<object>`, `<embed>`, `<applet>`, `<noscript>`, `<link>`,
-   `<meta>`; quita todos los atributos que empiecen por `on`; quita
-   `href`/`src` con esquema `javascript:`; quita `value` de `<input>` y
-   vacía `<textarea>`. Nunca se confía en que el cliente ya limpió nada:
-   la petición AJAX la hace el propio navegador del alumno, que un
-   usuario podría manipular directamente sin pasar por
+1. **Server, authoritative** — `html_sanitizer::sanitize()`, always run
+   in `event_manager::record_event()` for `page` events, never only on
+   the client. Uses `DOMDocument` to remove `<script>`, `<iframe>`,
+   `<object>`, `<embed>`, `<applet>`, `<noscript>`, `<link>`, `<meta>`;
+   strips every attribute starting with `on`; strips `href`/`src` with a
+   `javascript:` scheme; strips `value` from `<input>` and empties
+   `<textarea>`. The client is never trusted to have already cleaned
+   anything: the AJAX request is made by the student's own browser,
+   which a user could manipulate directly without going through
    `event_capture.js`.
-2. **Cliente, defensa adicional** — el visor del profesor
-   (`event_player.js`) renderiza cada foto con `iframe.srcdoc` dentro de
-   un `<iframe sandbox="allow-same-origin">` (sin `allow-scripts`, sin
-   `allow-forms`, sin `allow-popups`). Sin `allow-scripts`, la
-   especificación HTML desactiva toda ejecución de script en ese frame de
-   forma incondicional (etiquetas `<script>`, manejadores en línea,
-   `javascript:`), así que aunque el saneamiento del servidor tuviera un
-   fallo, el contenido seguiría sin poder ejecutarse.
+2. **Client, additional defense** — the teacher's viewer
+   (`event_player.js`) renders each snapshot with `iframe.srcdoc` inside
+   an `<iframe sandbox="allow-same-origin">` (no `allow-scripts`, no
+   `allow-forms`, no `allow-popups`). Without `allow-scripts`, the HTML
+   specification unconditionally disables all script execution in that
+   frame (`<script>` tags, inline handlers, `javascript:`), so even if
+   the server-side sanitization had a flaw, the content still couldn't
+   execute.
 
-El modal capturado (Fase 4) y los elementos `position: fixed` extraídos
-del contenido (`payload.fixed`, añadido tras el MVP como fix de
-precisión del cursor — ver `docs/architecture.md`/`docs/decisions.md`)
-pasan por el mismo `html_sanitizer::sanitize()` que el contenido
-principal — no hay una ruta de saneamiento separada ni más permisiva
-para ninguno de los dos. Las URLs de CSS (Fase 4) no se sanean como HTML;
-se filtran con una comprobación de prefijo: solo se conservan las que
-empiezan literalmente por `$CFG->wwwroot`, cualquier otra se descarta en
-silencio antes de guardar el evento.
+The captured modal (Phase 4) and the `position: fixed` elements extracted
+from the content (`payload.fixed`, added post-MVP as a cursor-precision
+fix) go through the same `html_sanitizer::sanitize()` as the main
+content — there is no separate, more permissive sanitization path for
+either of them. CSS URLs (Phase 4) aren't sanitized as HTML; they're
+filtered with a prefix check: only ones that literally start with
+`$CFG->wwwroot` are kept, any other is silently discarded before saving
+the event.
 
-**`payload.inlineCss` (añadido tras el MVP, mejora de precisión — ver
-`docs/decisions.md`) es CSS, no HTML, y se sanea de otra forma.** PHP no
-trae un parser de CSS equivalente a `DOMDocument`, así que
-`event_manager::sanitize_inline_css()` usa expresiones regulares para
-eliminar `@import` (traería una hoja de estilos externa entera al
-navegador del profesor) y cualquier `url(...)` (podría hacer que el
-navegador del profesor solicitara una URL arbitraria al renderizar la
-reconstrucción — imágenes de fondo, `@font-face`, cualquier otro uso
-legítimo se pierde con ello). No es un parser real, es una limpieza
-basada en texto — defensa en profundidad, no la única barrera: el
-`iframe` sandbox sigue bloqueando toda ejecución de scripts
-independientemente de lo que contenga el CSS. En el cliente,
-`screen_renderer.js` además rompe cualquier secuencia `</style` literal
-antes de insertar el texto dentro de una etiqueta `<style>` del
-`srcdoc`, para que no pueda cerrarla antes de tiempo e inyectar marcado
-arbitrario — el mismo tipo de precaución que ya se aplicaba al escapar
-comillas en las URLs de `<link>`.
+**`payload.inlineCss` (added post-MVP, a precision improvement) is CSS,
+not HTML, and is sanitized differently.** PHP has no CSS parser
+equivalent to `DOMDocument`, so `event_manager::sanitize_inline_css()`
+uses regular expressions to remove `@import` (would bring an entire
+external stylesheet into the teacher's browser) and any `url(...)`
+(could make the teacher's browser request an arbitrary URL while
+rendering the reconstruction — background images, `@font-face`, any
+other legitimate use is lost along with it). It isn't a real parser, it's
+text-based cleanup — defense in depth, not the only barrier: the
+`iframe` sandbox keeps blocking all script execution regardless of what
+the CSS contains. On the client, `screen_renderer.js` also breaks any
+literal `</style` sequence before inserting the text inside a `<style>`
+tag in the `srcdoc`, so it can't close it early and inject arbitrary
+markup — the same kind of precaution already applied when escaping
+quotes in `<link>` URLs.
 
-## Captura: qué se recoge y qué nunca se recoge
+## Capture: what is collected and what is never collected
 
-Recogido: URL relativa, título, contenido de `#region-main` (o
-`main`/`body` si no existe), el modal de Moodle abierto en ese momento
-(si lo hay), URLs de hojas de estilo del propio sitio y CSS inline
-(añadido tras el MVP), estructura del DOM, dimensiones de viewport,
-posición de scroll, posición del cursor del ratón mientras se mueve,
-posición de cada clic (ambos añadidos tras el MVP — coordenadas `x`/`y`
-de viewport, nunca el texto de lo que se pulsó). La posición de cada
-clic no lleva asociado ningún selector ni `id` del elemento pulsado,
-solo el punto. La posición del cursor sí, desde la mejora de resaltado
-(añadida tras el MVP, ver `docs/decisions.md`): un selector CSS
-(`id`, o una ruta estructural corta) del elemento clicable bajo el
-ratón, si hay alguno — nunca su texto ni ningún otro contenido, solo
-lo necesario para poder volver a localizar ese mismo elemento dentro
-del propio DOM ya capturado.
+Collected: relative URL, title, `#region-main` content (or `main`/`body`
+if it doesn't exist), the Moodle modal open at that moment (if any), the
+site's own stylesheet URLs and inline CSS (added post-MVP), DOM
+structure, viewport dimensions, scroll position, mouse cursor position
+while moving, each click's position (both added post-MVP — viewport
+`x`/`y` coordinates, never the text of what was clicked). A click's
+position carries no selector or `id` of the clicked element, only the
+point. The cursor position does, since the highlight improvement (added
+post-MVP): a CSS selector (`id`, or a short structural path) of the
+clickable element under the mouse, if there is one — never its text or
+any other content, only what's needed to locate that same element again
+within the already-captured DOM.
 
-Nunca recogido, ni siquiera antes de sanear: valores de campos de
-formulario (se elimina el atributo `value` de todo `<input>` y se vacía
-todo `<textarea>`, sin distinguir si el campo es "sensible" o no — es más
-simple y más seguro que mantener una lista de qué campos sí se pueden
-enviar), contenido de `<iframe>` (se elimina la etiqueta entera, nunca se
-desciende dentro de un `iframe` ajeno), contraseñas, cookies, tokens.
+Never collected, not even before sanitizing: form field values (the
+`value` attribute is stripped from every `<input>` and every `<textarea>`
+is emptied, without distinguishing whether the field is "sensitive" or
+not — simpler and safer than maintaining a list of which fields are safe
+to send), `<iframe>` content (the whole tag is removed, the code never
+descends into someone else's `iframe`), passwords, cookies, tokens.
 
-## Grabación permanente de la sesión (añadido tras el MVP)
+## Permanent session recording (added post-MVP)
 
-`local_remotesupport_track` guarda de forma permanente (dentro de la
-ventana de retención) los mismos eventos `page`/`scroll`/`cursor`/
-`student_click`/`chat_message` ya validados y saneados que se
-transportan en vivo — nada nuevo pasa por saneado aquí, `track_manager`
-reutiliza el payload ya limpio de `event_manager`. Esto significa que
-el contenido capturado (HTML principal saneado, nunca valores de campos
-de formulario, contraseñas, cookies ni tokens — ver "Captura" y
-"Saneamiento de HTML" arriba, más el texto de la conversación de chat
-desde que se añadió la reproducción, más la posición del cursor del
-ratón y de cada clic desde que se añadieron esas funcionalidades) queda
-retenido en base de datos durante semanas o meses, no minutos,
-invirtiendo deliberadamente la política de purga rápida que rige el
-resto del plugin.
+`local_remotesupport_track` permanently stores (within the retention
+window) the same already-validated, already-sanitized `page`/`scroll`/
+`cursor`/`student_click`/`chat_message` events transported live —
+nothing new is sanitized here, `track_manager` reuses `event_manager`'s
+already-clean payload. This means the captured content (sanitized main
+HTML, never form field values, passwords, cookies, or tokens — see
+"Capture" and "HTML sanitization" above, plus the chat conversation text
+since replay was added, plus mouse cursor and click position since those
+features were added) stays in the database for weeks or months, not
+minutes, deliberately reversing the fast-purge policy that governs the
+rest of the plugin.
 
-- **`cursor` y `student_click` son excepciones conscientes a "no grabar
-  cada movimiento del ratón"** (guía general del documento base del
-  proyecto). Se acotó el coste de `cursor` con dos decisiones: solo se
-  envía mientras el ratón se está moviendo de verdad (atado al evento
-  `mousemove` del navegador, no a un temporizador — un alumno inactivo
-  no genera filas), y la tasa de muestreo de un ratón en movimiento es
-  un ajuste de administración (`local_remotesupport/cursorsamplems`),
-  no un valor fijo agresivo. `student_click` no necesita ninguna de
-  esas dos mitigaciones: un clic ya es, por su propia naturaleza, un
-  evento discreto e infrecuente — no hay nada que muestrear ni
-  atenuar. Ver `docs/decisions.md`.
+- **`cursor` and `student_click` are conscious exceptions to "don't
+  record every mouse movement"** (the project's general guidance).
+  `cursor`'s cost was bounded with two decisions: it's only sent while
+  the mouse is actually moving (tied to the browser's `mousemove` event,
+  not a timer — an idle student generates no rows), and the sampling
+  rate of a moving mouse is an administration setting
+  (`local_remotesupport/cursorsamplems`), not an aggressive fixed value.
+  `student_click` needs neither of those two mitigations: a click is
+  already, by its own nature, a discrete and infrequent event — there's
+  nothing to sample or throttle.
 
-- **Endpoint de lectura gateado por `:replaysession`, no por
-  `:viewsessionhistory`.** `get_session_track` (AJAX), `sessionreplay.php`
-  y `sessionchat.php` (añadida después, ver `docs/decisions.md`) exigen
-  la capacidad y la propiedad de la sesión — ver "Capacidades" arriba.
-  Solo devuelven algo si, además, la sesión está `closed` (una sesión
-  activa o pendiente se rechaza: la vista en vivo, con su propia
-  autorización, es el camino para eso). `sessionchat.php` no introduce
-  ninguna comprobación nueva: reutiliza exactamente
-  `permission_manager::require_can_replay_session()`, solo cambia qué
-  datos pide (`track_manager::get_chat_for_session()`, filtrado a
-  `chat_message`) y cómo los renderiza (PHP/Mustache, sin AMD ni AJAX).
-- **El chat se grabó permanentemente a partir de la reproducción**, revisando
-  la decisión original de esta sección (grabar solo `page`/`scroll`).
-  Sesiones cerradas antes de ese cambio no tienen chat grabado — no es
-  que se oculte, es que nunca se guardó. Ver `docs/decisions.md`.
-- **Retención administrable, no indefinida**: `local_remotesupport/
-  trackretentiondays` (15/30/90/180/365 días), aplicada por la tarea
-  `purge_track`.
-- **Una solicitud de supresión de datos personales borra la grabación de
-  inmediato**, sin esperar a la ventana de retención — ver
-  `classes/privacy/provider.php`. No sobrevive, en cambio, a un cierre
-  de sesión normal por diseño (`session_manager::close_session()`
-  deliberadamente no la toca): esa es la diferencia central respecto a
+- **Read endpoint gated by `:replaysession`, not by
+  `:viewsessionhistory`.** `get_session_track` (AJAX), `sessionreplay.php`,
+  and `sessionchat.php` (added later) require the capability and
+  ownership of the session — see "Capabilities" above. They only return
+  anything if the session is additionally `closed` (an active or pending
+  session is rejected: the live view, with its own authorization, is the
+  path for that). `sessionchat.php` introduces no new check: it reuses
+  `permission_manager::require_can_replay_session()` exactly, only
+  changing which data it requests (`track_manager::get_chat_for_session()`,
+  filtered to `chat_message`) and how it renders it (PHP/Mustache, no
+  AMD or AJAX).
+- **Chat was made permanently recorded starting from when replay was
+  added**, revising this section's original decision (record only
+  `page`/`scroll`). Sessions closed before that change have no recorded
+  chat — not hidden, simply never saved.
+- **Retention is administrable, not indefinite**: `local_remotesupport/
+  trackretentiondays` (15/30/90/180/365 days), applied by the
+  `purge_track` task.
+- **A personal-data erasure request deletes the recording immediately**,
+  without waiting for the retention window — see
+  `classes/privacy/provider.php`. It does not, on the other hand, survive
+  a normal session close by design (`session_manager::close_session()`
+  deliberately leaves it alone): that's the key difference from
   `local_remotesupport_event`.
-- **Riesgo de reidentificación por volumen**: donde una foto de pantalla
-  suelta (Fase 2) revela poco fuera de contexto, semanas de fotos de
-  pantalla completas de un mismo alumno, correlacionadas por
-  `sessionid`/`timecreated`, son un perfil de actividad mucho más rico
-  que cualquier otro dato que este plugin haya conservado hasta ahora.
-  No hay mitigación técnica adicional más allá de la retención acotada
-  y el borrado por supresión — es una consecuencia directa, y aceptada
-  conscientemente, del alcance elegido.
+- **Re-identification risk from volume**: where a single stray screenshot
+  (Phase 2) reveals little out of context, weeks of full-page screenshots
+  of the same student, correlated by `sessionid`/`timecreated`, are a
+  much richer activity profile than any other data this plugin has
+  retained so far. There is no additional technical mitigation beyond
+  bounded retention and erasure-triggered deletion — it's a direct,
+  consciously accepted consequence of the chosen scope.
 
-## Elementos prohibidos
+## Prohibited elements
 
-No hay política de clic ni de escritura remota que mantener — el
-profesor no ejecuta ninguna acción sobre la página del alumno. Lo que
-queda es la lista de bloqueo de la propia captura de pantalla (ver
-"Captura: qué se recoge y qué nunca se recoge" arriba y "Saneamiento de
-HTML"): etiquetas eliminadas por completo tanto en el saneador
-autoritativo del servidor (`html_sanitizer::BLOCKED_TAGS`) como en la
-limpieza best-effort del cliente (`event_capture.js::BLOCKED_TAGS`) —
-`<script>`, `<iframe>`, `<object>`, `<embed>`, `<applet>`, `<noscript>`,
-`<link>`, `<meta>` — más los atributos `on*` y los esquemas
-`javascript:`, y los valores de `<input>`/`<textarea>`, que nunca se
-capturan.
+There is no click or remote-write policy to maintain — the teacher
+executes no action on the student's page at all. What remains is the
+capture's own block list (see "Capture: what is collected and what is
+never collected" above and "HTML sanitization"): tags removed entirely
+both in the server's authoritative sanitizer
+(`html_sanitizer::BLOCKED_TAGS`) and in the client's best-effort cleanup
+(`event_capture.js::BLOCKED_TAGS`) — `<script>`, `<iframe>`, `<object>`,
+`<embed>`, `<applet>`, `<noscript>`, `<link>`, `<meta>` — plus `on*`
+attributes and `javascript:` schemes, and `<input>`/`<textarea>` values,
+which are never captured.
 
-## Redirección a la página de origen sin riesgo de open redirect (añadido tras el MVP)
+## Redirect to the originating page without open-redirect risk (added post-MVP)
 
-Al entrar en una sesión, el alumno es redirigido a la página desde la
-que pidió asistencia (`local_remotesupport_session.returnurl`, ver
-`docs/architecture.md`/`docs/decisions.md`) en vez de a la portada del
-curso. Como el destino de una redirección lo determina, en última
-instancia, un valor que llegó desde el navegador del alumno, se trata
-como una superficie de open redirect y se cierra en dos puntos, no
-uno:
+When entering a session, the student is redirected to the page they
+requested assistance from (`local_remotesupport_session.returnurl`)
+instead of to the course front page. Since a redirect's destination is,
+ultimately, determined by a value that came from the student's browser,
+it's treated as an open-redirect surface and closed at two points, not
+one:
 
-1. **Nunca se guarda una URL completa, solo una ruta local.** El
-   propio valor que se persiste en base de datos se obtiene con
-   `moodle_url::out_as_local_url()` al construir el enlace a
-   `request.php` — no hay forma de que llegue a guardarse un dominio
-   externo, porque nunca se le pasa la oportunidad de estar ahí.
-2. **`PARAM_LOCALURL` en cada punto de entrada** (`request.php`,
-   `classes/external/request_assistance.php`) — revalida igualmente el
-   valor recibido, por si acaso llegara manipulado directamente sin
-   pasar por los enlaces que el propio plugin construye (mismo
-   principio que el resto del plugin: no confiar en que el cliente ya
-   validó nada). `session.php` reconstruye el destino con
-   `new moodle_url($session->returnurl)`, envuelto en un `try`/`catch`
-   que cae de vuelta a la portada del curso ante cualquier valor que no
-   parezca ya una ruta local válida.
+1. **A full URL is never stored, only a local path.** The value
+   persisted in the database is itself obtained with
+   `moodle_url::out_as_local_url()` when building the link to
+   `request.php` — there is no way for an external domain to end up
+   stored, because it's never given the chance to be there in the first
+   place.
+2. **`PARAM_LOCALURL` at every entry point** (`request.php`,
+   `classes/external/request_assistance.php`) — revalidates the received
+   value all the same, in case it arrived tampered with directly, without
+   going through the links the plugin itself builds (same principle as
+   the rest of the plugin: never trust that the client already validated
+   anything). `session.php` reconstructs the destination with
+   `new moodle_url($session->returnurl)`, wrapped in a `try`/`catch` that
+   falls back to the course front page for any value that doesn't look
+   like a valid local path.
 
-## Riesgos conocidos
+## Known risks
 
-- **El token viaja en la URL** (`session.php?id=...&token=...`), por lo
-  que puede quedar en el historial del navegador o en logs de acceso del
-  servidor si no se usa HTTPS. Mitigación: exigir HTTPS en el sitio
-  (responsabilidad del despliegue, no del plugin) y no registrar la
-  cadena de consulta completa en logs de aplicación propios del plugin.
-- **Enumeración de `sessionid`**: los identificadores son secuenciales,
-  pero cada operación exige capacidad + propiedad, así que adivinar un id
-  ajeno no concede acceso; como mucho revela que existe una fila con ese
-  id (no a quién pertenece, gracias al mensaje de error genérico de
-  `permission_manager::require_owner_or_manage()`).
-- **Filas con dos titulares**: al no haber tablas separadas para
-  solicitud y sesión, una fila de `local_remotesupport_session` nombra
-  simultáneamente a alumno y profesor; ver
-  [limitations.md](limitations.md) para cómo afecta esto al borrado de
-  datos personales.
-- **Coste por página de la comprobación `before_footer`**: se ejecuta en
-  *toda* petición de *todo* usuario logueado del sitio (no solo de los
-  participantes en una sesión), aunque sea una única consulta indexada
-  por `studentid+status`. Aceptable para el objetivo de 1–20 sesiones
-  simultáneas; revisar si el sitio crece mucho más.
-- **Límite de frecuencia solo para `scroll`/`cursor`/`student_click`/`chat_message`/`teacher_highlight`**:
-  `page` y `resync_request` no tienen límite de frecuencia propio en el
-  servidor — solo el `debounce`/`throttle` del cliente (o, para
-  `resync_request`, el hecho de que solo se dispara por una recuperación
-  de conexión). Un usuario podría saltarse el límite del cliente
-  manipulando la petición directamente; el límite de tamaño por evento y
-  el hecho de que solo se pueda escribir en sesiones propias (con el rol
-  correcto) acotan el daño a esa única sesión.
-- **Ancho de banda por foto completa**: cada evento `page` reenvía el
-  contenido principal completo (hasta 150 000 caracteres saneados en
-  modo `main`, 400 000 en `fullpage`), no un diff. Es una decisión
-  deliberada de simplicidad (ver `docs/decisions.md`), pero implica más
-  tráfico que un enfoque incremental si la página es grande y cambia a
-  menudo.
-- **`resync_request` sin límite de frecuencia**: en teoría un profesor
-  (o alguien que consiguiera su sesión) podría disparar resincronizaciones
-  completas repetidamente. En la práctica solo se dispara una vez por
-  recuperación de conexión desde el cliente oficial, y el coste de cada
-  una es el mismo que el latido periódico normal (una foto `page`), así
-  que no es una vía de amplificación real.
-- **Bypass conocido, actualmente inerte, del filtro `javascript:` de
-  `html_sanitizer::clean_attributes()`** (encontrado 2026-08-01, revisión
-  adversarial de `docs/tests_todo.md` punto 6): la comprobación
-  `preg_match('/^\s*javascript:/i', $attr->value)` se ejecuta sobre el
-  valor del atributo tal como lo da `DOMDocument` (antes de serializar),
-  así que un tabulador/salto de línea/retorno de carro incrustado dentro
-  del propio esquema (`java` + TAB + `script:alert(1)`) no coincide con
-  el patrón y el atributo no se elimina — técnica de bypass conocida
-  (los navegadores ignoran esos caracteres de control al analizar un
-  esquema de URL). Confirmado en vivo: el valor sobrevive la
-  comprobación. **No es explotable hoy por dos defensas independientes**:
-  (1) `DOMDocument::saveHTML()` percent-codifica esos caracteres de
-  control al serializar atributos `href`/`src` (`java%09script:...`),
-  lo que deja de ser un esquema `javascript:` válido para cualquier
-  parser de URL real; (2) el `iframe` de reconstrucción del profesor
-  tiene `pointer-events: none` permanente (nunca se desactiva, ni
-  siquiera durante el modo de señalado — los listeners de esa función
-  viven en `viewportWrapper`, nunca en el propio `iframe` ni en su
-  `contentDocument`) y `sandbox="allow-same-origin"` sin `allow-scripts`,
-  así que ningún clic real llega jamás al contenido reconstruido para
-  disparar una navegación en primer lugar. Sigue siendo un defecto real
-  del contrato de esa función (su propio docblock promete filtrar
-  `javascript:` y no lo hace de forma fiable) — pendiente de corrección,
-  no urgente dado lo anterior. Corrección previsible: normalizar
-  (eliminar caracteres de control) el valor antes de aplicar la regex,
-  en vez de confiar en que el serializador los neutralice como efecto
-  secundario.
-- **`returnurl`/`fromurl` no filtra segmentos `../`** (mismo hallazgo
-  2026-08-01): `PARAM_LOCALURL` rechaza correctamente todo lo probado
-  que intentara escapar de dominio (`https://evil.example`,
-  `//evil.example`, `javascript:`, trucos de `usuario@evil.example` o
-  de subdominio-sufijo) — confirmado con una batería de payloads contra
-  `clean_param()` en vivo — pero no normaliza ni rechaza `../`, y
-  `moodle_url`/`session.php` tampoco lo hacen al reconstruir el destino
-  (`new moodle_url($session->returnurl)` es concatenación literal, sin
-  resolver `..`). Un `fromurl` como
-  `/local/remotesupport/../../otra/ruta` sobrevive intacto y produce una
-  redirección real a esa otra ruta. **Nunca cruza a otro dominio**
-  (confirmado: sin un `//` que abra una nueva autoridad, `..` solo puede
-  cancelar segmentos de ruta dentro del mismo host) — así que no
-  contradice, pero sí matiza, la sección "Redirección a la página de
-  origen sin riesgo de open redirect" de arriba: esa garantía es válida
-  frente a otro dominio, no frente a otra ruta del mismo sitio. Impacto
-  acotado: la ruta de destino sigue sujeta a `require_login()`/las
-  comprobaciones de capacidad propias de lo que sea que haya ahí.
-- **`chat_message` sobrevive más tiempo que el resto de eventos, por
-  diseño**: exento de `purge_stale_events()` (la purga de 2 minutos),
-  solo desaparece al cerrarse la sesión. Esto significa que, durante una
-  sesión larga, el texto de la conversación completa queda en la base de
-  datos durante toda su duración, no solo unos minutos — una excepción
-  deliberada a la política general del plugin de no acumular datos (ver
-  `docs/decisions.md`), aceptada porque un mensaje de chat, a diferencia
-  de una foto de pantalla obsoleta, no se puede regenerar si se pierde.
-  Sigue sin sobrevivir al cierre de la sesión.
+- **The token travels in the URL** (`session.php?id=...&token=...`), so
+  it can end up in browser history or server access logs if HTTPS isn't
+  used. Mitigation: require HTTPS on the site (a deployment
+  responsibility, not the plugin's) and don't log the full query string
+  in the plugin's own application logs.
+- **`sessionid` enumeration**: identifiers are sequential, but every
+  operation requires capability + ownership, so guessing someone else's
+  id doesn't grant access; at most it reveals that a row with that id
+  exists (not who it belongs to, thanks to
+  `permission_manager::require_owner_or_manage()`'s generic error
+  message).
+- **Rows with two owners**: since there are no separate tables for
+  request and session, a `local_remotesupport_session` row names both a
+  student and a teacher at once; see [limitations.md](limitations.md) for
+  how this affects personal-data deletion.
+- **Per-page cost of the `before_footer` check**: it runs on *every*
+  request from *every* logged-in user on the site (not just session
+  participants), even though it's a single query indexed on
+  `studentid+status`. Acceptable for the 1–20 simultaneous sessions
+  target; worth revisiting if the site grows substantially larger.
+- **Rate limiting only for `scroll`/`cursor`/`student_click`/
+  `chat_message`/`teacher_highlight`**: `page` and `resync_request` have
+  no rate limit of their own server-side — only the client's own
+  `debounce`/`throttle` (or, for `resync_request`, the fact that it only
+  fires on a connection recovery). A user could bypass the client's limit
+  by manipulating the request directly; the per-event size limit and the
+  fact that writes are only possible to one's own session (with the
+  correct role) bound the damage to that single session.
+- **Bandwidth per full snapshot**: every `page` event resends the entire
+  main content (up to 150,000 sanitized characters in `main` mode,
+  400,000 in `fullpage`), not a diff. This is a deliberate simplicity
+  choice, but it means more traffic than an incremental approach when the
+  page is large and changes often.
+- **`resync_request` has no rate limit**: in theory a teacher (or someone
+  who obtained their session) could repeatedly trigger full
+  resynchronizations. In practice it only fires once per connection
+  recovery from the official client, and each one costs the same as the
+  normal periodic heartbeat (one `page` snapshot), so it isn't a real
+  amplification vector.
+- **Known, currently inert bypass of the `javascript:` filter in
+  `html_sanitizer::clean_attributes()`** (found 2026-08-01, adversarial
+  review): the check `preg_match('/^\s*javascript:/i', $attr->value)`
+  runs on the attribute value as `DOMDocument` gives it (before
+  serialization), so a tab/newline/carriage return embedded inside the
+  scheme itself (`java` + TAB + `script:alert(1)`) doesn't match the
+  pattern and the attribute isn't removed — a known bypass technique
+  (browsers ignore those control characters when parsing a URL scheme).
+  Confirmed live: the value survives the check. **Not exploitable today,
+  due to two independent defenses**: (1) `DOMDocument::saveHTML()`
+  percent-encodes those control characters when serializing `href`/`src`
+  attributes (`java%09script:...`), which stops being a valid
+  `javascript:` scheme for any real URL parser; (2) the teacher's
+  reconstruction `iframe` has permanent `pointer-events: none` (never
+  disabled, not even during pointing mode — that feature's listeners
+  live on `viewportWrapper`, never on the `iframe` itself or its
+  `contentDocument`) and `sandbox="allow-same-origin"` with no
+  `allow-scripts`, so no real click ever reaches the reconstructed
+  content to trigger a navigation in the first place. This remains a
+  real defect in that function's own contract (its docblock promises to
+  filter `javascript:` and doesn't do so reliably) — pending a fix, not
+  urgent given the above. Likely fix: normalize (strip control
+  characters from) the value before applying the regex, instead of
+  relying on the serializer to neutralize them as a side effect.
+- **`returnurl`/`fromurl` doesn't filter `../` segments** (same 2026-08-01
+  finding): `PARAM_LOCALURL` correctly rejects everything tested that
+  tried to escape to another domain (`https://evil.example`,
+  `//evil.example`, `javascript:`, `user@evil.example`-style tricks, or
+  subdomain-suffix tricks) — confirmed with a battery of payloads against
+  `clean_param()` live — but it doesn't normalize or reject `../`, and
+  neither `moodle_url` nor `session.php` do when reconstructing the
+  destination (`new moodle_url($session->returnurl)` is literal
+  concatenation, without resolving `..`). A `fromurl` like
+  `/local/remotesupport/../../other/path` survives intact and produces a
+  real redirect to that other path. **It never crosses to another
+  domain** (confirmed: without a `//` opening a new authority, `..` can
+  only cancel path segments within the same host) — so this doesn't
+  contradict, but does narrow, the "Redirect to the originating page
+  without open-redirect risk" section above: that guarantee holds against
+  another domain, not against another path on the same site. Bounded
+  impact: the destination path is still subject to `require_login()`/
+  whatever capability checks apply to whatever is there.
+- **`chat_message` outlives every other event type, by design**: exempt
+  from `purge_stale_events()` (the 2-minute purge), it only disappears
+  when the session closes. This means that, during a long session, the
+  full conversation text stays in the database for the session's whole
+  duration, not just a few minutes — a deliberate exception to the
+  plugin's general no-accumulation policy, accepted because a chat
+  message, unlike a stale screenshot, can't be regenerated if it's lost.
+  It still doesn't survive the session closing.
