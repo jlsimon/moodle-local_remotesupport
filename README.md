@@ -153,12 +153,12 @@ it's ever needed again.
 
 ## Documentation
 
-- **[User guide](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.html)**
-  ([en español](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.es.html))
-  — an illustrated, side-by-side walkthrough of every situation in a support
-  session, from both the teacher's and the student's screen. Also available
-  as [`docs/user_guide.md`](docs/user_guide.md) /
-  [`docs/user_guide.es.md`](docs/user_guide.es.md).
+- **User guide** — an illustrated, side-by-side walkthrough of every
+  situation in a support session, from both the teacher's and the
+  student's screen. [English](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.html)
+  ([`docs/user_guide.md`](docs/user_guide.md)) ·
+  [Español](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.es.html)
+  ([`docs/user_guide.es.md`](docs/user_guide.es.md)).
 - [`docs/security.md`](docs/security.md) — threat model, capabilities,
   allowed events, known risks.
 - [`docs/limitations.md`](docs/limitations.md) — everything this plugin
