@@ -6,3 +6,17 @@ test_install.md
 
 # Jest devDependencies (tests/jest/) — not shipped with the plugin.
 node_modules/
+
+# Internal development-process docs — kept locally for ongoing work, but
+# this repo is public and primarily supports the Moodle Plugins directory
+# submission, so these deliberately stay out of it (removed from git
+# history via git filter-repo on 2026-08-01; see local backup copies at
+# /home/jlsimon/PROYECTOS/MOODLE/remotesupport_internal_docs/ if these
+# working-tree copies are ever lost).
+CLAUDE.md
+docs/AGENTS.md
+docs/architecture.md
+docs/decisions.md
+docs/testing.md
+docs/tests_todo.md
+docs/TODO.md
