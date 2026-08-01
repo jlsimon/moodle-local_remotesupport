@@ -1,5 +1,7 @@
 # Remote Assistance (`local_remotesupport`)
 
+[![Moodle Plugin CI](https://github.com/jlsimon/moodle-local_remotesupport/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jlsimon/moodle-local_remotesupport/actions/workflows/moodle-ci.yml)
+
 **Remote assistance for Moodle, without a remote-desktop tool, without giving up student privacy.**
 
 When a student gets stuck, the usual options are a screen-share call, or a
