@@ -119,6 +119,18 @@
 
   main { min-width: 0; padding: 40px 40px 100px; }
 
+  a.lang-switch {
+    display: inline-block;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-bottom: 28px;
+  }
+  a.lang-switch:hover, a.lang-switch:focus-visible { color: var(--ink); border-color: var(--ink-soft); }
+
   header.hero {
     max-width: 640px;
     margin: 0 0 56px;
@@ -279,6 +291,7 @@
   </nav>
 
   <main>
+    <a class="lang-switch" href="user_guide.es.html">Versión en español →</a>
     <header class="hero">
       <p class="eyebrow">Remote Assistance — User Guide</p>
       <h1>Every situation, from both sides of the screen</h1>

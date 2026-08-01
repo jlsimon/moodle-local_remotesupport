@@ -7,6 +7,8 @@ Photography Basics").*
 
 **A richer, interactive version of this same guide is available at
 [jlsimon.github.io/moodle-local_remotesupport/user_guide.html](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.html).**
+También disponible [en español](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.es.html)
+([`user_guide.es.md`](user_guide.es.md)).
 
 Remote Assistance lets a teacher see the exact page a student is looking at
 in Moodle and guide them through it — point at things, chat, and follow
