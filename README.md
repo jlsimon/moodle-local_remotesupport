@@ -149,6 +149,10 @@ history if it's ever needed again.
 
 ## Documentation
 
+- **[User guide](https://jlsimon.github.io/moodle-local_remotesupport/user_guide.html)**
+  — an illustrated, side-by-side walkthrough of every situation in a support
+  session, from both the teacher's and the student's screen. Also available
+  as [`docs/user_guide.md`](docs/user_guide.md).
 - [`docs/architecture.md`](docs/architecture.md) — components, session and
   event flow, transport, reconnection strategy.
 - [`docs/security.md`](docs/security.md) — threat model, capabilities,
