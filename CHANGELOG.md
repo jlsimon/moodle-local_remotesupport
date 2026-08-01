@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.24.4 (verificación: tipos de actividad reales SCORM/H5P/LTI/etc.) — 2026-08-01
+
+- Verificado en vivo, con una sesión de asistencia activa, que la
+  exclusión de `iframe` de la reconstrucción de pantalla funciona
+  correctamente en foro, libro, tarea, cuestionario (incluido un
+  intento sin responder), SCORM, H5P y LTI — no solo en páginas
+  genéricas de curso como hasta ahora. 8/8 páginas en verde: sin
+  `<iframe` anidado filtrado al `srcdoc`, sin errores de JavaScript en
+  ninguna de las dos pestañas, contenido reconstruido de tamaño
+  razonable en todos los casos.
+- Sin cambios de código del plugin — solo documentación
+  (`docs/decisions.md`, `docs/tests_todo.md`) y este bump de versión.
+  Detalle completo en `docs/decisions.md`.
+
 ## 0.24.3 (verificación E2E: Chromium, Firefox y WebKit) — 2026-08-01
 
 - Verificado en vivo (arnés Playwright de dos contextos, alumno y
