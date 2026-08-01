@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.3 (verificación E2E: Chromium, Firefox y WebKit) — 2026-08-01
+
+- Verificado en vivo (arnés Playwright de dos contextos, alumno y
+  profesor) el ciclo de vida completo de una sesión — login,
+  solicitud, aceptación, reconstrucción de pantalla, señalado con
+  clic en el iframe reescalado, finalización — en Chromium, Firefox y
+  WebKit, no solo Chromium como hasta ahora. 7/7 pasos en verde en los
+  tres motores, dos pasadas completas cada uno. Safari real no existe
+  en Linux; WebKit es la aproximación más cercana disponible en este
+  entorno, documentada como tal, no como una verificación de Safari en
+  sentido estricto.
+- Sin cambios de código del plugin — solo documentación
+  (`docs/decisions.md`, `docs/tests_todo.md`) y este bump de versión.
+  Detalle completo, incluido un hallazgo real ajeno al plugin (race de
+  temporización en la propia página de login de Moodle, reproducible
+  en Firefox), en `docs/decisions.md`.
+
 ## 0.24.2 (Jest: dom_selector.js y screen_renderer.js) — 2026-08-01
 
 - Añadidas las primeras pruebas JavaScript automatizadas
