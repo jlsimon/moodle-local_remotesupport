@@ -220,6 +220,28 @@ define(
             chatList.scrollTop = chatList.scrollHeight;
         };
 
+        // Extracted from applyState() below purely to keep its own nesting
+        // shallow: renders a freshly-switched-to page with whatever scroll
+        // position and cursor were already active at this point in time.
+        var applyInitialScrollAndCursor = function(payload, time, pageIdx) {
+            var withScroll = Object.assign({}, payload);
+            var scrollIdx = lastIndexOfTypeAtOrBefore(time, pageIdx, 'scroll');
+            var scrollPayload = scrollIdx >= 0 ? decodePayload(events[scrollIdx]) : null;
+            if (scrollPayload) {
+                withScroll.scroll = {x: scrollPayload.x, y: scrollPayload.y};
+                appliedScrollIdx = scrollIdx;
+            }
+            // Note: renderPage() itself hides the cursor (a fresh page has no
+            // cursor position yet); apply the current one, if any, right after.
+            renderer.renderPage(withScroll, pageInfo);
+            var initialCursorIdx = lastIndexOfTypeAtOrBefore(time, pageIdx, 'cursor');
+            var initialCursor = initialCursorIdx >= 0 ? decodePayload(events[initialCursorIdx]) : null;
+            if (initialCursor) {
+                renderer.applyCursorPosition(initialCursor.x, initialCursor.y, initialCursor.hover, initialCursor.typing);
+                appliedCursorIdx = initialCursorIdx;
+            }
+        };
+
         var applyState = function(time) {
             var pageIdx = lastPageIndexAtOrBefore(time);
 
@@ -230,28 +252,7 @@ define(
                 if (pageIdx >= 0) {
                     var payload = decodePayload(events[pageIdx]);
                     if (payload) {
-                        var scrollIdx = lastIndexOfTypeAtOrBefore(time, pageIdx, 'scroll');
-                        var withScroll = Object.assign({}, payload);
-                        if (scrollIdx >= 0) {
-                            var scrollPayload = decodePayload(events[scrollIdx]);
-                            if (scrollPayload) {
-                                withScroll.scroll = {x: scrollPayload.x, y: scrollPayload.y};
-                                appliedScrollIdx = scrollIdx;
-                            }
-                        }
-                        // renderPage() itself hides the cursor (a fresh
-                        // page has no cursor position yet); apply the
-                        // current one, if any, right after.
-                        renderer.renderPage(withScroll, pageInfo);
-                        var initialCursorIdx = lastIndexOfTypeAtOrBefore(time, pageIdx, 'cursor');
-                        if (initialCursorIdx >= 0) {
-                            var initialCursor = decodePayload(events[initialCursorIdx]);
-                            if (initialCursor) {
-                                renderer.applyCursorPosition(initialCursor.x, initialCursor.y, initialCursor.hover,
-                                    initialCursor.typing);
-                                appliedCursorIdx = initialCursorIdx;
-                            }
-                        }
+                        applyInitialScrollAndCursor(payload, time, pageIdx);
                     }
                 }
             } else if (pageIdx >= 0) {
@@ -365,6 +366,12 @@ define(
             speed = Number(speedSelect.value) || 1;
         });
 
+        // Declared outside both `then()` callbacks (rather than nesting the
+        // getSessionTrack() chain inside the get_strings() one) purely to
+        // keep the promise chain flat; strings[3] is still needed once the
+        // track itself has loaded, in the second callback below.
+        var loadedStrings = null;
+
         Str.get_strings([
             {key: 'button_play', component: 'local_remotesupport'},
             {key: 'button_pause', component: 'local_remotesupport'},
@@ -373,6 +380,7 @@ define(
             {key: 'button_mutesound', component: 'local_remotesupport'},
             {key: 'button_unmutesound', component: 'local_remotesupport'}
         ]).then(function(strings) {
+            loadedStrings = strings;
             playButtonLabels.play = strings[0];
             playButtonLabels.pause = strings[1];
             playButton.setAttribute('aria-label', playButtonLabels.play);
@@ -389,26 +397,27 @@ define(
                 updateSoundButton();
             });
 
-            return Transport.getSessionTrack(sessionid).then(function(track) {
-                events = track;
-                if (events.length === 0) {
-                    pageInfo.textContent = strings[3];
-                    playButton.disabled = true;
-                    seek.disabled = true;
-                    speedSelect.disabled = true;
-                    soundButton.disabled = true;
-                    return;
-                }
+            return Transport.getSessionTrack(sessionid);
+        }).then(function(track) {
+            events = track;
+            if (events.length === 0) {
+                pageInfo.textContent = loadedStrings[3];
+                playButton.disabled = true;
+                seek.disabled = true;
+                speedSelect.disabled = true;
+                soundButton.disabled = true;
+                return null;
+            }
 
-                var firstTime = events[0].timecreated;
-                relTime = events.map(function(event) {
-                    return event.timecreated - firstTime;
-                });
-                totalDuration = relTime[relTime.length - 1];
-                seek.max = String(Math.max(totalDuration, 1));
-
-                setTime(0);
+            var firstTime = events[0].timecreated;
+            relTime = events.map(function(event) {
+                return event.timecreated - firstTime;
             });
+            totalDuration = relTime[relTime.length - 1];
+            seek.max = String(Math.max(totalDuration, 1));
+
+            setTime(0);
+            return null;
         }).catch(function() {
             // Non-fatal: the strings/track failed to load; the controls stay inert.
         });

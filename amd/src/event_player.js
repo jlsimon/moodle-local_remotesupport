@@ -200,18 +200,25 @@ define(
                 pointerButton.textContent = pickingActive ? strings[11] : strings[10];
                 pointerButton.classList.toggle('active', pickingActive);
             };
+            var handleElementPicked = function(selector) {
+                // Fire-and-forget from an event callback, nothing to chain
+                // onto or return to — eslint-plugin-promise's no-nesting
+                // still flags this as "nested" purely because the enclosing
+                // function is itself passed as a callback (to startPicking()
+                // below), regardless of how it's invoked.
+                // eslint-disable-next-line promise/no-nesting
+                Transport.pushEvent(sessionid, 'teacher_highlight', {selector: selector}).catch(function() {
+                    // Transient network/server errors: the alumno
+                    // simply doesn't see this one mark, nothing else
+                    // to recover here.
+                });
+            };
             if (pointerButton) {
                 updatePointerButton();
                 pointerButton.addEventListener('click', function() {
                     pickingActive = !pickingActive;
                     if (pickingActive) {
-                        renderer.startPicking(function(selector) {
-                            Transport.pushEvent(sessionid, 'teacher_highlight', {selector: selector}).catch(function() {
-                                // Transient network/server errors: the alumno
-                                // simply doesn't see this one mark, nothing else
-                                // to recover here.
-                            });
-                        });
+                        renderer.startPicking(handleElementPicked);
                     } else {
                         renderer.stopPicking();
                     }
@@ -318,15 +325,26 @@ define(
             // deletes unconsumed events during a long disconnect.
             var wasDisconnected = false;
 
+            var requestResync = function() {
+                // eslint-disable-next-line promise/no-nesting
+                Transport.pushEvent(sessionid, 'resync_request', {}).catch(function() {
+                    // Non-fatal: the next heartbeat will still resync eventually.
+                });
+            };
+
+            // Note: poll() itself is defined (and, below, first invoked) inside
+            // this whole init() setup's own Str.get_strings().then() callback —
+            // a large one-time setup block, not worth flattening just to
+            // satisfy no-nesting — so its own promise chain reads as
+            // "nested" too.
             var poll = function() {
+                // eslint-disable-next-line promise/no-nesting
                 Transport.pullEvents(sessionid, sinceid).then(function(events) {
                     lastSuccessAt = Date.now();
                     setState('connected', strings[0]);
                     if (wasDisconnected) {
                         wasDisconnected = false;
-                        Transport.pushEvent(sessionid, 'resync_request', {}).catch(function() {
-                            // Non-fatal: the next heartbeat will still resync eventually.
-                        });
+                        requestResync();
                     }
                     var isReplay = !firstPollDone;
                     firstPollDone = true;

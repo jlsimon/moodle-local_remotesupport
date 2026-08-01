@@ -24,7 +24,6 @@ namespace local_remotesupport;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class hook_callbacks {
-
     /**
      * Adds the plugin's footer content (session status bar or floating
      * request button) via the modern hook API.

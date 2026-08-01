@@ -56,7 +56,7 @@ define([], function() {
     // consistency with how the rest of the plugin treats them).
     var POINTABLE_SELECTOR = CLICKABLE_SELECTOR + ', ' + TEXT_FIELD_SELECTOR;
 
-    // screen_renderer.js injects captured content as the innerHTML of a
+    // Note: screen_renderer.js injects captured content as the innerHTML of a
     // wrapper div with this id (see its own VIEWPORT_CONTENT_ID) — a
     // synthetic node that exists only inside the teacher's reconstructed
     // iframe, never on the alumno's real page. buildRobustSelector() must

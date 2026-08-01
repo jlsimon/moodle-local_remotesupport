@@ -99,6 +99,7 @@ define(['core/templates', 'core/notification', 'local_remotesupport/session_requ
                 stopPolling();
                 SessionRequests.acceptRequest(sessionid).then(function(result) {
                     window.location.href = result.redirecturl;
+                    return null;
                 }).catch(function(error) {
                     startPolling();
                     Notification.exception(error);
@@ -108,6 +109,7 @@ define(['core/templates', 'core/notification', 'local_remotesupport/session_requ
                 stopPolling();
                 SessionRequests.enterSession(sessionid).then(function(result) {
                     window.location.href = result.redirecturl;
+                    return null;
                 }).catch(function(error) {
                     startPolling();
                     Notification.exception(error);

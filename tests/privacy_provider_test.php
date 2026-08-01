@@ -31,8 +31,9 @@ use local_remotesupport\privacy\provider;
  * @category   test
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_remotesupport\privacy\provider
  */
-class privacy_provider_test extends \core_privacy\tests\provider_testcase {
+final class privacy_provider_test extends \core_privacy\tests\provider_testcase {
     public function test_get_contexts_for_userid(): void {
         $this->resetAfterTest();
         $generator = $this->getDataGenerator();

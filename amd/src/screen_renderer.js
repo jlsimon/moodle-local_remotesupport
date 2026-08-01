@@ -282,7 +282,7 @@ define(['local_remotesupport/dom_selector'], function(DomSelector) {
             if (el) {
                 el.classList.add('local-remotesupport-hover-highlight');
                 lastHighlightedEl = el;
-                // getBoundingClientRect() here is relative to the iframe's
+                // Note: getBoundingClientRect() here is relative to the iframe's
                 // own (unscaled, full-size) internal viewport — the same
                 // convention positionCursorEl() already expects for its
                 // x/y, since the outer `transform: scale()` on the iframe
@@ -616,7 +616,7 @@ define(['local_remotesupport/dom_selector'], function(DomSelector) {
                     }
                 }
             };
-            // html/body get no scrollable overflow of their own — see the
+            // Note: html/body get no scrollable overflow of their own — see the
             // module doc comment. The modal and any extracted fixed
             // elements stay outside the translated wrapper so they keep
             // behaving like normal position:fixed overlays instead of

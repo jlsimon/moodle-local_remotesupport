@@ -457,7 +457,7 @@ define(
             modal: isFullPage ? null : captureOpenModal(),
             css: collectSameOriginStylesheets(),
             inlineCss: collectInlineStyleText(),
-            // documentElement.clientWidth/Height (not window.innerWidth/
+            // Uses documentElement.clientWidth/Height (not window.innerWidth/
             // innerHeight) deliberately: innerWidth/innerHeight include the
             // scrollbar's own width, but the iframe never has a native
             // scrollbar of its own (overflow:hidden, see screen_renderer.js)

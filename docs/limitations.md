@@ -27,16 +27,17 @@ at, click, or type into the student's page — only observe it.
 
 ## New since Phase 2
 
-- **The AJAX endpoints require Moodle ≥4.2.** `classes/external/*.php`
-  uses the namespaced `core_external\external_api` classes and friends.
-  These were first tried with the legacy global names (`external_api`,
-  etc.) as they existed in Moodle 4.1, but loading them via a plugin's
-  autoloader (rather than manually including `lib/externallib.php`)
-  makes PHPUnit reject them with "must run in an isolated process" — a
-  real Moodle protection against a legacy loading pattern, not a quirk of
-  this plugin. The rest of the plugin (sessions, tokens, capabilities)
-  still works from Moodle 4.1 onward; only this part would need review
-  for a real 4.1/4.2 site.
+- **`version.php`'s declared minimum is Moodle 4.2, not 4.1, because of the
+  AJAX layer specifically.** `classes/external/*.php` uses the namespaced
+  `core_external\external_api` classes and friends, which don't exist
+  before 4.2 — confirmed as a hard PHPUnit failure (`Class
+  "core_external\external_api" not found`) by this plugin's own CI
+  (`.github/workflows/moodle-ci.yml`) when tested against
+  `MOODLE_401_STABLE`, not just a theoretical compatibility note. The rest
+  of the plugin (sessions, tokens, capabilities) doesn't itself depend on
+  those classes, but since every page's no-reload UX (item 8's extension)
+  routes through this AJAX layer, 4.2 is the plugin's real practical
+  floor, not just this one subsystem's.
 - **Single, fixed "main content" selector**
   (`#region-main` → `main[role="main"]` → `main` → `body`). On heavily
   customized themes that use none of those selectors, the reconstruction

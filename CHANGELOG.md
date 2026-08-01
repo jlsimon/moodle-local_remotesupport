@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.25.0 (CI: add Moodle Plugin CI GitHub Action, fix findings, bump requires to 4.2) — 2026-08-01
+
+- Added `.github/workflows/moodle-ci.yml`, Moodle HQ's own recommended
+  GitHub Actions workflow (`moodlehq/moodle-plugin-ci`'s `gha.dist.yml`,
+  fetched live, not from memory), covering phplint, phpmd (informational),
+  Moodle Code Checker, PHPDoc Checker, validate, upgrade savepoints,
+  mustache lint, grunt, PHPUnit, and Behat.
+- Running it against real Moodle surfaced (and this release fixes) several
+  findings that manual local runs earlier this session had missed, most
+  from `moodle-plugin-ci`/`moodle-cs` package drift since that manual run:
+  - **`$plugin->requires` bumped from Moodle 4.1 to 4.2.** CI proved (not
+    just documented) that `classes/external/*.php`'s namespaced
+    `core_external\external_api` classes don't exist before 4.2 — a hard
+    PHPUnit failure, not a style nitpick. The CI matrix now tests 4.2 (the
+    plugin's real floor) and 5.2 (its live-verified target) instead of 4.1.
+  - Two real `phpcs` errors (a blank line after an opening brace in
+    `classes/hook_callbacks.php` and `tests/behat/behat_local_remotesupport.php`).
+  - All 12 PHPUnit test classes now declared `final`, and every test class
+    now carries `@covers`/`@coversNothing` coverage information (Moodle's
+    `moodle.PHPUnit.TestCaseCovers`/`TestClassesFinal` sniffs).
+  - `lang/en/` and `lang/es/local_remotesupport.php` reordered to strict
+    alphabetical order (Moodle's `moodle.Files.LangFilesOrdering` sniff) —
+    the previous feature-grouped organization, with section comments, is
+    gone; the sniff's auto-fixer can't work around interspersed comments,
+    so the comments were removed rather than left half-broken.
+  - 16 ESLint warnings across 7 JS files fixed (comment capitalization, a
+    few genuinely nested promise chains flattened where practical, two
+    narrowly-justified `eslint-disable-next-line promise/no-nesting`
+    where the enclosing setup callback was too large to safely flatten
+    under time pressure) — `amd/build/*.min.js` rebuilt for real.
+- Added a CI status badge to `README.md`.
+- `docs/limitations.md` updated to reflect the new declared minimum.
+
 ## 0.24.9 (docs: security.md and limitations.md translated to English and corrected) — 2026-08-01
 
 - `docs/security.md` and `docs/limitations.md` translated to English

@@ -31,8 +31,11 @@ require_once($CFG->dirroot . '/local/remotesupport/lib.php');
  * @category   test
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     ::local_remotesupport_before_footer
+ * @covers     ::local_remotesupport_render_floating_request_button
+ * @covers     ::local_remotesupport_render_navbar_output
  */
-class lib_test extends \advanced_testcase {
+final class lib_test extends \advanced_testcase {
     public function test_navbar_output_empty_for_guest(): void {
         $this->resetAfterTest();
         $this->setGuestUser();

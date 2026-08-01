@@ -25,8 +25,9 @@ use local_remotesupport\local\rate_limiter;
  * @category   test
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_remotesupport\local\rate_limiter
  */
-class rate_limiter_test extends \advanced_testcase {
+final class rate_limiter_test extends \advanced_testcase {
     public function test_unlimited_event_type_always_allowed(): void {
         $this->resetAfterTest();
 

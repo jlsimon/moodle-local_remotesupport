@@ -110,6 +110,7 @@ define(['core/templates', 'core/notification', 'local_remotesupport/session_requ
                 stopPolling();
                 SessionRequests.enterSession(currentStatus.sessionid).then(function(result) {
                     window.location.href = result.redirecturl;
+                    return null;
                 }).catch(function(error) {
                     startPolling();
                     Notification.exception(error);

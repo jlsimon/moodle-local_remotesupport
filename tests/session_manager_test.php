@@ -26,8 +26,9 @@ use local_remotesupport\local\token_manager;
  * @category   test
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_remotesupport\local\session_manager
  */
-class session_manager_test extends \advanced_testcase {
+final class session_manager_test extends \advanced_testcase {
     /**
      * Create a course with one student and one teacher enrolled.
      *

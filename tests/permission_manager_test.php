@@ -25,8 +25,9 @@ use local_remotesupport\local\permission_manager;
  * @category   test
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_remotesupport\local\permission_manager
  */
-class permission_manager_test extends \advanced_testcase {
+final class permission_manager_test extends \advanced_testcase {
     public function test_require_can_view_history_allows_teacher(): void {
         $this->resetAfterTest();
         $generator = $this->getDataGenerator();

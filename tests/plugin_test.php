@@ -23,8 +23,13 @@ namespace local_remotesupport;
  * @category   test
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
+ * Verifies install-time wiring (plugin registration, capability records,
+ * scheduled task registration), not the behavior of any single class.
+ *
+ * @coversNothing
  */
-class plugin_test extends \advanced_testcase {
+final class plugin_test extends \advanced_testcase {
     public function test_plugin_is_installed(): void {
         $plugininfo = \core_plugin_manager::instance()->get_plugin_info('local_remotesupport');
         $this->assertNotNull($plugininfo);

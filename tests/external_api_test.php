@@ -38,8 +38,19 @@ use local_remotesupport\local\session_manager;
  * @category   test
  * @copyright  2026 Juan Luis Simón
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_remotesupport\external\accept_request
+ * @covers     \local_remotesupport\external\cancel_request
+ * @covers     \local_remotesupport\external\enter_session
+ * @covers     \local_remotesupport\external\finish_session
+ * @covers     \local_remotesupport\external\get_pending_count
+ * @covers     \local_remotesupport\external\get_session_track
+ * @covers     \local_remotesupport\external\get_student_status
+ * @covers     \local_remotesupport\external\get_teacher_dashboard
+ * @covers     \local_remotesupport\external\pull_events
+ * @covers     \local_remotesupport\external\push_event
+ * @covers     \local_remotesupport\external\request_assistance
  */
-class external_api_test extends \advanced_testcase {
+final class external_api_test extends \advanced_testcase {
     /**
      * Creates a course with an active support session between a student and a teacher.
      *
