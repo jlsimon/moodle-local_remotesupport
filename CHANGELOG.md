@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.25.1 — Harden against leftover code after an incomplete uninstall — 2026-08-01
+
+`local_remotesupport_before_footer()` and `local_remotesupport_render_navbar_output()`
+run on essentially every page for every logged-in user via Moodle's
+file-based hook/callback discovery, which is independent of whether the
+plugin is actually installed in the database. If the plugin's tables and
+config are removed (e.g. an admin uninstalls it through the Moodle UI) but
+its code is not also deleted from the server, both callbacks kept querying
+a table that no longer existed, taking down every page site-wide. Both now
+check a cheap, cached `get_config()` guard first and catch `dml_exception`
+around the remaining database access, degrading to "nothing shown" instead
+of a fatal error.
+
 ## 0.25.0 — Initial public release — 2026-08-01
 
 First public release of Remote Assistance, covering:

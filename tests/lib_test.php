@@ -34,8 +34,46 @@ require_once($CFG->dirroot . '/local/remotesupport/lib.php');
  * @covers     ::local_remotesupport_before_footer
  * @covers     ::local_remotesupport_render_floating_request_button
  * @covers     ::local_remotesupport_render_navbar_output
+ * @covers     ::local_remotesupport_is_installed
  */
 final class lib_test extends \advanced_testcase {
+    public function test_is_installed_true_under_normal_conditions(): void {
+        $this->resetAfterTest();
+
+        $this->assertTrue(local_remotesupport_is_installed());
+    }
+
+    public function test_before_footer_empty_when_plugin_not_installed(): void {
+        // Simulates the real incident this guard exists for: the plugin's
+        // hooks are still discovered from files on disk and fire on every
+        // page, even though its tables/config are gone (e.g. after an
+        // uninstall that removed the database state but not the code).
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $student = $generator->create_and_enrol($course, 'student');
+        $this->setUser($student);
+        unset_config('version', 'local_remotesupport');
+
+        $this->assertFalse(local_remotesupport_is_installed());
+        $this->assertSame('', local_remotesupport_before_footer());
+    }
+
+    public function test_navbar_output_empty_when_plugin_not_installed(): void {
+        $this->resetAfterTest();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        session_manager::create_request($course->id, $generator->create_and_enrol($course, 'student')->id);
+        $this->setUser($teacher);
+        unset_config('version', 'local_remotesupport');
+
+        global $PAGE;
+        $renderer = $PAGE->get_renderer('core');
+
+        $this->assertSame('', local_remotesupport_render_navbar_output($renderer));
+    }
+
     public function test_navbar_output_empty_for_guest(): void {
         $this->resetAfterTest();
         $this->setGuestUser();

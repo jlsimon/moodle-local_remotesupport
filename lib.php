@@ -23,6 +23,30 @@
  */
 
 /**
+ * Whether the plugin's own tables and config are actually present.
+ *
+ * db/hooks.php's before_footer subscriber and the PLUGIN_render_navbar_output
+ * callback below are discovered by Moodle from files on disk
+ * (get_plugins_with_function() scans component directories, not
+ * config_plugins), independently of whether the plugin is actually installed
+ * in the database. So leftover code from an uninstall that removed the
+ * tables/config but not the files — which is exactly what a plugin
+ * uninstalled through the Moodle UI leaves behind until an admin also
+ * deletes the code — would otherwise still have both callbacks fire on
+ * every page for every logged-in user. Both check this first and bail out
+ * cleanly rather than let a missing table take down the whole site.
+ *
+ * get_config() reads from the (cached) config_plugins table, so this adds
+ * no real per-page cost, and is checked first specifically to avoid even
+ * attempting the session table query below in the common case.
+ *
+ * @return bool
+ */
+function local_remotesupport_is_installed(): bool {
+    return get_config('local_remotesupport', 'version') !== false;
+}
+
+/**
  * Local (site-relative) url of the page currently being rendered, for the
  * "return here once the session starts" links built below — see
  * session_manager::create_request()'s $returnurl and session.php.
@@ -97,10 +121,15 @@ function local_remotesupport_extend_navigation_course(
  * button so a student can reach the request page even when the course
  * menu isn't reachable (e.g. from the dashboard, or a broken page).
  *
- * Cheap checks (login state, page type) run first and short-circuit
- * before the one indexed database lookup this performs per page load.
- * The plugin's own pages are excluded so neither element is ever shown
- * on top of the page that already covers the same information.
+ * Cheap checks (installed?, login state, page type) run first and
+ * short-circuit before the one indexed database lookup this performs per
+ * page load. The plugin's own pages are excluded so neither element is
+ * ever shown on top of the page that already covers the same information.
+ *
+ * The session/request lookups are also wrapped in a dml_exception catch,
+ * on top of the local_remotesupport_is_installed() check above, as a second
+ * line of defense against any other broken-schema state (e.g. an
+ * interrupted upgrade) that check would not catch — see its own comment.
  *
  * The legacy before_footer callback's return value is appended to the
  * page footer by core (see before_footer_html_generation::process_legacy_callbacks()),
@@ -117,6 +146,9 @@ function local_remotesupport_extend_navigation_course(
 function local_remotesupport_before_footer(): string {
     global $PAGE, $USER;
 
+    if (!local_remotesupport_is_installed()) {
+        return '';
+    }
     if (!isloggedin() || isguestuser()) {
         return '';
     }
@@ -124,22 +156,26 @@ function local_remotesupport_before_footer(): string {
         return '';
     }
 
-    $session = \local_remotesupport\local\session_manager::get_active_session_for_student((int) $USER->id);
-    if ($session) {
-        $teacher = core_user::get_user($session->teacherid);
-        $capturemode = get_config('local_remotesupport', 'capturemode');
-        $cursorsamplems = (int) get_config('local_remotesupport', 'cursorsamplems');
-        $PAGE->requires->js_call_amd('local_remotesupport/event_capture', 'init', [
-            $session->id,
-            fullname($teacher),
-            $capturemode !== 'fullpage' ? 'main' : 'fullpage',
-            (int) $USER->id,
-            $cursorsamplems > 0 ? $cursorsamplems : 500,
-        ]);
+    try {
+        $session = \local_remotesupport\local\session_manager::get_active_session_for_student((int) $USER->id);
+        if ($session) {
+            $teacher = core_user::get_user($session->teacherid);
+            $capturemode = get_config('local_remotesupport', 'capturemode');
+            $cursorsamplems = (int) get_config('local_remotesupport', 'cursorsamplems');
+            $PAGE->requires->js_call_amd('local_remotesupport/event_capture', 'init', [
+                $session->id,
+                fullname($teacher),
+                $capturemode !== 'fullpage' ? 'main' : 'fullpage',
+                (int) $USER->id,
+                $cursorsamplems > 0 ? $cursorsamplems : 500,
+            ]);
+            return '';
+        }
+
+        return local_remotesupport_render_floating_request_button((int) $USER->id);
+    } catch (\dml_exception $e) {
         return '';
     }
-
-    return local_remotesupport_render_floating_request_button((int) $USER->id);
 }
 
 /**
@@ -228,9 +264,14 @@ function local_remotesupport_render_floating_request_button(int $studentid): str
  * PLUGIN_render_navbar_output naming convention
  * (core_renderer::navbar_plugin_output()), the same mechanism
  * message_popup uses for the notification bell itself. Runs on every page
- * for every logged-in user, so the guest/login check must stay first and
- * cheap; the badge count query is the same one view.php already runs to
- * build its own list, so the two can never disagree.
+ * for every logged-in user, so the installed/guest/login checks must stay
+ * first and cheap; the badge count query is the same one view.php already
+ * runs to build its own list, so the two can never disagree.
+ *
+ * Like before_footer() above, this checks local_remotesupport_is_installed()
+ * first and catches dml_exception around the actual table access, so
+ * leftover code from an incomplete uninstall degrades to "no icon" instead
+ * of breaking every page's navbar.
  *
  * Also loads amd/src/navbar_badge.js, which polls
  * local_remotesupport_get_pending_count every 15 s and re-renders this same
@@ -245,6 +286,9 @@ function local_remotesupport_render_floating_request_button(int $studentid): str
 function local_remotesupport_render_navbar_output(\renderer_base $renderer): string {
     global $USER, $PAGE;
 
+    if (!local_remotesupport_is_installed()) {
+        return '';
+    }
     if (!isloggedin() || isguestuser()) {
         return '';
     }
@@ -254,7 +298,11 @@ function local_remotesupport_render_navbar_output(\renderer_base $renderer): str
         return '';
     }
 
-    $pending = \local_remotesupport\local\session_manager::get_pending_requests_for_teacher((int) $USER->id);
+    try {
+        $pending = \local_remotesupport\local\session_manager::get_pending_requests_for_teacher((int) $USER->id);
+    } catch (\dml_exception $e) {
+        return '';
+    }
     $supportenabled = \local_remotesupport\local\teacher_settings::is_support_enabled((int) $USER->id);
 
     $PAGE->requires->js_call_amd('local_remotesupport/navbar_badge', 'init');
