@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026080103;
+$plugin->version = 2026080104;
 $plugin->requires = 2022112800; // Moodle 4.1.
 $plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.24.4 (verificación: tipos de actividad reales SCORM/H5P/LTI/etc.)';
+$plugin->release = '0.24.5 (revisión de seguridad adversarial, sin cambios de código)';

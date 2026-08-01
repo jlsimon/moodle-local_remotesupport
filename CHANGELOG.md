@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.24.5 (revisión de seguridad adversarial, sin cambios de código) — 2026-08-01
+
+- Revisión de seguridad adversarial manual (la skill `/security-review`
+  no aplica: requiere un remoto `origin` que este repositorio no
+  tiene). Aislamiento de capacidad/propiedad/sesión entre las ocho
+  funciones externas: sin hallazgos. Dos hallazgos reales registrados
+  en `docs/security.md` para corregir más adelante (a petición
+  explícita, no corregidos en este commit): un bypass del filtro
+  `javascript:` de `html_sanitizer` vía tabulador/CR/LF incrustado en
+  el esquema (actualmente inerte por dos defensas independientes), y
+  `returnurl`/`fromurl` sin filtrado de `../` (confinado al mismo
+  origen, no es un open redirect externo). Detalle completo en
+  `docs/decisions.md`.
+- Sin cambios de código del plugin — solo documentación
+  (`docs/decisions.md`, `docs/security.md`, `docs/tests_todo.md`) y
+  este bump de versión.
+
 ## 0.24.4 (verificación: tipos de actividad reales SCORM/H5P/LTI/etc.) — 2026-08-01
 
 - Verificado en vivo, con una sesión de asistencia activa, que la

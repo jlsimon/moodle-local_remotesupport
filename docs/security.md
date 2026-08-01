@@ -546,6 +546,51 @@ uno:
   recuperación de conexión desde el cliente oficial, y el coste de cada
   una es el mismo que el latido periódico normal (una foto `page`), así
   que no es una vía de amplificación real.
+- **Bypass conocido, actualmente inerte, del filtro `javascript:` de
+  `html_sanitizer::clean_attributes()`** (encontrado 2026-08-01, revisión
+  adversarial de `docs/tests_todo.md` punto 6): la comprobación
+  `preg_match('/^\s*javascript:/i', $attr->value)` se ejecuta sobre el
+  valor del atributo tal como lo da `DOMDocument` (antes de serializar),
+  así que un tabulador/salto de línea/retorno de carro incrustado dentro
+  del propio esquema (`java` + TAB + `script:alert(1)`) no coincide con
+  el patrón y el atributo no se elimina — técnica de bypass conocida
+  (los navegadores ignoran esos caracteres de control al analizar un
+  esquema de URL). Confirmado en vivo: el valor sobrevive la
+  comprobación. **No es explotable hoy por dos defensas independientes**:
+  (1) `DOMDocument::saveHTML()` percent-codifica esos caracteres de
+  control al serializar atributos `href`/`src` (`java%09script:...`),
+  lo que deja de ser un esquema `javascript:` válido para cualquier
+  parser de URL real; (2) el `iframe` de reconstrucción del profesor
+  tiene `pointer-events: none` permanente (nunca se desactiva, ni
+  siquiera durante el modo de señalado — los listeners de esa función
+  viven en `viewportWrapper`, nunca en el propio `iframe` ni en su
+  `contentDocument`) y `sandbox="allow-same-origin"` sin `allow-scripts`,
+  así que ningún clic real llega jamás al contenido reconstruido para
+  disparar una navegación en primer lugar. Sigue siendo un defecto real
+  del contrato de esa función (su propio docblock promete filtrar
+  `javascript:` y no lo hace de forma fiable) — pendiente de corrección,
+  no urgente dado lo anterior. Corrección previsible: normalizar
+  (eliminar caracteres de control) el valor antes de aplicar la regex,
+  en vez de confiar en que el serializador los neutralice como efecto
+  secundario.
+- **`returnurl`/`fromurl` no filtra segmentos `../`** (mismo hallazgo
+  2026-08-01): `PARAM_LOCALURL` rechaza correctamente todo lo probado
+  que intentara escapar de dominio (`https://evil.example`,
+  `//evil.example`, `javascript:`, trucos de `usuario@evil.example` o
+  de subdominio-sufijo) — confirmado con una batería de payloads contra
+  `clean_param()` en vivo — pero no normaliza ni rechaza `../`, y
+  `moodle_url`/`session.php` tampoco lo hacen al reconstruir el destino
+  (`new moodle_url($session->returnurl)` es concatenación literal, sin
+  resolver `..`). Un `fromurl` como
+  `/local/remotesupport/../../otra/ruta` sobrevive intacto y produce una
+  redirección real a esa otra ruta. **Nunca cruza a otro dominio**
+  (confirmado: sin un `//` que abra una nueva autoridad, `..` solo puede
+  cancelar segmentos de ruta dentro del mismo host) — así que no
+  contradice, pero sí matiza, la sección "Redirección a la página de
+  origen sin riesgo de open redirect" de arriba: esa garantía es válida
+  frente a otro dominio, no frente a otra ruta del mismo sitio. Impacto
+  acotado: la ruta de destino sigue sujeta a `require_login()`/las
+  comprobaciones de capacidad propias de lo que sea que haya ahí.
 - **`chat_message` sobrevive más tiempo que el resto de eventos, por
   diseño**: exento de `purge_stale_events()` (la purga de 2 minutos),
   solo desaparece al cerrarse la sesión. Esto significa que, durante una
