@@ -59,7 +59,12 @@ $ids = $idsarray ?: ($idssequence !== '' ? array_map('intval', explode(',', $ids
 $confirmed = optional_param('confirm', 0, PARAM_BOOL);
 
 if (!$ids) {
-    redirect($historyurl, get_string('errornosessionselected', 'local_remotesupport'), null, \core\output\notification::NOTIFY_ERROR);
+    redirect(
+        $historyurl,
+        get_string('errornosessionselected', 'local_remotesupport'),
+        null,
+        \core\output\notification::NOTIFY_ERROR
+    );
 }
 
 $sessions = [];
@@ -100,10 +105,14 @@ foreach ($sessions as $id => $session) {
     ]);
 }
 
-$continueurl = new moodle_url($url, ['idlist' => implode(',', array_keys($sessions)), 'confirm' => 1, 'sesskey' => sesskey()]);
-// $OUTPUT->confirm() wraps $message in a single <p>, so the per-session
-// detail is joined with <br> rather than a <ul> — a block-level list would
-// end up invalidly nested inside that <p>.
+$continueurl = new moodle_url($url, [
+    'idlist' => implode(',', array_keys($sessions)),
+    'confirm' => 1,
+    'sesskey' => sesskey(),
+]);
+// The confirm() output renderer wraps $message in a single <p>, so the
+// per-session detail is joined with <br> rather than a <ul> — a block-level
+// list would end up invalidly nested inside that <p>.
 $message = get_string('confirmdeletesessions', 'local_remotesupport', count($sessions)) .
     html_writer::empty_tag('br') . html_writer::empty_tag('br') .
     implode(html_writer::empty_tag('br'), $names);

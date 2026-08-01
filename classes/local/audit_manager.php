@@ -20,8 +20,6 @@ use context;
 use context_course;
 use context_system;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Records auditable events for the plugin via Moodle's standard event/log system.
  *
@@ -33,7 +31,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class audit_manager {
-
     /**
      * Record that a student created a request.
      *

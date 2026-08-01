@@ -29,6 +29,14 @@
     * hascourses  bool    true when a course picker must be shown instead of a direct link
     * url         string  required when hascourses is false: direct destination
     * courses     array   required when hascourses is true: [{url, fullname}, ...]
+
+    Example context (json):
+    {
+        "label": "Request assistance",
+        "hascourses": false,
+        "url": "https://example.com/local/remotesupport/request.php?id=2",
+        "courses": []
+    }
 }}
 <div class="local-remotesupport-floatingrequest">
     {{^hascourses}}

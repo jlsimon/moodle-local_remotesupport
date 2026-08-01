@@ -26,8 +26,6 @@ use local_remotesupport\local\session_manager;
 use local_remotesupport\local\teacher_settings;
 use moodle_exception;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint the student's browser calls to create an assistance request
  * without reloading request.php.
@@ -37,8 +35,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class request_assistance extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -55,6 +54,8 @@ class request_assistance extends external_api {
     }
 
     /**
+     * Creates a new assistance request.
+     *
      * @param int $courseid
      * @param string $reason
      * @param string $fromurl
@@ -88,6 +89,8 @@ class request_assistance extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {

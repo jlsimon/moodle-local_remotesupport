@@ -18,8 +18,6 @@ namespace local_remotesupport\task;
 
 use local_remotesupport\local\event_manager;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Scheduled task that purges stale screen-reconstruction events.
  *
@@ -32,14 +30,21 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class purge_events extends \core\task\scheduled_task {
-
     /** @var int Events older than this, in seconds, are purged regardless of session state. */
     const MAX_EVENT_AGE_SECONDS = 120;
 
+    /**
+     * Returns the task's localised name, shown in the scheduled tasks admin UI.
+     *
+     * @return string
+     */
     public function get_name(): string {
         return get_string('task_purgeevents', 'local_remotesupport');
     }
 
+    /**
+     * Purges stale screen-reconstruction events older than MAX_EVENT_AGE_SECONDS.
+     */
     public function execute(): void {
         $purged = event_manager::purge_stale_events(self::MAX_EVENT_AGE_SECONDS);
         mtrace("local_remotesupport: purged {$purged} stale event(s).");

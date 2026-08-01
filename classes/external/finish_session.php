@@ -23,8 +23,6 @@ use core_external\external_single_structure;
 use context_course;
 use local_remotesupport\local\session_manager;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint either party (or a manager) calls to end an accepted or
  * active session without reloading request.php/view.php. Shared by both
@@ -36,8 +34,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class finish_session extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -47,6 +46,8 @@ class finish_session extends external_api {
     }
 
     /**
+     * Ends an accepted or active assistance session.
+     *
      * @param int $sessionid
      * @return array
      */
@@ -66,6 +67,8 @@ class finish_session extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {

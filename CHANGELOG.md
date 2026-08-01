@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.24.2 (Jest: dom_selector.js y screen_renderer.js) — 2026-08-01
+
+- Añadidas las primeras pruebas JavaScript automatizadas
+  (`tests/jest/`, Jest + jsdom, 37 tests): cobertura completa de
+  `dom_selector.js` y de la parte de `screen_renderer.js` que no
+  depende de la navegación real de un `iframe`. Ejecutar con
+  `npm install && npm test`.
+- Nuevos ficheros de desarrollo únicamente (`package.json`,
+  `jest.config.js`, `tests/jest/`) — sin cambios de comportamiento en
+  tiempo de ejecución. `node_modules/` en `.gitignore`.
+- Detalle de las decisiones de diseño (carga de módulos AMD sin
+  RequireJS, mock de `iframe` como objeto plano, polyfill de
+  `CSS.escape()` para jsdom) en `docs/decisions.md`.
+
+## 0.24.1 (Behat: ciclo de vida de sesiones; fix: aviso de deprecación de before_footer) — 2026-08-01
+
+- Añadidas las primeras pruebas Behat
+  (`tests/behat/session_lifecycle.feature`): solicitar y cancelar;
+  solicitar, aceptar, ver la sesión activa desde ambos lados y
+  finalizar desde el alumno; finalizar desde el profesor. Sin driver
+  JavaScript. 3 escenarios × 2 temas, 96 pasos, verificado contra
+  Moodle 5.2.1.
+- **Fix**: el callback `<component>_before_footer()` de `lib.php`
+  (inyecta la barra de estado del alumno y el botón flotante de
+  solicitud) está deprecado en Moodle 5.x en favor de la API de hooks
+  — cada carga de página emitía un aviso de deprecación. Añadidos
+  `classes/hook_callbacks.php` y `db/hooks.php`, que delegan en la
+  misma función de `lib.php` sin duplicar lógica; sigue funcionando
+  igual en Moodle 4.1–4.x (sin API de hooks). Sin cambios de
+  comportamiento visible.
+- Detalle completo, incluyendo un hallazgo no obvio sobre colisiones de
+  texto en pasos Behat, en `docs/decisions.md`.
+
+## 0.24.0 (moodle-plugin-ci: estilo de código, PHPDoc y build AMD real) — 2026-07-31
+
+- Primera ejecución de `moodle-plugin-ci` contra el plugin, de cara a
+  una eventual submission al Moodle Plugins directory. Detalle
+  completo y razonamiento en `docs/decisions.md`.
+- `phpcs` (estándar `moodle`): 155 errores y 429 avisos corregidos —
+  sobre todo PHPDoc ausente o incompleto (constantes, clases de
+  eventos, tareas programadas, `external_api`), líneas demasiado
+  largas y comentarios en línea mal formados. Sin cambios de
+  comportamiento.
+- `phpdoc`: 3 errores reales corregidos en
+  `classes/realtime/polling_transport.php` (bloques `{@inheritdoc}`
+  sin `@param`/`@return` explícitos).
+- Mustache: añadido contexto de ejemplo a las 8 plantillas; destapó y
+  corrigió un bug real en `teacher_settings.mustache`
+  (`action=""` al faltar la URL en el contexto de ejemplo).
+- **Build AMD real**: corregido el único error real de ESLint
+  (`no-loop-func` en `amd/src/dom_selector.js`, sin cambio de
+  comportamiento — verificado con pruebas de regresión sobre un DOM
+  simulado). Al arreglarlo, `grunt amd` pasó a ejecutarse de verdad en
+  este entorno, así que `amd/build/*.min.js` son ahora minificación y
+  sourcemaps reales de Rollup, no copias sin minificar de
+  `amd/src/*.js` como hasta ahora.
+- Sin cambios en el modelo de datos ni en la lógica de negocio;
+  PHPUnit sigue en verde (200 tests, 355 assertions).
+
 ## 0.23.4 (fix: el recuadro de señalado se filtraba en la reconstrucción del profesor) — 2026-07-31
 
 - **Bug encontrado por el usuario**: el recuadro "El profesor está

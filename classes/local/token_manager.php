@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Generates and verifies session access tokens.
  *
@@ -29,7 +27,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class token_manager {
-
     /** @var int Number of random bytes used to build a token. */
     const TOKEN_BYTES = 32;
 

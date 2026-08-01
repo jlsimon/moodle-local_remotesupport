@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\event;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Event triggered when a teacher deletes a closed session from their history.
  *
@@ -26,22 +24,39 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class session_deleted extends \core\event\base {
-
+    /**
+     * Init method.
+     */
     protected function init(): void {
         $this->data['crud'] = 'd';
         $this->data['edulevel'] = self::LEVEL_PARTICIPATING;
         $this->data['objecttable'] = 'local_remotesupport_session';
     }
 
+    /**
+     * Returns localised event name.
+     *
+     * @return string
+     */
     public static function get_name(): string {
         return get_string('event_session_deleted', 'local_remotesupport');
     }
 
+    /**
+     * Returns non-localised event description with all the relevant data.
+     *
+     * @return string
+     */
     public function get_description(): string {
         return "The user with id '{$this->userid}' deleted the remote assistance session " .
             "with id '{$this->objectid}' in the course with id '{$this->courseid}' from their history.";
     }
 
+    /**
+     * Returns relevant URL.
+     *
+     * @return \moodle_url
+     */
     public function get_url(): \moodle_url {
         return new \moodle_url('/local/remotesupport/sessionhistory.php');
     }

@@ -37,7 +37,6 @@ require_once($CFG->libdir . '/tablelib.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class session_history_table extends table_sql {
-
     /** @var string User preference name for the "rows per page" choice on sessionhistory.php. */
     const PREF_PERPAGE = 'local_remotesupport_sessionhistory-perpage';
 
@@ -52,6 +51,8 @@ class session_history_table extends table_sql {
     private array $sessionidswithchat = [];
 
     /**
+     * Builds the table's columns/headers and its SQL for this teacher's closed sessions.
+     *
      * @param int $teacherid
      */
     public function __construct(int $teacherid) {
@@ -77,9 +78,9 @@ class session_history_table extends table_sql {
         $this->set_sql($sql['fields'], $sql['from'], $sql['where'], $sql['params']);
 
         $this->sortable(true, 'timestarted', SORT_DESC);
-        // 'chatlink' and 'select' are not real SQL columns, only a rendered
-        // link/checkbox — sorting by either would send an ORDER BY the
-        // underlying query can't satisfy.
+        // Columns 'chatlink' and 'select' are not real SQL columns, only a
+        // rendered link/checkbox — sorting by either would send an ORDER BY
+        // the underlying query can't satisfy.
         $this->no_sorting('chatlink');
         $this->no_sorting('select');
         $this->collapsible(false);
@@ -184,6 +185,8 @@ class session_history_table extends table_sql {
     }
 
     /**
+     * Renders the course name column, escaped for output.
+     *
      * @param \stdClass $row
      * @return string
      */
@@ -192,6 +195,8 @@ class session_history_table extends table_sql {
     }
 
     /**
+     * Renders the student's first name column, escaped for output.
+     *
      * @param \stdClass $row
      * @return string
      */
@@ -200,6 +205,8 @@ class session_history_table extends table_sql {
     }
 
     /**
+     * Renders the student's last name column, escaped for output.
+     *
      * @param \stdClass $row
      * @return string
      */
@@ -208,6 +215,8 @@ class session_history_table extends table_sql {
     }
 
     /**
+     * Renders the session's start date/time column, in short format.
+     *
      * @param \stdClass $row
      * @return string
      */
@@ -222,6 +231,8 @@ class session_history_table extends table_sql {
     }
 
     /**
+     * Renders the session's duration column, in short "1h 15m 30s" form.
+     *
      * @param \stdClass $row
      * @return string
      */

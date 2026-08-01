@@ -24,6 +24,26 @@
     * hasopen, open[] {studentname, coursename, status, enterurl, finishurl}
     * hassettings, settingsurl
     * hashistory, historyurl
+
+    Example context (json):
+    {
+        "haspending": true,
+        "pending": [
+            {
+                "studentname": "Jane Student",
+                "coursename": "Course 101",
+                "waitingsince": "2 minutes ago",
+                "reason": "Stuck on question 3",
+                "accepturl": "https://example.com/local/remotesupport/view.php?action=accept&sessionid=1&sesskey=abcdef1234"
+            }
+        ],
+        "hasopen": false,
+        "open": [],
+        "hassettings": true,
+        "settingsurl": "https://example.com/local/remotesupport/teachersettings.php",
+        "hashistory": true,
+        "historyurl": "https://example.com/local/remotesupport/sessionhistory.php"
+    }
 }}
 {{#hassettings}}
 <p class="text-right">

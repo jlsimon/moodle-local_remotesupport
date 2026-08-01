@@ -25,6 +25,20 @@
     * supportavailable - present only when isnone; false hides the request form
     * requestformurl, sesskey, maxreasonlength, fromurl - present only when isnone and supportavailable, to build the request form
     * cancelurl, enterurl, finishurl - action links (present only when relevant)
+
+    Example context (json):
+    {
+        "isnone": true,
+        "isrequested": false,
+        "isaccepted": false,
+        "isactive": false,
+        "statusmessage": "You have not requested assistance.",
+        "supportavailable": true,
+        "requestformurl": "https://example.com/local/remotesupport/request.php?id=2",
+        "sesskey": "abcdef1234",
+        "maxreasonlength": 255,
+        "fromurl": "/course/view.php?id=2"
+    }
 }}
 <div class="local-remotesupport-panel" role="status">
     <p class="local-remotesupport-status">{{statusmessage}}</p>

@@ -3,3 +3,6 @@ test_install.md
 
 # Claude Code local project state.
 .claude/
+
+# Jest devDependencies (tests/jest/) — not shipped with the plugin.
+node_modules/

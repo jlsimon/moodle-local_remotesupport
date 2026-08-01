@@ -27,7 +27,6 @@ use local_remotesupport\local\track_manager;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class track_manager_test extends \advanced_testcase {
-
     public function test_record_stores_a_row(): void {
         global $DB;
         $this->resetAfterTest();

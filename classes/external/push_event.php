@@ -25,8 +25,6 @@ use invalid_parameter_exception;
 use local_remotesupport\local\session_manager;
 use local_remotesupport\realtime\polling_transport;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint the student's browser calls to push a capture event.
  *
@@ -35,19 +33,22 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class push_event extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'sessionid' => new external_value(PARAM_INT, 'Session id'),
-            'eventtype' => new external_value(PARAM_ALPHAEXT, 'Event type, e.g. page, scroll, cursor, student_click, resync_request, chat_message'),
+            'eventtype' => new external_value(PARAM_ALPHAEXT, 'Event type, e.g. page, scroll, cursor, student_click, chat_message'),
             'payload' => new external_value(PARAM_RAW, 'JSON-encoded event payload'),
         ]);
     }
 
     /**
+     * Pushes a capture event for an active session.
+     *
      * @param int $sessionid
      * @param string $eventtype
      * @param string $payload
@@ -78,6 +79,8 @@ class push_event extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {

@@ -27,7 +27,6 @@ use local_remotesupport\local\html_sanitizer;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class html_sanitizer_test extends \basic_testcase {
-
     public function test_strips_script_tags(): void {
         $out = html_sanitizer::sanitize('<p>hello</p><script>alert(1)</script>');
         $this->assertStringNotContainsString('<script', $out);

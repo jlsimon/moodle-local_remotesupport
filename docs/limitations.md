@@ -71,9 +71,9 @@ decisión y qué código se retiró.
   cubierta en PHPUnit del lado servidor (la capa autoritativa); la
   construcción de la foto en el navegador y el pintado en el `iframe` solo
   están cubiertos por la verificación manual. Ver `docs/testing.md`.
-- **Sin build real de AMD (Grunt/Webpack).** `amd/build/*.min.js` son
-  copias literales de `amd/src/*.js`, no minificadas de verdad. Ver
-  `docs/decisions.md`.
+- ~~Sin build real de AMD (Grunt/Webpack)~~ — resuelto: `amd/build/*.min.js`
+  son ahora salida real de `grunt amd` (Rollup), con sourcemaps
+  genuinos. Ver `docs/decisions.md`.
 - **No probado contra SCORM, H5P, LTI, contenido externo, editores
   enriquecidos, popups ni cuestionarios en curso** — la exclusión de
   `iframe` cubre el caso más común, pero no se ha verificado

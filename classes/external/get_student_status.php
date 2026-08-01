@@ -24,8 +24,6 @@ use context_course;
 use local_remotesupport\local\permission_manager;
 use local_remotesupport\output\student_status;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint the student's browser polls to refresh their assistance
  * request/session status without reloading request.php.
@@ -35,8 +33,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class get_student_status extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -46,6 +45,8 @@ class get_student_status extends external_api {
     }
 
     /**
+     * Fetches the student's current assistance request or session status.
+     *
      * @param int $courseid
      * @return array
      */
@@ -64,6 +65,8 @@ class get_student_status extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {
@@ -75,7 +78,10 @@ class get_student_status extends external_api {
             'sessionid' => new external_value(PARAM_INT, 'Session id, 0 if none'),
             'statusmessage' => new external_value(PARAM_RAW, 'Human readable status'),
             'supportavailable' => new external_value(
-                PARAM_BOOL, 'Whether any teacher currently accepts requests', VALUE_OPTIONAL),
+                PARAM_BOOL,
+                'Whether any teacher currently accepts requests',
+                VALUE_OPTIONAL
+            ),
             'requestformurl' => new external_value(PARAM_URL, 'Request form action url', VALUE_OPTIONAL),
             'sesskey' => new external_value(PARAM_RAW, 'Session key for the request form', VALUE_OPTIONAL),
             'maxreasonlength' => new external_value(PARAM_INT, 'Max length of the optional reason field', VALUE_OPTIONAL),

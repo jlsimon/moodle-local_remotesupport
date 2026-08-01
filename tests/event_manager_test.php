@@ -27,7 +27,6 @@ use local_remotesupport\local\event_manager;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class event_manager_test extends \advanced_testcase {
-
     public function test_record_and_pull_events_in_order(): void {
         $this->resetAfterTest();
 

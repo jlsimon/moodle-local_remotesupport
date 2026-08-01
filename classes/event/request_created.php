@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\event;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Event triggered when a student creates a remote assistance request.
  *
@@ -26,22 +24,39 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class request_created extends \core\event\base {
-
+    /**
+     * Init method.
+     */
     protected function init(): void {
         $this->data['crud'] = 'c';
         $this->data['edulevel'] = self::LEVEL_PARTICIPATING;
         $this->data['objecttable'] = 'local_remotesupport_session';
     }
 
+    /**
+     * Returns localised event name.
+     *
+     * @return string
+     */
     public static function get_name(): string {
         return get_string('event_request_created', 'local_remotesupport');
     }
 
+    /**
+     * Returns non-localised event description with all the relevant data.
+     *
+     * @return string
+     */
     public function get_description(): string {
         return "The user with id '{$this->userid}' requested remote assistance " .
             "(session id '{$this->objectid}') in the course with id '{$this->courseid}'.";
     }
 
+    /**
+     * Returns relevant URL.
+     *
+     * @return \moodle_url
+     */
     public function get_url(): \moodle_url {
         return new \moodle_url('/local/remotesupport/request.php', ['id' => $this->courseid]);
     }

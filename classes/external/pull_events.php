@@ -26,8 +26,6 @@ use local_remotesupport\local\event_manager;
 use local_remotesupport\local\session_manager;
 use local_remotesupport\realtime\polling_transport;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint the teacher's browser calls to poll for new capture events.
  *
@@ -36,8 +34,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class pull_events extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -48,6 +47,8 @@ class pull_events extends external_api {
     }
 
     /**
+     * Polls for new capture events since a given cursor.
+     *
      * @param int $sessionid
      * @param int $sinceid
      * @return array
@@ -76,6 +77,8 @@ class pull_events extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_multiple_structure
      */
     public static function execute_returns(): external_multiple_structure {

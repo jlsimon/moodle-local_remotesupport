@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Basic per-session, per-event-type frequency limiting.
  *
@@ -31,7 +29,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class rate_limiter {
-
     /**
      * @var array<string,float> Minimum seconds between accepted events, per event type.
      * 'cursor' is a fixed security floor independent of the admin-configurable

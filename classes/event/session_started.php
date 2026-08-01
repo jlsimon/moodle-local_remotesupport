@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\event;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Event triggered when a remote assistance session becomes active
  * (the first party enters after acceptance).
@@ -27,22 +25,39 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class session_started extends \core\event\base {
-
+    /**
+     * Init method.
+     */
     protected function init(): void {
         $this->data['crud'] = 'u';
         $this->data['edulevel'] = self::LEVEL_PARTICIPATING;
         $this->data['objecttable'] = 'local_remotesupport_session';
     }
 
+    /**
+     * Returns localised event name.
+     *
+     * @return string
+     */
     public static function get_name(): string {
         return get_string('event_session_started', 'local_remotesupport');
     }
 
+    /**
+     * Returns non-localised event description with all the relevant data.
+     *
+     * @return string
+     */
     public function get_description(): string {
         return "The user with id '{$this->userid}' started the remote assistance session " .
             "with id '{$this->objectid}' in the course with id '{$this->courseid}'.";
     }
 
+    /**
+     * Returns relevant URL.
+     *
+     * @return \moodle_url
+     */
     public function get_url(): \moodle_url {
         return new \moodle_url('/local/remotesupport/session.php', ['id' => $this->objectid]);
     }

@@ -40,8 +40,9 @@ use local_remotesupport\local\session_manager;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class external_api_test extends \advanced_testcase {
-
     /**
+     * Creates a course with an active support session between a student and a teacher.
+     *
      * @return array [session, student, teacher]
      */
     private function setup_active_session(): array {
@@ -59,6 +60,8 @@ class external_api_test extends \advanced_testcase {
     }
 
     /**
+     * Creates a course with a student and a teacher enrolled, no request created yet.
+     *
      * @return array [course, student, teacher], no request created yet.
      */
     private function setup_course_with_users(): array {
@@ -358,7 +361,9 @@ class external_api_test extends \advanced_testcase {
         [$course, $student] = $this->setup_course_with_users();
         $session = session_manager::create_request($course->id, $student->id);
         $otherteacher = $this->getDataGenerator()->create_and_enrol(
-            $this->getDataGenerator()->create_course(), 'editingteacher');
+            $this->getDataGenerator()->create_course(),
+            'editingteacher'
+        );
 
         $this->setUser($otherteacher);
         $this->expectException(\moodle_exception::class);

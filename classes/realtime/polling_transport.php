@@ -22,8 +22,6 @@ use local_remotesupport\local\session_manager;
 use local_remotesupport\local\track_manager;
 use moodle_exception;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Simple AJAX-polling implementation of transport_interface.
  *
@@ -54,13 +52,21 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class polling_transport implements transport_interface {
-
     /** @var array<string,string[]> Event types each role may push. */
     const ROLE_EVENT_TYPES = [
         'student' => ['page', 'scroll', 'cursor', 'student_click', 'chat_message'],
         'teacher' => ['resync_request', 'chat_message'],
     ];
 
+    /**
+     * {@inheritdoc}
+     *
+     * @param int $sessionid
+     * @param int $userid The user pushing the event.
+     * @param string $eventtype One of the whitelisted event types.
+     * @param array $payload
+     * @return \stdClass|null The stored event row, or null if a rate limit silently dropped it.
+     */
     public function push_event(int $sessionid, int $userid, string $eventtype, array $payload): ?\stdClass {
         $session = session_manager::get_session($sessionid);
         $role = $this->role_of($session, $userid);
@@ -70,7 +76,7 @@ class polling_transport implements transport_interface {
                 audit_manager::access_denied(\context_course::instance($session->courseid), 'wrongrole');
                 throw new moodle_exception('errornopermission', 'local_remotesupport');
             }
-        } elseif (!in_array($eventtype, self::ROLE_EVENT_TYPES[$role], true)) {
+        } else if (!in_array($eventtype, self::ROLE_EVENT_TYPES[$role], true)) {
             audit_manager::access_denied(\context_course::instance($session->courseid), 'wrongrole');
             throw new moodle_exception('errornopermission', 'local_remotesupport');
         }
@@ -87,7 +93,21 @@ class polling_transport implements transport_interface {
         return $event;
     }
 
-    public function pull_events(int $sessionid, int $userid, int $sinceid, int $limit = event_manager::DEFAULT_PULL_LIMIT): array {
+    /**
+     * {@inheritdoc}
+     *
+     * @param int $sessionid
+     * @param int $userid The user pulling events; must be the session's student or teacher.
+     * @param int $sinceid Cursor: only events with id greater than this are returned.
+     * @param int $limit Maximum number of events to return.
+     * @return \stdClass[] Ordered oldest-first.
+     */
+    public function pull_events(
+        int $sessionid,
+        int $userid,
+        int $sinceid,
+        int $limit = event_manager::DEFAULT_PULL_LIMIT
+    ): array {
         $session = session_manager::get_session($sessionid);
         $this->role_of($session, $userid);
 

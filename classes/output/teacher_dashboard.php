@@ -21,8 +21,6 @@ use core_user;
 use local_remotesupport\local\session_manager;
 use moodle_url;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Builds the teacher_dashboard.mustache template context.
  *
@@ -34,8 +32,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class teacher_dashboard {
-
     /**
+     * Builds the pending-requests rows for this teacher's dashboard.
+     *
      * @param int $teacherid
      * @return array Rows for the pending-requests table, including accepturl.
      */
@@ -59,6 +58,8 @@ class teacher_dashboard {
     }
 
     /**
+     * Builds the open-sessions rows for this teacher's dashboard.
+     *
      * @param int $teacherid
      * @return array Rows for the open-sessions table, including enterurl/finishurl.
      */

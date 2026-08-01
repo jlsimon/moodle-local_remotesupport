@@ -33,7 +33,6 @@ require_once($CFG->dirroot . '/local/remotesupport/lib.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class lib_test extends \advanced_testcase {
-
     public function test_navbar_output_empty_for_guest(): void {
         $this->resetAfterTest();
         $this->setGuestUser();

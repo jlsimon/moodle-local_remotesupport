@@ -18,8 +18,6 @@ namespace local_remotesupport\task;
 
 use local_remotesupport\local\track_manager;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Scheduled task that purges session recordings older than the configured
  * retention window (local_remotesupport/trackretentiondays).
@@ -34,11 +32,18 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class purge_track extends \core\task\scheduled_task {
-
+    /**
+     * Returns the task's localised name, shown in the scheduled tasks admin UI.
+     *
+     * @return string
+     */
     public function get_name(): string {
         return get_string('task_purgetrack', 'local_remotesupport');
     }
 
+    /**
+     * Purges session recordings older than the configured retention window.
+     */
     public function execute(): void {
         $retentiondays = (int) get_config('local_remotesupport', 'trackretentiondays');
         $purged = track_manager::purge_stale_track($retentiondays);

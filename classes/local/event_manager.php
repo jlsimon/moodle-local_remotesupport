@@ -19,8 +19,6 @@ namespace local_remotesupport\local;
 use core_text;
 use moodle_exception;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Owns the local_remotesupport_event table.
  *
@@ -35,7 +33,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class event_manager {
-
     /** @var string[] The only event types accepted so far. */
     const EVENT_TYPES = [
         'page', 'scroll', 'cursor', 'student_click', 'resync_request', 'chat_message', 'teacher_highlight',
@@ -263,7 +260,12 @@ class event_manager {
      * @param int $limit
      * @return \stdClass[] Ordered oldest-first, each with 'payload' already json_decode()d.
      */
-    public static function get_events_since(int $sessionid, int $sinceid, int $excludeuserid, int $limit = self::DEFAULT_PULL_LIMIT): array {
+    public static function get_events_since(
+        int $sessionid,
+        int $sinceid,
+        int $excludeuserid,
+        int $limit = self::DEFAULT_PULL_LIMIT
+    ): array {
         global $DB;
 
         $events = $DB->get_records_select(

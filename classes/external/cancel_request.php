@@ -23,8 +23,6 @@ use core_external\external_single_structure;
 use context_course;
 use local_remotesupport\local\session_manager;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint the student's browser calls to cancel a pending request
  * without reloading request.php. Ownership is enforced by
@@ -35,8 +33,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class cancel_request extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -46,6 +45,8 @@ class cancel_request extends external_api {
     }
 
     /**
+     * Cancels a pending assistance request.
+     *
      * @param int $sessionid
      * @return array
      */
@@ -65,6 +66,8 @@ class cancel_request extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {

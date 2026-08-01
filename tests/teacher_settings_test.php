@@ -27,7 +27,6 @@ use local_remotesupport\local\teacher_settings;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class teacher_settings_test extends \advanced_testcase {
-
     public function test_support_defaults_to_enabled(): void {
         $this->resetAfterTest();
         $teacher = $this->getDataGenerator()->create_user();

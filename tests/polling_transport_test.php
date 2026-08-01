@@ -32,7 +32,6 @@ use local_remotesupport\realtime\polling_transport;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class polling_transport_test extends \advanced_testcase {
-
     /**
      * Create a course with an active session between a student and a teacher.
      *

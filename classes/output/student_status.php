@@ -21,8 +21,6 @@ use local_remotesupport\local\session_manager;
 use local_remotesupport\local\teacher_settings;
 use moodle_url;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Builds the student_page.mustache template context.
  *
@@ -35,8 +33,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class student_status {
-
     /**
+     * Builds the template context for the student's request/session status panel.
+     *
      * @param int $courseid
      * @param int $studentid
      * @param string $fromurl Local url of the page the student was on before reaching the

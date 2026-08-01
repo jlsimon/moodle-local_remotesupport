@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\event;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Event triggered when a relevant authorization check fails.
  *
@@ -30,22 +28,39 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class access_denied extends \core\event\base {
-
+    /**
+     * Init method.
+     */
     protected function init(): void {
         $this->data['crud'] = 'r';
         $this->data['edulevel'] = self::LEVEL_OTHER;
     }
 
+    /**
+     * Returns localised event name.
+     *
+     * @return string
+     */
     public static function get_name(): string {
         return get_string('event_access_denied', 'local_remotesupport');
     }
 
+    /**
+     * Returns non-localised event description with all the relevant data.
+     *
+     * @return string
+     */
     public function get_description(): string {
         $reason = $this->other['reason'] ?? 'unknown';
         return "The user with id '{$this->userid}' was denied remote assistance access " .
             "(reason: '{$reason}').";
     }
 
+    /**
+     * Returns relevant URL.
+     *
+     * @return \moodle_url
+     */
     public function get_url(): \moodle_url {
         return new \moodle_url('/local/remotesupport/request.php');
     }

@@ -25,7 +25,6 @@ namespace local_remotesupport;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class plugin_test extends \advanced_testcase {
-
     public function test_plugin_is_installed(): void {
         $plugininfo = \core_plugin_manager::instance()->get_plugin_info('local_remotesupport');
         $this->assertNotNull($plugininfo);
@@ -34,12 +33,14 @@ class plugin_test extends \advanced_testcase {
 
     public function test_capabilities_are_registered(): void {
         global $DB;
-        foreach ([
+        foreach (
+            [
             'local/remotesupport:requestassistance',
             'local/remotesupport:provideassistance',
             'local/remotesupport:viewactivesessions',
             'local/remotesupport:managesessions',
-        ] as $capability) {
+            ] as $capability
+        ) {
             $this->assertTrue(
                 $DB->record_exists('capabilities', ['name' => $capability]),
                 "Missing capability: {$capability}"

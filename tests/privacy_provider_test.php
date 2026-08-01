@@ -33,7 +33,6 @@ use local_remotesupport\privacy\provider;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class privacy_provider_test extends \core_privacy\tests\provider_testcase {
-
     public function test_get_contexts_for_userid(): void {
         $this->resetAfterTest();
         $generator = $this->getDataGenerator();

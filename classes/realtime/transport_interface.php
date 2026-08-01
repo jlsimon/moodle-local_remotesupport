@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\realtime;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Delivers screen-reconstruction events between the student's and the
  * teacher's browser for an active session.
@@ -33,7 +31,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 interface transport_interface {
-
     /**
      * Validate and record an event pushed by a session participant.
      *

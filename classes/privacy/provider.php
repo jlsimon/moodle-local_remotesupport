@@ -29,8 +29,6 @@ use local_remotesupport\local\teacher_settings;
 use local_remotesupport\local\track_manager;
 use local_remotesupport\table\session_history_table;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Privacy provider for local_remotesupport.
  *
@@ -45,9 +43,14 @@ defined('MOODLE_INTERNAL') || die();
 class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\core_userlist_provider,
-    \core_privacy\local\request\user_preference_provider,
-    \core_privacy\local\request\plugin\provider {
-
+    \core_privacy\local\request\plugin\provider,
+    \core_privacy\local\request\user_preference_provider {
+    /**
+     * Returns metadata about this plugin's personal data stores.
+     *
+     * @param collection $collection
+     * @return collection
+     */
     public static function get_metadata(collection $collection): collection {
         $collection->add_user_preference(
             teacher_settings::PREF_SUPPORT_ENABLED,
@@ -118,6 +121,12 @@ class provider implements
         }
     }
 
+    /**
+     * Returns every context a user has personal data in, as student or teacher.
+     *
+     * @param int $userid
+     * @return contextlist
+     */
     public static function get_contexts_for_userid(int $userid): contextlist {
         $contextlist = new contextlist();
 
@@ -130,6 +139,11 @@ class provider implements
         return $contextlist;
     }
 
+    /**
+     * Adds every student/teacher with a session in the given course context.
+     *
+     * @param userlist $userlist
+     */
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
         if (!($context instanceof context_course)) {
@@ -143,6 +157,11 @@ class provider implements
         $userlist->add_from_sql('teacherid', $sql, ['contextid' => $context->id]);
     }
 
+    /**
+     * Exports the user's own sessions (as student or teacher) in the approved contexts.
+     *
+     * @param approved_contextlist $contextlist
+     */
     public static function export_user_data(approved_contextlist $contextlist): void {
         global $DB;
 
@@ -194,6 +213,11 @@ class provider implements
         }
     }
 
+    /**
+     * Deletes every session (and its recording) in the given course context.
+     *
+     * @param context $context
+     */
     public static function delete_data_for_all_users_in_context(context $context): void {
         global $DB;
 
@@ -204,6 +228,11 @@ class provider implements
         self::purge_sessions_and_events($DB->get_records('local_remotesupport_session', ['contextid' => $context->id]));
     }
 
+    /**
+     * Deletes the user's own sessions (as student or teacher) in the approved contexts.
+     *
+     * @param approved_contextlist $contextlist
+     */
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         global $DB;
 
@@ -223,6 +252,11 @@ class provider implements
         }
     }
 
+    /**
+     * Deletes the listed users' sessions in the given course context.
+     *
+     * @param approved_userlist $userlist
+     */
     public static function delete_data_for_users(approved_userlist $userlist): void {
         global $DB;
 

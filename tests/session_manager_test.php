@@ -28,7 +28,6 @@ use local_remotesupport\local\token_manager;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class session_manager_test extends \advanced_testcase {
-
     /**
      * Create a course with one student and one teacher enrolled.
      *
@@ -336,7 +335,7 @@ class session_manager_test extends \advanced_testcase {
 
     public function test_get_open_request_for_student_global_returns_false_when_none(): void {
         $this->resetAfterTest();
-        [$course, $student] = $this->setup_course_with_users();
+        [, $student] = $this->setup_course_with_users();
 
         $this->assertFalse(session_manager::get_open_request_for_student_global($student->id));
     }
@@ -390,6 +389,7 @@ class session_manager_test extends \advanced_testcase {
     /**
      * Runs a session through to 'closed', with a known 5-minute duration.
      *
+     * @param int $durationseconds
      * @return array [session, course, student, teacher]
      */
     private function create_closed_session_with_duration(int $durationseconds): array {
@@ -431,7 +431,10 @@ class session_manager_test extends \advanced_testcase {
         [, $course, $student, $teacher] = $this->create_closed_session_with_duration(300);
 
         $sql = session_manager::get_closed_sessions_sql_for_teacher($teacher->id);
-        $rows = array_values($DB->get_records_sql("SELECT {$sql['fields']} FROM {$sql['from']} WHERE {$sql['where']}", $sql['params']));
+        $rows = array_values($DB->get_records_sql(
+            "SELECT {$sql['fields']} FROM {$sql['from']} WHERE {$sql['where']}",
+            $sql['params']
+        ));
 
         $this->assertCount(1, $rows);
         $this->assertSame($course->fullname, $rows[0]->coursefullname);
@@ -446,7 +449,7 @@ class session_manager_test extends \advanced_testcase {
     public function test_closed_sessions_sql_excludes_other_teachers(): void {
         global $DB;
         $this->resetAfterTest();
-        [, , , $teacher] = $this->create_closed_session_with_duration(60);
+        $this->create_closed_session_with_duration(60);
         $otherteacher = $this->getDataGenerator()->create_user();
 
         $sql = session_manager::get_closed_sessions_sql_for_teacher($otherteacher->id);
@@ -508,14 +511,14 @@ class session_manager_test extends \advanced_testcase {
         [$ownsession, , , $teacher] = $this->create_closed_session_with_duration(60);
         [$othersession] = $this->create_closed_session_with_duration(60);
 
-        // $teacher owns $ownsession but not $othersession — the whole batch
-        // must be rejected, so even the session $teacher legitimately owns
+        // The teacher owns $ownsession but not $othersession — the whole
+        // batch must be rejected, so even the session they legitimately own
         // must survive.
         try {
             session_manager::delete_sessions([$ownsession->id, $othersession->id], $teacher->id);
             $this->fail('Expected a moodle_exception to be thrown.');
         } catch (\moodle_exception $e) {
-            // Expected.
+            $this->addToAssertionCount(1);
         }
 
         $this->assertTrue($DB->record_exists('local_remotesupport_session', ['id' => $ownsession->id]));

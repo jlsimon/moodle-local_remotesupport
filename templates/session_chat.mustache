@@ -23,6 +23,19 @@
     Context variables required by this template:
     * heading, coursename, messages (sendername, message, time, isown),
       hasmessages, replayurl, historyurl
+
+    Example context (json):
+    {
+        "heading": "Chat with Jane Student",
+        "coursename": "Course 101",
+        "hasmessages": true,
+        "messages": [
+            {"sendername": "Jane Student", "message": "I'm stuck on question 3", "time": "10:01", "isown": false},
+            {"sendername": "John Teacher", "message": "Let's take a look", "time": "10:02", "isown": true}
+        ],
+        "replayurl": "https://example.com/local/remotesupport/sessionreplay.php?id=1",
+        "historyurl": "https://example.com/local/remotesupport/sessionhistory.php"
+    }
 }}
 <div class="local-remotesupport-session" role="status">
     <p class="local-remotesupport-session-bar">

@@ -21,8 +21,6 @@ use context_course;
 use context_system;
 use moodle_exception;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Centralises capability and ownership checks for the plugin.
  *
@@ -35,7 +33,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class permission_manager {
-
     /**
      * Require that a user can request assistance in a course.
      *

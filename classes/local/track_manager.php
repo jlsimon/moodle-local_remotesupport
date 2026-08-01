@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Owns the local_remotesupport_track table: a permanent recording of a
  * session's screen activity, kept for local_remotesupport/trackretentiondays
@@ -52,7 +50,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class track_manager {
-
     /** @var string[] Event types recorded permanently for later playback. */
     const TRACKED_EVENT_TYPES = ['page', 'scroll', 'cursor', 'student_click', 'chat_message'];
 

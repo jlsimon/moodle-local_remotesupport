@@ -159,10 +159,21 @@ define([], function() {
                 parts.unshift(node.tagName.toLowerCase());
                 break;
             }
-            var sameTagSiblings = Array.prototype.filter.call(parent.children, function(sibling) {
-                return sibling.tagName === node.tagName;
-            });
-            var position = sameTagSiblings.indexOf(node) + 1;
+            // Plain for loop, not Array.prototype.filter() with an inline
+            // callback: a function declared inside a while loop referencing
+            // a variable declared in that same loop trips eslint's
+            // no-loop-func rule, even though it is always invoked
+            // synchronously within the same iteration here.
+            var position = 0;
+            for (var i = 0; i < parent.children.length; i++) {
+                if (parent.children[i].tagName !== node.tagName) {
+                    continue;
+                }
+                position++;
+                if (parent.children[i] === node) {
+                    break;
+                }
+            }
             parts.unshift(node.tagName.toLowerCase() + ':nth-of-type(' + position + ')');
             node = parent;
             depth++;

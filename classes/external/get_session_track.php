@@ -27,8 +27,6 @@ use local_remotesupport\local\session_manager;
 use local_remotesupport\local\track_manager;
 use moodle_exception;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint the teacher's browser calls once, on loading a session
  * replay, to fetch its whole recorded track. Unlike pull_events, this is not
@@ -40,8 +38,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class get_session_track extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -51,6 +50,8 @@ class get_session_track extends external_api {
     }
 
     /**
+     * Fetches a closed session's whole recorded track, for replay.
+     *
      * @param int $sessionid
      * @return array
      */
@@ -80,6 +81,8 @@ class get_session_track extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_multiple_structure
      */
     public static function execute_returns(): external_multiple_structure {

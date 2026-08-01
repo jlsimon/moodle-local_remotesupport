@@ -18,8 +18,6 @@ namespace local_remotesupport\task;
 
 use local_remotesupport\local\session_manager;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Scheduled task that expires pending assistance requests past their deadline.
  *
@@ -28,11 +26,18 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class expire_sessions extends \core\task\scheduled_task {
-
+    /**
+     * Returns the task's localised name, shown in the scheduled tasks admin UI.
+     *
+     * @return string
+     */
     public function get_name(): string {
         return get_string('task_expiresessions', 'local_remotesupport');
     }
 
+    /**
+     * Expires pending assistance requests whose deadline has passed.
+     */
     public function execute(): void {
         $expired = session_manager::expire_stale_requests();
         mtrace("local_remotesupport: expired {$expired} pending request(s).");

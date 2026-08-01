@@ -24,8 +24,6 @@ use context_course;
 use local_remotesupport\local\session_manager;
 use moodle_url;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint the teacher's browser calls to accept a pending request
  * without reloading view.php. Mirrors view.php's action=accept exactly:
@@ -39,8 +37,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class accept_request extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -50,6 +49,8 @@ class accept_request extends external_api {
     }
 
     /**
+     * Accepts a pending assistance request.
+     *
      * @param int $sessionid
      * @return array
      */
@@ -74,6 +75,8 @@ class accept_request extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {

@@ -18,8 +18,6 @@ namespace local_remotesupport\local;
 
 use context_course;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * A teacher's personal preferences for providing remote assistance.
  *
@@ -32,7 +30,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class teacher_settings {
-
     /** @var string Preference name: whether the teacher currently accepts assistance requests. */
     const PREF_SUPPORT_ENABLED = 'local_remotesupport_supportenabled';
 

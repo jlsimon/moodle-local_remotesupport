@@ -20,8 +20,6 @@ use context_course;
 use core_text;
 use moodle_exception;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Owns the local_remotesupport_session table and its state machine.
  *
@@ -33,12 +31,17 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class session_manager {
-
+    /** @var string A student has requested assistance; no teacher has accepted yet. */
     const STATUS_REQUESTED = 'requested';
+    /** @var string A teacher has accepted the request; nobody has entered the session yet. */
     const STATUS_ACCEPTED = 'accepted';
+    /** @var string The first party has entered; the session is live. */
     const STATUS_ACTIVE = 'active';
+    /** @var string The session ended normally (either party finished it). */
     const STATUS_CLOSED = 'closed';
+    /** @var string The pending request expired unanswered before a teacher accepted it. */
     const STATUS_EXPIRED = 'expired';
+    /** @var string The student cancelled the pending request before it was accepted. */
     const STATUS_CANCELLED = 'cancelled';
 
     /** @var string[] Statuses that mean "not finished yet". */

@@ -25,8 +25,6 @@ use local_remotesupport\local\permission_manager;
 use local_remotesupport\local\session_manager;
 use local_remotesupport\local\teacher_settings;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * AJAX endpoint the navbar badge module polls, on every Moodle page, for
  * any user able to provide assistance in at least one course. Deliberately
@@ -40,8 +38,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class get_pending_count extends external_api {
-
     /**
+     * Parameter definition for execute().
+     *
      * @return external_function_parameters
      */
     public static function execute_parameters(): external_function_parameters {
@@ -49,6 +48,8 @@ class get_pending_count extends external_api {
     }
 
     /**
+     * Fetches the count of pending assistance requests the current user can act on.
+     *
      * @return array
      */
     public static function execute(): array {
@@ -66,6 +67,8 @@ class get_pending_count extends external_api {
     }
 
     /**
+     * Return definition for execute().
+     *
      * @return external_single_structure
      */
     public static function execute_returns(): external_single_structure {

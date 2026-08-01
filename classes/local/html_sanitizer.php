@@ -16,8 +16,6 @@
 
 namespace local_remotesupport\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Authoritative, server-side sanitizer for captured page snapshot HTML.
  *
@@ -34,7 +32,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class html_sanitizer {
-
     /**
      * @var int Maximum length, in characters, of the sanitized output.
      * Sized to comfortably fit a 'fullpage'-mode capture
@@ -108,7 +105,6 @@ class html_sanitizer {
                 continue;
             }
 
-            /** @var \DOMElement $child */
             $tag = strtolower($child->nodeName);
 
             if (in_array($tag, self::BLOCKED_TAGS, true)) {
