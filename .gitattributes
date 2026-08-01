@@ -1,0 +1,13 @@
+# Excluded from `git archive` (and therefore from GitHub's release/source
+# zips) — none of this is needed to install or run the plugin. The
+# illustrated guide's heavy assets are already published separately via
+# GitHub Pages (see README.md); the dev tooling is only used locally.
+docs/images/ export-ignore
+docs/user_guide.html export-ignore
+docs/user_guide.es.html export-ignore
+.github/ export-ignore
+.gitattributes export-ignore
+package.json export-ignore
+package-lock.json export-ignore
+jest.config.js export-ignore
+tests/jest/ export-ignore
