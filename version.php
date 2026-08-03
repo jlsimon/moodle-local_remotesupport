@@ -25,10 +25,10 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_remotesupport';
-$plugin->version = 2026080111;
+$plugin->version = 2026080300;
 // Moodle 4.2: the AJAX layer (classes/external/*.php) uses the namespaced
 // core_external\external_api classes, which do not exist before 4.2 —
 // confirmed by CI, not just a documentation note (see docs/limitations.md).
 $plugin->requires = 2023042400;
 $plugin->maturity = MATURITY_BETA;
-$plugin->release = '0.25.2 (Security: fix javascript: filter bypass and returnurl path traversal; maturity bumped to beta)';
+$plugin->release = '0.25.3 (docs: correct README\'s stated minimum Moodle version from 4.1 to 4.2, and project status from alpha to beta)';

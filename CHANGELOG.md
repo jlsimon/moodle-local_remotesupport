@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.25.3 — Documentation corrections ahead of Marketplace submission — 2026-08-03
+
+Two README inaccuracies found during a compliance review against Moodle
+Marketplace's plugin requirements:
+
+- "Requirements" stated Moodle 4.1 or later, but `version.php` has
+  declared 4.2 as the minimum since 0.25.0 (the AJAX layer's namespaced
+  `external_api` classes don't exist before 4.2 — a hard, CI-confirmed
+  failure, already documented correctly in `docs/limitations.md`).
+- "Project status" still said Alpha, though maturity was bumped to Beta
+  in 0.25.1.
+
+No code changes.
+
 ## 0.25.2 — Security fixes ahead of Moodle Plugins directory submission — 2026-08-01
 
 Two findings from an earlier adversarial review, previously documented as

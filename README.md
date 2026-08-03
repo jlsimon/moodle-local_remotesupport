@@ -64,7 +64,8 @@ feature:
 
 ## Requirements
 
-- Moodle 4.1 or later.
+- Moodle 4.2 or later (the AJAX layer uses namespaced `external_api`
+  classes unavailable before 4.2).
 - PHP 8.0 or later.
 
 ## Installation
@@ -138,7 +139,7 @@ This is an early-stage plugin; the most relevant limitations right now:
 
 ## Project status
 
-**Alpha.** All core flows (request/accept a session, live reconstruction,
+**Beta.** All core flows (request/accept a session, live reconstruction,
 chat, history and replay, pointing at an element) work and are covered by
 200 PHPUnit tests, a Behat suite (96 steps), and a Jest suite (37 tests)
 for the client-side JavaScript. The plugin has also been verified live
