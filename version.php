@@ -31,4 +31,4 @@ $plugin->version = 2026080300;
 // confirmed by CI, not just a documentation note (see docs/limitations.md).
 $plugin->requires = 2023042400;
 $plugin->maturity = MATURITY_BETA;
-$plugin->release = '0.25.3 (docs: correct README\'s stated minimum Moodle version from 4.1 to 4.2, and project status from alpha to beta)';
+$plugin->release = '0.25.3 (docs: fix README\'s stated min Moodle version and project status)';
